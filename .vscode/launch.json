@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run API (Dev)",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/cmd/api",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "APP_ENV": "dev",
+        "DB_URL": "postgres://postgres:postgres@localhost:5432/embolsadora?sslmode=disable",
+        "REDIS_ADDR": "localhost:6379",
+        "AUTH_JWT_ISSUER": "embolsadora",
+        "AUTH_JWT_PUBLIC": "__placeholder__",
+        "AUTH_JWT_PRIVATE": "__placeholder__"
+      }
+    }
+  ]
+}
