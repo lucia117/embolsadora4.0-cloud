@@ -1,4 +1,6 @@
-.PHONY: run test lint migrate docker
+.PHONY: run test lint migrate migrate-up migrate-down migrate-create docker db-up
+
+DB_URL ?= postgres://postgres:postgres@localhost:5432/embolsadora?sslmode=disable
 
 run:
 	go run ./cmd/api
@@ -12,8 +14,22 @@ lint:
 	@echo "Ejecutando golangci-lint (si está disponible)..."
 	@command -v golangci-lint >/dev/null 2>&1 && golangci-lint run ./... || echo "golangci-lint no encontrado, se omite Go lint"
 
-migrate:
-	@echo TODO: run DB migrations (placeholder)
+migrate-up:
+	@echo "Running migrations..."
+	migrate -path migrations -database "$(DB_URL)" up
+
+migrate-down:
+	@echo "Rolling back last migration..."
+	migrate -path migrations -database "$(DB_URL)" down 1
+
+migrate-create:
+	@read -p "Enter migration name: " name; \
+	migrate create -ext sql -dir migrations -seq $$name
+
+migrate: migrate-up
 
 docker:
 	docker compose -f docker-compose.dev.yml up --build
+
+db-up:
+	docker compose -f docker-compose.dev.yml up -d db
