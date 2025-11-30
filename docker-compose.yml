@@ -1,0 +1,77 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: embolsadora_db
+    environment:
+      POSTGRES_USER: embolsadora_user
+      POSTGRES_PASSWORD: embolsadora_password
+      POSTGRES_DB: embolsadora_dev
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U embolsadora_user -d embolsadora_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - embolsadora_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: embolsadora_redis
+    command: redis-server --requirepass embolsadora_redis_pass
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "embolsadora_redis_pass", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - embolsadora_network
+
+  api:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: embolsadora_api
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      APP_ENV: development
+      DB_URL: postgres://embolsadora_user:embolsadora_password@db:5432/embolsadora_dev?sslmode=disable
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: embolsadora_user
+      DB_PASSWORD: embolsadora_password
+      DB_NAME: embolsadora_dev
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: embolsadora_redis_pass
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    networks:
+      - embolsadora_network
+    # He quitado el volumen que montaba el directorio actual
+    # Si necesitas desarrollo con recarga en caliente, podemos agregar un volumen específico más adelante
+
+networks:
+  embolsadora_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

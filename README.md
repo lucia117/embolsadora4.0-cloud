@@ -20,9 +20,10 @@ Repositorio Go 1.22 con arquitectura clean/hexagonal. Este repo contiene el esqu
 
 ## Requisitos
 
-- Go 1.22+ (se utilizará toolchain reciente automáticamente si tu Go lo sugiere)
-- Docker y Docker Compose (opcional, para levantar Postgres/Redis y la API)
+- Go 1.24+ (requerido por el proyecto)
+- Docker y Docker Compose (para levantar Postgres/Redis y la API)
 - VS Code (opcional) con extensión Go para depurar
+- Make (opcional, para usar los comandos del Makefile)
 
 ## Comandos básicos
 
@@ -76,22 +77,86 @@ Rutas stub (501 Not Implemented):
 
 ## Ejecutar con Docker Compose
 
-Levantá Postgres, Redis y la API:
+### Prerequisitos
+
+1. Docker y Docker Compose instalados
+2. Tener el archivo `docker-compose.yml` o `docker-compose.dev.yml` en la raíz del proyecto
+3. Tener el `Dockerfile` configurado correctamente
+
+### Levantar los servicios
+
+Para levantar Postgres, Redis y la API por primera vez:
 
 ```powershell
-docker compose -f docker-compose.dev.yml up --build
+# Construir las imágenes desde cero
+docker-compose -f docker-compose.yml build --no-cache
+
+# Levantar todos los servicios
+docker-compose -f docker-compose.yml up
 ```
 
-Variables de entorno usadas por el servicio `api` en `docker-compose.dev.yml`:
+Para levantar los servicios en segundo plano (modo detached):
 
-- `DB_URL=postgres://postgres:postgres@db:5432/embolsadora?sslmode=disable`
-- `REDIS_ADDR=redis:6379`
-- `APP_ENV=dev`
-- `AUTH_JWT_ISSUER=embolsadora`
-- `AUTH_JWT_PUBLIC=__placeholder__`
-- `AUTH_JWT_PRIVATE=__placeholder__`
+```powershell
+docker-compose -f docker-compose.yml up -d
+```
 
-> Nota: reemplazá los placeholders de JWT cuando tengas las llaves.
+### Detener los servicios
+
+```powershell
+# Detener los contenedores
+docker-compose -f docker-compose.yml down
+
+# Detener y eliminar volúmenes (elimina datos de la BD)
+docker-compose -f docker-compose.yml down -v
+```
+
+### Ver logs
+
+```powershell
+# Ver logs de todos los servicios
+docker-compose -f docker-compose.yml logs -f
+
+# Ver logs de un servicio específico
+docker-compose -f docker-compose.yml logs -f api
+```
+
+### Variables de entorno
+
+El servicio `api` en `docker-compose.yml` usa las siguientes variables de entorno:
+
+- `DB_URL=postgres://embolsadora_user:embolsadora_password@db:5432/embolsadora_dev?sslmode=disable`
+- `DB_HOST=db`
+- `DB_PORT=5432`
+- `DB_USER=embolsadora_user`
+- `DB_PASSWORD=embolsadora_password`
+- `DB_NAME=embolsadora_dev`
+- `REDIS_HOST=redis`
+- `REDIS_PORT=6379`
+- `REDIS_PASSWORD=embolsadora_redis_pass`
+- `APP_ENV=development`
+
+### Verificar que la API está funcionando
+
+Una vez levantados los servicios, podés verificar que la API está funcionando:
+
+```powershell
+# Health check
+curl http://localhost:8080/healthz
+
+# Ready check
+curl http://localhost:8080/readyz
+```
+
+### Servicios disponibles
+
+- **API**: `http://localhost:8080`
+- **PostgreSQL**: `localhost:5432`
+  - Usuario: `embolsadora_user`
+  - Password: `embolsadora_password`
+  - Base de datos: `embolsadora_dev`
+- **Redis**: `localhost:6379`
+  - Password: `embolsadora_redis_pass`
 
 ## Run and Debug en VS Code
 
