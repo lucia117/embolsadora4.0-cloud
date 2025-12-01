@@ -38,19 +38,16 @@ docker-compose -f docker-compose.yml up
 Abrí otra terminal y ejecutá:
 
 ```powershell
-# Health check
-curl http://localhost:8080/healthz
-
-# Ready check
-curl http://localhost:8080/readyz
+# Ping endpoint
+curl http://localhost:8080/ping
+# Debería responder: pong
 ```
 
 Si no tenés `curl`, podés abrir en tu navegador:
 
-- http://localhost:8080/healthz
-- http://localhost:8080/readyz
+- http://localhost:8080/ping
 
-Ambos deberían devolver un código 200 OK.
+Debería devolver un código 200 OK con el texto "pong".
 
 ## Servicios disponibles
 
@@ -164,16 +161,14 @@ docker-compose -f docker-compose.yml build --no-cache
 
 ## Endpoints disponibles
 
-### Health Checks
+### Health Check
 
-- `GET /healthz` - Health check básico
-- `GET /readyz` - Ready check
+- `GET /ping` - Ping endpoint (responde "pong")
 
 ### Autenticación
 
 - `POST /api/auth/register` - Registrar usuario
 - `POST /api/auth/login` - Iniciar sesión
-- `POST /api/auth/refresh` - Refrescar token
 
 ### API v1 (requiere autenticación)
 

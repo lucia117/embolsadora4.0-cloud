@@ -17,8 +17,9 @@ import (
 // RegisterURLMappings configura todas las rutas de la API en un único lugar.
 func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool) {
 	// Health checks
-	r.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
-	r.GET("/readyz", func(c *gin.Context) { c.Status(http.StatusOK) })
+	r.GET("/ping", func(c *gin.Context) {
+		c.String(http.StatusOK, "pong")
+	})
 
 	// Métricas Prometheus
 	telemetry.RegisterMetrics(r)

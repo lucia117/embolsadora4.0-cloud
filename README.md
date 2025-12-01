@@ -62,10 +62,9 @@ go mod tidy
 go run ./cmd/api
 ```
 
-Endpoints de salud:
+Endpoint de salud:
 
-- `GET http://localhost:8080/healthz` → 200
-- `GET http://localhost:8080/readyz` → 200
+- `GET http://localhost:8080/ping` → 200 "pong"
 
 Rutas stub (501 Not Implemented):
 
@@ -141,11 +140,9 @@ El servicio `api` en `docker-compose.yml` usa las siguientes variables de entorn
 Una vez levantados los servicios, podés verificar que la API está funcionando:
 
 ```powershell
-# Health check
-curl http://localhost:8080/healthz
-
-# Ready check
-curl http://localhost:8080/readyz
+# Ping endpoint
+curl http://localhost:8080/ping
+# Debería responder: pong
 ```
 
 ### Servicios disponibles
