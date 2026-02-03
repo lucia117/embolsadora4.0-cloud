@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -53,14 +54,16 @@ func (h *Handler) HandleLogin(c *gin.Context) {
 	// Setear cookie de sesión según el pacto
 	// Cookie name: next-auth.session-token
 	maxAge := int(time.Until(session.ExpiresAt).Seconds())
+	// Configurar secure flag basado en entorno
+	secureCookie := os.Getenv("APP_ENV") == "production"
 	c.SetCookie(
 		"next-auth.session-token", // name
-		session.Token,              // value
-		maxAge,                     // maxAge (en segundos)
-		"/",                        // path
-		"",                         // domain (vacío = current domain)
-		false,                      // secure (cambiar a true en producción con HTTPS)
-		true,                       // httpOnly
+		session.Token,             // value
+		maxAge,                    // maxAge (en segundos)
+		"/",                       // path
+		"",                        // domain (vacío = current domain)
+		secureCookie,              // secure (true en producción con HTTPS)
+		true,                      // httpOnly
 	)
 
 	// Responder según el pacto
@@ -123,14 +126,16 @@ func (h *Handler) HandleSignOut(c *gin.Context) {
 	}
 
 	// Borrar cookie (setear con maxAge negativo)
+	// Configurar secure flag basado en entorno
+	secureCookie := os.Getenv("APP_ENV") == "production"
 	c.SetCookie(
 		"next-auth.session-token", // name
-		"",                         // value vacío
-		-1,                         // maxAge negativo para borrar
-		"/",                        // path
-		"",                         // domain
-		false,                      // secure
-		true,                       // httpOnly
+		"",                        // value vacío
+		-1,                        // maxAge negativo para borrar
+		"/",                       // path
+		"",                        // domain
+		secureCookie,              // secure
+		true,                      // httpOnly
 	)
 
 	// Responder según el pacto

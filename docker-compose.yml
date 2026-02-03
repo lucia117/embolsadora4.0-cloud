@@ -65,8 +65,8 @@ services:
     restart: unless-stopped
     networks:
       - embolsadora_network
-    # He quitado el volumen que montaba el directorio actual
-    # Si necesitas desarrollo con recarga en caliente, podemos agregar un volumen específico más adelante
+    # Removed the volume that mounted the current directory
+    # If you need hot reload for development, we can add a specific volume later
 
 networks:
   embolsadora_network:

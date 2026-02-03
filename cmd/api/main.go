@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
 
 	apimw "github.com/tu-org/embolsadora-api/internal/api/middleware"
 	"github.com/tu-org/embolsadora-api/internal/routes"
@@ -14,10 +15,15 @@ import (
 
 // TODO: Bootstrap config, telemetry, repositories, services, and dependency wiring.
 func main() {
+	// Cargar variables de entorno desde .env
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using environment variables")
+	}
+
 	// Inicializar conexión a base de datos
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
-		dbURL = "postgres://postgres:postgres@localhost:5432/embolsadora?sslmode=disable"
+		log.Fatal("environment variable DB_URL must be set (ensure it matches your docker-compose.yml or local configuration)")
 	}
 
 	db, err := pgxpool.New(context.Background(), dbURL)
@@ -42,7 +48,12 @@ func main() {
 	// Centralizar registro de rutas
 	routes.RegisterURLMappings(r, db)
 
-	// TODO: get address from config. Hardcoded for dev.
-	log.Println("Starting server on :8080")
-	_ = r.Run(":8080")
+	// Get port from environment or use default
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Printf("Starting server on :%s", port)
+	_ = r.Run(":" + port)
 }

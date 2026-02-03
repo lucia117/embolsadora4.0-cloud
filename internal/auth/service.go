@@ -140,8 +140,12 @@ func (s *AuthService) ForgotPassword(ctx context.Context, email string) error {
 	}
 
 	// Crear token de reseteo (válido por 1 hora)
+	uuid, err := generateUUID()
+	if err != nil {
+		return fmt.Errorf("failed to generate UUID: %w", err)
+	}
 	resetToken := &PasswordResetToken{
-		ID:        generateUUID(),
+		ID:        uuid,
 		UserID:    user.ID,
 		Token:     tokenStr,
 		ExpiresAt: time.Now().Add(1 * time.Hour),
@@ -225,10 +229,12 @@ func generateSecureToken(length int) (string, error) {
 }
 
 // generateUUID genera un UUID simple (para IDs de tokens)
-func generateUUID() string {
+func generateUUID() (string, error) {
 	bytes := make([]byte, 16)
-	rand.Read(bytes)
-	return fmt.Sprintf("%x-%x-%x-%x-%x", bytes[0:4], bytes[4:6], bytes[6:8], bytes[8:10], bytes[10:])
+	if _, err := rand.Read(bytes); err != nil {
+		return "", fmt.Errorf("failed to generate random bytes for UUID: %w", err)
+	}
+	return fmt.Sprintf("%x-%x-%x-%x-%x", bytes[0:4], bytes[4:6], bytes[6:8], bytes[8:10], bytes[10:]), nil
 }
 
 // EmailService define la interfaz para envío de emails
@@ -242,6 +248,7 @@ type MockEmailService struct{}
 // SendPasswordResetEmail simula el envío de email
 func (m *MockEmailService) SendPasswordResetEmail(ctx context.Context, email, token string) error {
 	// TODO: Implementar con proveedor real (SendGrid, SES, SMTP)
-	fmt.Printf("[EMAIL] Password reset for %s with token: %s\n", email, token)
+	// Por seguridad, no se registra el token en los logs.
+	fmt.Printf("[EMAIL] Password reset requested for %s (token not logged)\n", email)
 	return nil
 }

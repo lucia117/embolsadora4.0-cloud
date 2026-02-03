@@ -1,6 +1,6 @@
 .PHONY: run test lint migrate migrate-up migrate-down migrate-create docker db-up
 
-DB_URL ?= postgres://postgres:postgres@localhost:5432/embolsadora?sslmode=disable
+DB_URL ?= postgres://embolsadora_user:embolsadora_password@localhost:5432/embolsadora_dev?sslmode=disable
 
 run:
 	go run ./cmd/api
@@ -29,7 +29,7 @@ migrate-create:
 migrate: migrate-up
 
 docker:
-	docker compose -f docker-compose.dev.yml up --build
+	docker compose -f docker-compose.yml up --build
 
 db-up:
-	docker compose -f docker-compose.dev.yml up -d db
+	docker compose -f docker-compose.yml up -d db
