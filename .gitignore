@@ -4,3 +4,9 @@
 postman/*.local.json
 postman/*secrets*.json
 postman/export-*.json
+
+.vercel
+.env*.local
+
+# Environment variables
+.env
