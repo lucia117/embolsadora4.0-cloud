@@ -40,7 +40,6 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
 );
 
 -- Create indexes for performance
-CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_tenant_id ON users(tenant_id);
 CREATE INDEX idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
