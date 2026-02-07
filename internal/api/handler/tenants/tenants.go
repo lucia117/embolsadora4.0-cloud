@@ -6,7 +6,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/tu-org/embolsadora-api/internal/api/handler/httperr"
 	"github.com/tu-org/embolsadora-api/internal/api/handler/tenants/internal/models"
+	apperrors "github.com/tu-org/embolsadora-api/internal/core/errors"
 )
 
 // TenantHandler maneja las solicitudes HTTP para los tenants
@@ -20,7 +22,7 @@ func NewTenantHandler() *TenantHandler {
 // ListTenants maneja la solicitud para listar todos los tenants
 func (h *TenantHandler) ListTenants(c *gin.Context) {
 	log.Println("not implemented: ListTenants")
-	
+
 	// TODO: Implementar lógica de negocio para obtener tenants
 	response := []models.TenantResponse{
 		{
@@ -33,7 +35,7 @@ func (h *TenantHandler) ListTenants(c *gin.Context) {
 			UpdatedAt:   "2024-01-01T00:00:00Z",
 		},
 	}
-	
+
 	c.JSON(http.StatusOK, models.TenantsResponse{Tenants: response})
 }
 
@@ -41,12 +43,12 @@ func (h *TenantHandler) ListTenants(c *gin.Context) {
 func (h *TenantHandler) CreateTenant(c *gin.Context) {
 	var req models.TenantRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		httperr.WriteError(c, apperrors.NewBadRequest(err.Error()))
 		return
 	}
 
 	log.Printf("not implemented: CreateTenant with data: %+v", req)
-	
+
 	// TODO: Implementar lógica de negocio para crear tenant
 	response := models.TenantResponse{
 		ID:          uuid.New().String(),
@@ -57,7 +59,7 @@ func (h *TenantHandler) CreateTenant(c *gin.Context) {
 		CreatedAt:   "2024-01-01T00:00:00Z",
 		UpdatedAt:   "2024-01-01T00:00:00Z",
 	}
-	
+
 	c.JSON(http.StatusCreated, models.TenantResponseSingle{Tenant: response})
 }
 
@@ -65,12 +67,12 @@ func (h *TenantHandler) CreateTenant(c *gin.Context) {
 func (h *TenantHandler) GetTenant(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID de tenant inválido"})
+		httperr.WriteError(c, apperrors.NewBadRequest("ID de tenant inválido"))
 		return
 	}
 
 	log.Printf("not implemented: GetTenant with ID: %s", id.String())
-	
+
 	// TODO: Implementar lógica de negocio para obtener tenant por ID
 	response := models.TenantResponse{
 		ID:          id.String(),
@@ -81,7 +83,7 @@ func (h *TenantHandler) GetTenant(c *gin.Context) {
 		CreatedAt:   "2024-01-01T00:00:00Z",
 		UpdatedAt:   "2024-01-01T00:00:00Z",
 	}
-	
+
 	c.JSON(http.StatusOK, models.TenantResponseSingle{Tenant: response})
 }
 
@@ -89,18 +91,18 @@ func (h *TenantHandler) GetTenant(c *gin.Context) {
 func (h *TenantHandler) UpdateTenant(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID de tenant inválido"})
+		httperr.WriteError(c, apperrors.NewBadRequest("ID de tenant inválido"))
 		return
 	}
 
 	var req models.TenantUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		httperr.WriteError(c, apperrors.NewBadRequest(err.Error()))
 		return
 	}
 
 	log.Printf("not implemented: UpdateTenant with ID: %s, data: %+v", id.String(), req)
-	
+
 	// TODO: Implementar lógica de negocio para actualizar tenant
 	response := models.TenantResponse{
 		ID:          id.String(),
@@ -111,7 +113,7 @@ func (h *TenantHandler) UpdateTenant(c *gin.Context) {
 		CreatedAt:   "2024-01-01T00:00:00Z",
 		UpdatedAt:   "2024-01-01T00:00:00Z",
 	}
-	
+
 	c.JSON(http.StatusOK, models.TenantResponseSingle{Tenant: response})
 }
 
@@ -119,12 +121,12 @@ func (h *TenantHandler) UpdateTenant(c *gin.Context) {
 func (h *TenantHandler) DeleteTenant(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID de tenant inválido"})
+		httperr.WriteError(c, apperrors.NewBadRequest("ID de tenant inválido"))
 		return
 	}
 
 	log.Printf("not implemented: DeleteTenant with ID: %s", id.String())
-	
+
 	// TODO: Implementar lógica de negocio para eliminar tenant
 	c.Status(http.StatusNoContent)
 }
