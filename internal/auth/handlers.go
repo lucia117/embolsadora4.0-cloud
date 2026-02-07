@@ -8,6 +8,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
+	"github.com/tu-org/embolsadora-api/internal/api/handler/httperr"
+	apperrors "github.com/tu-org/embolsadora-api/internal/core/errors"
 )
 
 // Handler contiene las dependencias para los handlers de auth
@@ -26,10 +28,7 @@ func NewHandler(authService *AuthService) *Handler {
 func (h *Handler) HandleLogin(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBind(&req); err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error:      "Invalid request",
-			StatusCode: http.StatusBadRequest,
-		})
+		httperr.WriteError(c, apperrors.NewBadRequest("Invalid request"))
 		return
 	}
 
@@ -37,17 +36,11 @@ func (h *Handler) HandleLogin(c *gin.Context) {
 	session, _, err := h.authService.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
 		if errors.Is(err, ErrInvalidCredentials) {
-			c.JSON(http.StatusUnauthorized, ErrorResponse{
-				Error:      "Invalid credentials",
-				StatusCode: http.StatusUnauthorized,
-			})
+			httperr.WriteError(c, apperrors.NewUnauthorized("Invalid credentials"))
 			return
 		}
 
-		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error:      "Internal server error",
-			StatusCode: http.StatusInternalServerError,
-		})
+		httperr.WriteError(c, apperrors.NewInternalServerError("Internal server error"))
 		return
 	}
 
@@ -77,10 +70,7 @@ func (h *Handler) HandleGetSession(c *gin.Context) {
 	// Leer cookie de sesión
 	token, err := c.Cookie("next-auth.session-token")
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, ErrorResponse{
-			Error:      "No session found",
-			StatusCode: http.StatusUnauthorized,
-		})
+		httperr.WriteError(c, apperrors.NewUnauthorized("No session found"))
 		return
 	}
 
@@ -88,17 +78,11 @@ func (h *Handler) HandleGetSession(c *gin.Context) {
 	sessionData, err := h.authService.GetSession(c.Request.Context(), token)
 	if err != nil {
 		if errors.Is(err, ErrSessionNotFound) || errors.Is(err, pgx.ErrNoRows) {
-			c.JSON(http.StatusUnauthorized, ErrorResponse{
-				Error:      "Invalid session",
-				StatusCode: http.StatusUnauthorized,
-			})
+			httperr.WriteError(c, apperrors.NewUnauthorized("Invalid session"))
 			return
 		}
 
-		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error:      "Internal server error",
-			StatusCode: http.StatusInternalServerError,
-		})
+		httperr.WriteError(c, apperrors.NewInternalServerError("Internal server error"))
 		return
 	}
 
@@ -110,10 +94,7 @@ func (h *Handler) HandleGetSession(c *gin.Context) {
 func (h *Handler) HandleSignOut(c *gin.Context) {
 	var req SignOutRequest
 	if err := c.ShouldBind(&req); err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error:      "Invalid request",
-			StatusCode: http.StatusBadRequest,
-		})
+		httperr.WriteError(c, apperrors.NewBadRequest("Invalid request"))
 		return
 	}
 
@@ -149,10 +130,7 @@ func (h *Handler) HandleSignOut(c *gin.Context) {
 func (h *Handler) HandleForgotPassword(c *gin.Context) {
 	var req ForgotPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error:      "Invalid request",
-			StatusCode: http.StatusBadRequest,
-		})
+		httperr.WriteError(c, apperrors.NewBadRequest("Invalid request"))
 		return
 	}
 
@@ -170,10 +148,7 @@ func (h *Handler) HandleForgotPassword(c *gin.Context) {
 func (h *Handler) HandleResetPassword(c *gin.Context) {
 	var req ResetPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error:      "Invalid request",
-			StatusCode: http.StatusBadRequest,
-		})
+		httperr.WriteError(c, apperrors.NewBadRequest("Invalid request"))
 		return
 	}
 
@@ -187,25 +162,16 @@ func (h *Handler) HandleResetPassword(c *gin.Context) {
 
 	if err != nil {
 		if errors.Is(err, ErrInvalidToken) || errors.Is(err, pgx.ErrNoRows) {
-			c.JSON(http.StatusBadRequest, ErrorResponse{
-				Error:      "Invalid or expired token",
-				StatusCode: http.StatusBadRequest,
-			})
+			httperr.WriteError(c, apperrors.NewBadRequest("Invalid or expired token"))
 			return
 		}
 
 		if errors.Is(err, ErrPasswordMismatch) {
-			c.JSON(http.StatusBadRequest, ErrorResponse{
-				Error:      "Passwords do not match",
-				StatusCode: http.StatusBadRequest,
-			})
+			httperr.WriteError(c, apperrors.NewBadRequest("Passwords do not match"))
 			return
 		}
 
-		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error:      "Internal server error",
-			StatusCode: http.StatusInternalServerError,
-		})
+		httperr.WriteError(c, apperrors.NewInternalServerError("Internal server error"))
 		return
 	}
 
