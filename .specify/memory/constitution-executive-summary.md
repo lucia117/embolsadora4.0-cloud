@@ -10,13 +10,13 @@ La Constitución es el documento de gobernanza que define los **principios no-ne
 
 ## Los 5 Principios
 
-| # | Principio | Descripción Breve | Por Qué |
-|---|-----------|-------------------|--------|
-| **I** | Arquitectura Hexagonal Limpia | Separación clara de capas y superficies (ABM e Ingesta) | Facilita escalado independiente, futura extracción de servicios |
-| **II** | Aislamiento Prioritario en Seguridad 🔐 | JWT+RBAC en ABM; API Key+RateLimit en Ingesta; sin cross-tenant access | Previene unauthorized access, rate abuse, multi-tenant data leakage |
-| **III** | Observabilidad e Instrumentación 📊 | Logs estructurados (Zap), métricas (Prometheus), tracing (OTel-ready) | Troubleshooting rápido, data-driven optimization en producción |
-| **IV** | Testing de Integración Dirigido por Contrato | Tests de migración, deserialización, contratos OpenAPI | Detecta bugs pre-producción, previene contract violations silenciosas |
-| **V** | Versionado Semántico & Backward Compatibility | MAJOR/MINOR/PATCH; período de deprecación ≥2 versiones | Safe client evolution, no surprise breakage |
+| #       | Principio                                     | Descripción Breve                                                      | Por Qué                                                               |
+| ------- | --------------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| **I**   | Arquitectura Hexagonal Limpia                 | Separación clara de capas y superficies (ABM e Ingesta)                | Facilita escalado independiente, futura extracción de servicios       |
+| **II**  | Aislamiento Prioritario en Seguridad 🔐       | JWT+RBAC en ABM; API Key+RateLimit en Ingesta; sin cross-tenant access | Previene unauthorized access, rate abuse, multi-tenant data leakage   |
+| **III** | Observabilidad e Instrumentación 📊           | Logs estructurados (Zap), métricas (Prometheus), tracing (OTel-ready)  | Troubleshooting rápido, data-driven optimization en producción        |
+| **IV**  | Testing de Integración Dirigido por Contrato  | Tests de migración, deserialización, contratos OpenAPI                 | Detecta bugs pre-producción, previene contract violations silenciosas |
+| **V**   | Versionado Semántico & Backward Compatibility | MAJOR/MINOR/PATCH; período de deprecación ≥2 versiones                 | Safe client evolution, no surprise breakage                           |
 
 ## Las Dos Superficies
 
@@ -42,43 +42,44 @@ La Constitución es el documento de gobernanza que define los **principios no-ne
 
 Cada PR **MUST** pasar estas 5 compuertas antes de merge:
 
-1. **Arquitectura** 
+1. **Arquitectura**
    - ¿Mantiene capas hexagonales?
    - ¿Sin lógica compartida entre superficies?
 
-2. **Seguridad** 
+2. **Seguridad**
    - ¿Aislamiento de tenants preservado?
    - ¿Sin credentials en logs?
 
-3. **Observabilidad** 
+3. **Observabilidad**
    - ¿Logs estructurados agregados?
    - ¿Nuevas métricas registradas?
 
-4. **Contrato** 
+4. **Contrato**
    - ¿OpenAPI spec actualizado?
    - ¿Cambios rotos documentados?
 
-5. **Tests** 
+5. **Tests**
    - ¿Coverage ≥70% código nuevo?
    - ¿Integraciones testeadas?
 
 ## Stack de Tecnología
 
-| Componente | Stack |
-|-----------|-------|
-| **Lenguaje** | Go 1.24+ |
-| **DB** | PostgreSQL (migraciones en `migrations/`) |
-| **Cache/Queue** | Redis (idempotencia, rate limit, sesiones) |
-| **HTTP Framework** | Gin con middleware custom |
-| **Logging** | Zap (structured, JSON en prod) |
-| **Métricas** | Prometheus (`/metrics`) |
-| **Telemetry** | OpenTelemetry (pending implementation decision) |
-| **Testing** | Go `testing` + Docker containers |
-| **Deployment** | Docker + Docker Compose (dev); Cloud Run/ECS (prod) |
+| Componente         | Stack                                               |
+| ------------------ | --------------------------------------------------- |
+| **Lenguaje**       | Go 1.24+                                            |
+| **DB**             | PostgreSQL (migraciones en `migrations/`)           |
+| **Cache/Queue**    | Redis (idempotencia, rate limit, sesiones)          |
+| **HTTP Framework** | Gin con middleware custom                           |
+| **Logging**        | Zap (structured, JSON en prod)                      |
+| **Métricas**       | Prometheus (`/metrics`)                             |
+| **Telemetry**      | OpenTelemetry (pending implementation decision)     |
+| **Testing**        | Go `testing` + Docker containers                    |
+| **Deployment**     | Docker + Docker Compose (dev); Cloud Run/ECS (prod) |
 
 ## Gobernanza: Cuándo Crear un ADR
 
 **Estos cambios requieren Architecture Decision Record**:
+
 - ✍️ Nueva superficie HTTP
 - ✍️ Cambio de auth scheme (ej., cambiar de API Key a OAuth)
 - ✍️ Migración de schema significativa
@@ -125,4 +126,4 @@ PATCH → Bug fix             (v1.1.0 → v1.1.1)
 
 ---
 
-*Versión 1.1.0 • Ratificada: 2026-02-07 • Localización: Español*
+_Versión 1.1.0 • Ratificada: 2026-02-07 • Localización: Español_
