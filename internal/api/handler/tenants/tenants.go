@@ -22,7 +22,6 @@ func NewTenantHandler() *TenantHandler {
 // ListTenants maneja la solicitud para listar todos los tenants
 func (h *TenantHandler) ListTenants(c *gin.Context) {
 	log.Println("not implemented: ListTenants")
-
 	// TODO: Implementar lógica de negocio para obtener tenants
 	response := []models.TenantResponse{
 		{
@@ -35,7 +34,6 @@ func (h *TenantHandler) ListTenants(c *gin.Context) {
 			UpdatedAt:   "2024-01-01T00:00:00Z",
 		},
 	}
-
 	c.JSON(http.StatusOK, models.TenantsResponse{Tenants: response})
 }
 
@@ -48,7 +46,6 @@ func (h *TenantHandler) CreateTenant(c *gin.Context) {
 	}
 
 	log.Printf("not implemented: CreateTenant with data: %+v", req)
-
 	// TODO: Implementar lógica de negocio para crear tenant
 	response := models.TenantResponse{
 		ID:          uuid.New().String(),
@@ -59,7 +56,6 @@ func (h *TenantHandler) CreateTenant(c *gin.Context) {
 		CreatedAt:   "2024-01-01T00:00:00Z",
 		UpdatedAt:   "2024-01-01T00:00:00Z",
 	}
-
 	c.JSON(http.StatusCreated, models.TenantResponseSingle{Tenant: response})
 }
 
@@ -72,7 +68,6 @@ func (h *TenantHandler) GetTenant(c *gin.Context) {
 	}
 
 	log.Printf("not implemented: GetTenant with ID: %s", id.String())
-
 	// TODO: Implementar lógica de negocio para obtener tenant por ID
 	response := models.TenantResponse{
 		ID:          id.String(),
@@ -83,7 +78,6 @@ func (h *TenantHandler) GetTenant(c *gin.Context) {
 		CreatedAt:   "2024-01-01T00:00:00Z",
 		UpdatedAt:   "2024-01-01T00:00:00Z",
 	}
-
 	c.JSON(http.StatusOK, models.TenantResponseSingle{Tenant: response})
 }
 
@@ -102,7 +96,6 @@ func (h *TenantHandler) UpdateTenant(c *gin.Context) {
 	}
 
 	log.Printf("not implemented: UpdateTenant with ID: %s, data: %+v", id.String(), req)
-
 	// TODO: Implementar lógica de negocio para actualizar tenant
 	response := models.TenantResponse{
 		ID:          id.String(),
@@ -113,7 +106,6 @@ func (h *TenantHandler) UpdateTenant(c *gin.Context) {
 		CreatedAt:   "2024-01-01T00:00:00Z",
 		UpdatedAt:   "2024-01-01T00:00:00Z",
 	}
-
 	c.JSON(http.StatusOK, models.TenantResponseSingle{Tenant: response})
 }
 
@@ -126,7 +118,6 @@ func (h *TenantHandler) DeleteTenant(c *gin.Context) {
 	}
 
 	log.Printf("not implemented: DeleteTenant with ID: %s", id.String())
-
 	// TODO: Implementar lógica de negocio para eliminar tenant
 	c.Status(http.StatusNoContent)
 }

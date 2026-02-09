@@ -22,7 +22,6 @@ func NewUserHandler() *UserHandler {
 // ListUsers maneja la solicitud para listar todos los usuarios
 func (h *UserHandler) ListUsers(c *gin.Context) {
 	log.Println("not implemented: ListUsers")
-
 	// TODO: Implementar lógica de negocio para obtener usuarios
 	response := []models.UserResponse{
 		{
@@ -38,7 +37,6 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 			UpdatedAt: "2024-01-01T00:00:00Z",
 		},
 	}
-
 	c.JSON(http.StatusOK, models.UsersResponse{Users: response})
 }
 
@@ -51,7 +49,6 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	}
 
 	log.Printf("not implemented: CreateUser with data: %+v", req)
-
 	// TODO: Implementar lógica de negocio para crear usuario
 	response := models.UserResponse{
 		ID:        uuid.New().String(),
@@ -65,7 +62,6 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 		CreatedAt: "2024-01-01T00:00:00Z",
 		UpdatedAt: "2024-01-01T00:00:00Z",
 	}
-
 	c.JSON(http.StatusCreated, models.UserResponseSingle{User: response})
 }
 
@@ -78,7 +74,6 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 	}
 
 	log.Printf("not implemented: GetUser with ID: %s", id.String())
-
 	// TODO: Implementar lógica de negocio para obtener usuario por ID
 	response := models.UserResponse{
 		ID:        id.String(),
@@ -92,7 +87,6 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 		CreatedAt: "2024-01-01T00:00:00Z",
 		UpdatedAt: "2024-01-01T00:00:00Z",
 	}
-
 	c.JSON(http.StatusOK, models.UserResponseSingle{User: response})
 }
 
@@ -111,7 +105,6 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 	}
 
 	log.Printf("not implemented: UpdateUser with ID: %s, data: %+v", id.String(), req)
-
 	// TODO: Implementar lógica de negocio para actualizar usuario
 	response := models.UserResponse{
 		ID:        id.String(),
@@ -125,7 +118,6 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 		CreatedAt: "2024-01-01T00:00:00Z",
 		UpdatedAt: "2024-01-01T00:00:00Z",
 	}
-
 	c.JSON(http.StatusOK, models.UserResponseSingle{User: response})
 }
 
@@ -138,7 +130,6 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	}
 
 	log.Printf("not implemented: DeleteUser with ID: %s", id.String())
-
 	// TODO: Implementar lógica de negocio para eliminar usuario
 	c.Status(http.StatusNoContent)
 }
@@ -162,7 +153,6 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 		CreatedAt: "2024-01-01T00:00:00Z",
 		UpdatedAt: "2024-01-01T00:00:00Z",
 	}
-
 	c.JSON(http.StatusOK, response)
 }
 
