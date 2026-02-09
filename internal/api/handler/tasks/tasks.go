@@ -5,8 +5,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/tu-org/embolsadora-api/internal/api/handler/httperr"
 	"github.com/tu-org/embolsadora-api/internal/api/handler/tasks/internal/models"
 	"github.com/tu-org/embolsadora-api/internal/api/usecases/tasks"
+	apperrors "github.com/tu-org/embolsadora-api/internal/core/errors"
 )
 
 // TaskHandler maneja las solicitudes HTTP para las tareas
@@ -23,7 +25,7 @@ func NewTaskHandler(service tasks.Service) *TaskHandler {
 func (h *TaskHandler) ListTasks(c *gin.Context) {
 	tasks, err := h.service.GetTasks(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al obtener las tareas"})
+		httperr.WriteError(c, apperrors.NewInternalServerError("Error al obtener las tareas"))
 		return
 	}
 
@@ -44,13 +46,13 @@ func (h *TaskHandler) ListTasks(c *gin.Context) {
 func (h *TaskHandler) CreateTask(c *gin.Context) {
 	var req models.TaskRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		httperr.WriteError(c, apperrors.NewBadRequest(err.Error()))
 		return
 	}
 
 	task, err := h.service.CreateTask(c.Request.Context(), req.Title, req.Description)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al crear la tarea"})
+		httperr.WriteError(c, apperrors.NewInternalServerError("Error al crear la tarea"))
 		return
 	}
 
@@ -68,17 +70,17 @@ func (h *TaskHandler) CreateTask(c *gin.Context) {
 func (h *TaskHandler) GetTask(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID de tarea inválido"})
+		httperr.WriteError(c, apperrors.NewBadRequest("ID de tarea inválido"))
 		return
 	}
 
 	task, err := h.service.GetTaskByID(c.Request.Context(), id)
 	if err != nil {
 		if err == tasks.ErrTaskNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Tarea no encontrada"})
+			httperr.WriteError(c, apperrors.NewNotFound("Tarea no encontrada"))
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al obtener la tarea"})
+		httperr.WriteError(c, apperrors.NewInternalServerError("Error al obtener la tarea"))
 		return
 	}
 
@@ -96,14 +98,14 @@ func (h *TaskHandler) GetTask(c *gin.Context) {
 func (h *TaskHandler) UpdateTask(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID de tarea inválido"})
+		httperr.WriteError(c, apperrors.NewBadRequest("ID de tarea inválido"))
 		return
 	}
 
 	var req models.TaskUpdateRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		httperr.WriteError(c, apperrors.NewBadRequest(err.Error()))
 		return
 	}
 
@@ -117,10 +119,10 @@ func (h *TaskHandler) UpdateTask(c *gin.Context) {
 
 	if err != nil {
 		if err == tasks.ErrTaskNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Tarea no encontrada"})
+			httperr.WriteError(c, apperrors.NewNotFound("Tarea no encontrada"))
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al actualizar la tarea"})
+		httperr.WriteError(c, apperrors.NewInternalServerError("Error al actualizar la tarea"))
 		return
 	}
 
@@ -138,16 +140,16 @@ func (h *TaskHandler) UpdateTask(c *gin.Context) {
 func (h *TaskHandler) DeleteTask(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID de tarea inválido"})
+		httperr.WriteError(c, apperrors.NewBadRequest("ID de tarea inválido"))
 		return
 	}
 
 	if err := h.service.DeleteTask(c.Request.Context(), id); err != nil {
 		if err == tasks.ErrTaskNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Tarea no encontrada"})
+			httperr.WriteError(c, apperrors.NewNotFound("Tarea no encontrada"))
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al eliminar la tarea"})
+		httperr.WriteError(c, apperrors.NewInternalServerError("Error al eliminar la tarea"))
 		return
 	}
 
