@@ -4,7 +4,11 @@ import (
 	"context"
 
 	"github.com/gin-gonic/gin"
-	taskhandlers "github.com/tu-org/embolsadora-api/internal/api/handler/tasks"
+	cratetask "github.com/tu-org/embolsadora-api/internal/api/handler/tasks/crate_task"
+	deletetask "github.com/tu-org/embolsadora-api/internal/api/handler/tasks/delete_task"
+	gettask "github.com/tu-org/embolsadora-api/internal/api/handler/tasks/get_task"
+	gettasks "github.com/tu-org/embolsadora-api/internal/api/handler/tasks/get_tasks"
+	updatetask "github.com/tu-org/embolsadora-api/internal/api/handler/tasks/update_task"
 	tenanthandlers "github.com/tu-org/embolsadora-api/internal/api/handler/tenants"
 	userhandlers "github.com/tu-org/embolsadora-api/internal/api/handler/users"
 	"github.com/tu-org/embolsadora-api/internal/api/usecases/tasks"
@@ -48,10 +52,14 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 	g.DELETE("/tenants/:id", th.DeleteTenant)
 
 	// Tasks
-	taskHandler := taskhandlers.NewTaskHandler(deps.TaskService)
-	g.GET("/tasks", taskHandler.ListTasks)
-	g.POST("/tasks", taskHandler.CreateTask)
-	g.GET("/tasks/:id", taskHandler.GetTask)
-	g.PUT("/tasks/:id", taskHandler.UpdateTask)
-	g.DELETE("/tasks/:id", taskHandler.DeleteTask)
+	getTasksHandler := gettasks.NewGetTasksHandler(deps.TaskService)
+	getTaskHandler := gettask.NewGetTaskHandler(deps.TaskService)
+	createTaskHandler := cratetask.NewCreateTaskHandler(deps.TaskService)
+	updateTaskHandler := updatetask.NewUpdateTaskHandler(deps.TaskService)
+	deleteTaskHandler := deletetask.NewDeleteTaskHandler(deps.TaskService)
+	g.GET("/tasks", getTasksHandler.GetTasks)
+	g.POST("/tasks", createTaskHandler.CreateTask)
+	g.GET("/tasks/:id", getTaskHandler.GetTask)
+	g.PUT("/tasks/:id", updateTaskHandler.UpdateTask)
+	g.DELETE("/tasks/:id", deleteTaskHandler.DeleteTask)
 }
