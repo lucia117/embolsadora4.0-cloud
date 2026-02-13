@@ -9,6 +9,7 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/api/handler/tasks/get_task/models"
 	"github.com/tu-org/embolsadora-api/internal/api/usecases/tasks"
 	apperrors "github.com/tu-org/embolsadora-api/internal/core/errors"
+	"github.com/tu-org/embolsadora-api/internal/platform"
 )
 
 // GetTaskHandler maneja las solicitudes HTTP para obtener una tarea
@@ -23,13 +24,14 @@ func NewGetTaskHandler(service tasks.Service) *GetTaskHandler {
 
 // GetTask maneja la obtención de una tarea por su ID
 func (h *GetTaskHandler) GetTask(c *gin.Context) {
+	ctx := platform.WithTenantID(c.Request.Context(), c.GetHeader("X-Tenant-Id"))
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		httperr.WriteError(c, apperrors.NewBadRequest("ID de tarea inválido"))
 		return
 	}
 
-	task, err := h.service.GetTaskByID(c.Request.Context(), id)
+	task, err := h.service.GetTaskByID(ctx, id)
 	if err != nil {
 		if err == tasks.ErrTaskNotFound {
 			httperr.WriteError(c, apperrors.NewNotFound("Tarea no encontrada"))
