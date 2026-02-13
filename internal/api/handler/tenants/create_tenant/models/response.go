@@ -11,11 +11,6 @@ type TenantResponse struct {
 	UpdatedAt   string `json:"updated_at"`
 }
 
-// TenantsResponse define la estructura de respuesta para listar múltiples tenants
-type TenantsResponse struct {
-	Tenants []TenantResponse `json:"tenants"`
-}
-
 // TenantResponseSingle define la estructura de respuesta para un solo tenant
 type TenantResponseSingle struct {
 	Tenant TenantResponse `json:"tenant"`

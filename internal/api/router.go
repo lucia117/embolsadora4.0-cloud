@@ -9,7 +9,11 @@ import (
 	gettask "github.com/tu-org/embolsadora-api/internal/api/handler/tasks/get_task"
 	gettasks "github.com/tu-org/embolsadora-api/internal/api/handler/tasks/get_tasks"
 	updatetask "github.com/tu-org/embolsadora-api/internal/api/handler/tasks/update_task"
-	tenanthandlers "github.com/tu-org/embolsadora-api/internal/api/handler/tenants"
+	createtenant "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/create_tenant"
+	deletetenant "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/delete_tenant"
+	gettenant "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/get_tenant"
+	gettenants "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/get_tenants"
+	updatetenant "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/update_tenant"
 	userhandlers "github.com/tu-org/embolsadora-api/internal/api/handler/users"
 	"github.com/tu-org/embolsadora-api/internal/api/usecases/tasks"
 	"github.com/tu-org/embolsadora-api/internal/security"
@@ -44,12 +48,16 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 	g.POST("/machines", CreateMachine)
 
 	// Tenants
-	th := tenanthandlers.NewTenantHandler()
-	g.GET("/tenants", th.ListTenants)
-	g.POST("/tenants", th.CreateTenant)
-	g.GET("/tenants/:id", th.GetTenant)
-	g.PUT("/tenants/:id", th.UpdateTenant)
-	g.DELETE("/tenants/:id", th.DeleteTenant)
+	getTenantsHandler := gettenants.NewGetTenantsHandler()
+	createTenantHandler := createtenant.NewCreateTenantHandler()
+	getTenantHandler := gettenant.NewGetTenantHandler()
+	updateTenantHandler := updatetenant.NewUpdateTenantHandler()
+	deleteTenantHandler := deletetenant.NewDeleteTenantHandler()
+	g.GET("/tenants", getTenantsHandler.GetTenants)
+	g.POST("/tenants", createTenantHandler.CreateTenant)
+	g.GET("/tenants/:id", getTenantHandler.GetTenant)
+	g.PUT("/tenants/:id", updateTenantHandler.UpdateTenant)
+	g.DELETE("/tenants/:id", deleteTenantHandler.DeleteTenant)
 
 	// Tasks
 	getTasksHandler := gettasks.NewGetTasksHandler(deps.TaskService)
