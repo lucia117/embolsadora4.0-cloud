@@ -16,6 +16,7 @@ import (
 	updatetenant "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/update_tenant"
 	userhandlers "github.com/tu-org/embolsadora-api/internal/api/handler/users"
 	"github.com/tu-org/embolsadora-api/internal/api/usecases/tasks"
+	"github.com/tu-org/embolsadora-api/internal/repo/pg/tenants"
 	"github.com/tu-org/embolsadora-api/internal/security"
 )
 
@@ -24,6 +25,7 @@ type Deps struct {
 	JWTVerifier security.Verifier
 	RBACCan     func(ctx context.Context, perm string) error
 	TaskService tasks.Service
+	TenantRepo  tenants.TenantRepository
 }
 
 // TODO: fill in configuration as needed.
@@ -50,7 +52,7 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 	// Tenants
 	getTenantsHandler := gettenants.NewGetTenantsHandler()
 	createTenantHandler := createtenant.NewCreateTenantHandler()
-	getTenantHandler := gettenant.NewGetTenantHandler()
+	getTenantHandler := gettenant.NewGetTenantHandler(deps.TenantRepo)
 	updateTenantHandler := updatetenant.NewUpdateTenantHandler()
 	deleteTenantHandler := deletetenant.NewDeleteTenantHandler()
 	g.GET("/tenants", getTenantsHandler.GetTenants)
