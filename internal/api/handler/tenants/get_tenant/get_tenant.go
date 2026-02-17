@@ -42,11 +42,28 @@ func (h *GetTenantHandler) GetTenant(c *gin.Context) {
 	response := models.TenantResponse{
 		ID:          tenant.ID.String(),
 		Name:        tenant.Name,
+		CompanyName: tenant.CompanyName,
+		Subdomain:   tenant.Subdomain,
 		Description: tenant.Description,
-		Domain:      tenant.Domain,
-		Active:      tenant.Active,
-		CreatedAt:   tenant.CreatedAt.Format("2006-01-02T15:04:05Z"),
-		UpdatedAt:   tenant.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+		IsActive:    tenant.IsActive,
+		Theme: models.Theme{
+			PrimaryColor:    tenant.Theme.PrimaryColor,
+			SecondaryColor:  tenant.Theme.SecondaryColor,
+			AccentColor:     tenant.Theme.AccentColor,
+			TextColor:       tenant.Theme.TextColor,
+			BackgroundColor: tenant.Theme.BackgroundColor,
+			LogoUrl:         tenant.Theme.LogoUrl,
+			FaviconUrl:      tenant.Theme.FaviconUrl,
+		},
+		Address: models.Address{
+			Street:     tenant.Address.Street,
+			City:       tenant.Address.City,
+			State:      tenant.Address.State,
+			PostalCode: tenant.Address.PostalCode,
+			Country:    tenant.Address.Country,
+		},
+		CreatedAt: tenant.CreatedAt.Format("2006-01-02T15:04:05.000Z"),
+		UpdatedAt: tenant.UpdatedAt.Format("2006-01-02T15:04:05.000Z"),
 	}
-	c.JSON(http.StatusOK, models.TenantResponseSingle{Tenant: response})
+	c.JSON(http.StatusOK, response)
 }
