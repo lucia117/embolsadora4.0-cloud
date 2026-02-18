@@ -1,5 +1,7 @@
 package models
 
+import "github.com/tu-org/embolsadora-api/internal/domain"
+
 // Theme represents the visual theme configuration for a tenant
 type Theme struct {
 	PrimaryColor    string `json:"primaryColor"`
@@ -32,4 +34,33 @@ type TenantResponse struct {
 	Address     Address `json:"address"`
 	CreatedAt   string  `json:"createdAt"`
 	UpdatedAt   string  `json:"updatedAt"`
+}
+
+func FromDomain(tenant *domain.Tenant) *TenantResponse {
+	return &TenantResponse{
+		ID:          tenant.ID.String(),
+		Name:        tenant.Name,
+		CompanyName: tenant.CompanyName,
+		Subdomain:   tenant.Subdomain,
+		Description: tenant.Description,
+		IsActive:    tenant.IsActive,
+		Theme: Theme{
+			PrimaryColor:    tenant.Theme.PrimaryColor,
+			SecondaryColor:  tenant.Theme.SecondaryColor,
+			AccentColor:     tenant.Theme.AccentColor,
+			TextColor:       tenant.Theme.TextColor,
+			BackgroundColor: tenant.Theme.BackgroundColor,
+			LogoUrl:         tenant.Theme.LogoUrl,
+			FaviconUrl:      tenant.Theme.FaviconUrl,
+		},
+		Address: Address{
+			Street:     tenant.Address.Street,
+			City:       tenant.Address.City,
+			State:      tenant.Address.State,
+			PostalCode: tenant.Address.PostalCode,
+			Country:    tenant.Address.Country,
+		},
+		CreatedAt: tenant.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt: tenant.UpdatedAt.Format("2006-01-02 15:04:05"),
+	}
 }

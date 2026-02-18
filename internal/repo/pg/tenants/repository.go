@@ -25,33 +25,14 @@ type tenantRepository struct {
 func NewTenantRepository(db *pgxpool.Pool) TenantRepository {
 	return &tenantRepository{db: db}
 }
-
-func (r *tenantRepository) buildNamedQuery(query string, params map[string]interface{}) (string, []interface{}, error) {
-	var args []interface{}
-	for _, param := range params {
-		args = append(args, param)
-	}
-	return query, args, nil
-}
-
 func (r *tenantRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.Tenant, error) {
 	var tenant domain.Tenant
 	var theme domain.Theme
 	var address domain.Address
+	var tenantID uuid.UUID
 
-	// Create parameter map for named query
-	params := map[string]interface{}{
-		"id": id,
-	}
-
-	// Convert named query to positional query
-	query, args, err := r.buildNamedQuery(FindByIDQuery, params)
-	if err != nil {
-		return nil, err
-	}
-
-	err = r.db.QueryRow(ctx, query, args...).Scan(
-		&tenant.ID, &tenant.Name, &tenant.CompanyName, &tenant.Subdomain, &tenant.Description, &tenant.IsActive,
+	err := r.db.QueryRow(ctx, FindByIDQuery, id).Scan(
+		&tenantID, &tenant.Name, &tenant.CompanyName, &tenant.Subdomain, &tenant.Description, &tenant.IsActive,
 		&theme.PrimaryColor, &theme.SecondaryColor, &theme.AccentColor, &theme.TextColor, &theme.BackgroundColor, &theme.LogoUrl, &theme.FaviconUrl,
 		&address.Street, &address.City, &address.State, &address.PostalCode, &address.Country,
 		&tenant.CreatedAt, &tenant.UpdatedAt,
@@ -61,43 +42,19 @@ func (r *tenantRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.
 		return nil, err
 	}
 
+	tenant.ID = tenantID
 	tenant.Theme = theme
 	tenant.Address = address
-
 	return &tenant, nil
 }
 
 func (r *tenantRepository) Create(ctx context.Context, tenant *domain.Tenant) error {
-	params := map[string]interface{}{
-		"id":               tenant.ID,
-		"name":             tenant.Name,
-		"company_name":     tenant.CompanyName,
-		"subdomain":        tenant.Subdomain,
-		"description":      tenant.Description,
-		"is_active":        tenant.IsActive,
-		"primary_color":    tenant.Theme.PrimaryColor,
-		"secondary_color":  tenant.Theme.SecondaryColor,
-		"accent_color":     tenant.Theme.AccentColor,
-		"text_color":       tenant.Theme.TextColor,
-		"background_color": tenant.Theme.BackgroundColor,
-		"logo_url":         tenant.Theme.LogoUrl,
-		"favicon_url":      tenant.Theme.FaviconUrl,
-		"street":           tenant.Address.Street,
-		"city":             tenant.Address.City,
-		"state":            tenant.Address.State,
-		"postal_code":      tenant.Address.PostalCode,
-		"country":          tenant.Address.Country,
-		"created_at":       tenant.CreatedAt,
-		"updated_at":       tenant.UpdatedAt,
-	}
-
-	// Convert named query to positional query
-	query, args, err := r.buildNamedQuery(CreateQuery, params)
-	if err != nil {
-		return err
-	}
-
-	_, err = r.db.Exec(ctx, query, args...)
+	_, err := r.db.Exec(ctx, CreateQuery,
+		tenant.ID, tenant.Name, tenant.CompanyName, tenant.Subdomain, tenant.Description, tenant.IsActive,
+		tenant.Theme.PrimaryColor, tenant.Theme.SecondaryColor, tenant.Theme.AccentColor, tenant.Theme.TextColor, tenant.Theme.BackgroundColor, tenant.Theme.LogoUrl, tenant.Theme.FaviconUrl,
+		tenant.Address.Street, tenant.Address.City, tenant.Address.State, tenant.Address.PostalCode, tenant.Address.Country,
+		tenant.CreatedAt, tenant.UpdatedAt,
+	)
 	return err
 }
 
@@ -138,49 +95,17 @@ func (r *tenantRepository) FindAll(ctx context.Context) ([]domain.Tenant, error)
 }
 
 func (r *tenantRepository) Update(ctx context.Context, tenant *domain.Tenant) error {
-	params := map[string]interface{}{
-		"id":               tenant.ID,
-		"name":             tenant.Name,
-		"company_name":     tenant.CompanyName,
-		"subdomain":        tenant.Subdomain,
-		"description":      tenant.Description,
-		"is_active":        tenant.IsActive,
-		"primary_color":    tenant.Theme.PrimaryColor,
-		"secondary_color":  tenant.Theme.SecondaryColor,
-		"accent_color":     tenant.Theme.AccentColor,
-		"text_color":       tenant.Theme.TextColor,
-		"background_color": tenant.Theme.BackgroundColor,
-		"logo_url":         tenant.Theme.LogoUrl,
-		"favicon_url":      tenant.Theme.FaviconUrl,
-		"street":           tenant.Address.Street,
-		"city":             tenant.Address.City,
-		"state":            tenant.Address.State,
-		"postal_code":      tenant.Address.PostalCode,
-		"country":          tenant.Address.Country,
-		"updated_at":       tenant.UpdatedAt,
-	}
-
-	// Convert named query to positional query
-	query, args, err := r.buildNamedQuery(UpdateQuery, params)
-	if err != nil {
-		return err
-	}
-
-	_, err = r.db.Exec(ctx, query, args...)
+	_, err := r.db.Exec(ctx, UpdateQuery,
+		tenant.ID, tenant.Name, tenant.CompanyName, tenant.Subdomain, tenant.Description, tenant.IsActive,
+		tenant.Theme.PrimaryColor, tenant.Theme.SecondaryColor, tenant.Theme.AccentColor, tenant.Theme.TextColor, tenant.Theme.BackgroundColor, tenant.Theme.LogoUrl, tenant.Theme.FaviconUrl,
+		tenant.Address.Street, tenant.Address.City, tenant.Address.State, tenant.Address.PostalCode, tenant.Address.Country,
+		tenant.UpdatedAt,
+		tenant.ID,
+	)
 	return err
 }
 
 func (r *tenantRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	params := map[string]interface{}{
-		"id": id,
-	}
-
-	// Convert named query to positional query
-	query, args, err := r.buildNamedQuery(DeleteQuery, params)
-	if err != nil {
-		return err
-	}
-
-	_, err = r.db.Exec(ctx, query, args...)
+	_, err := r.db.Exec(ctx, DeleteQuery, id)
 	return err
 }

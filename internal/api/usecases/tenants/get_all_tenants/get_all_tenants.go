@@ -1,16 +1,10 @@
-package get_tenant
+package get_all_tenants
 
 import (
 	"context"
-	"errors"
 
-	"github.com/google/uuid"
 	"github.com/tu-org/embolsadora-api/internal/domain"
 	"github.com/tu-org/embolsadora-api/internal/repo/pg/tenants"
-)
-
-var (
-	ErrTenantNotFound = errors.New("tenant not found")
 )
 
 type UseCase struct {
@@ -21,15 +15,11 @@ func NewUseCase(repo tenants.TenantRepository) *UseCase {
 	return &UseCase{repo: repo}
 }
 
-func (uc *UseCase) Execute(ctx context.Context, id uuid.UUID) (*domain.Tenant, error) {
-	tenant, err := uc.repo.FindByID(ctx, id)
+func (uc *UseCase) Execute(ctx context.Context) ([]domain.Tenant, error) {
+	tenants, err := uc.repo.FindAll(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	if tenant == nil {
-		return nil, ErrTenantNotFound
-	}
-
-	return tenant, nil
+	return tenants, nil
 }
