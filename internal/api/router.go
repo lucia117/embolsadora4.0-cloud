@@ -16,6 +16,7 @@ import (
 	updateTenant "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/update_tenant"
 	userhandlers "github.com/tu-org/embolsadora-api/internal/api/handler/users"
 	"github.com/tu-org/embolsadora-api/internal/api/usecases/tasks"
+	ucCreateTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/create_tenant"
 	ucGetAllTenants "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/get_all_tenants"
 	ucGetTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/get_tenant"
 	"github.com/tu-org/embolsadora-api/internal/repo/pg/tenants"
@@ -55,14 +56,14 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 	// Implemented
 	getAllTenantsUseCase := ucGetAllTenants.NewUseCase(deps.TenantRepo)
 	getTenantUseCase := ucGetTenant.NewUseCase(deps.TenantRepo)
+	createTenantUseCase := ucCreateTenant.NewUseCase(deps.TenantRepo)
 
-	// TODO: Add validation for tenant creation
 	getAllTenantsHandler := getAllTenants.NewGetAllTenantsHandler(getAllTenantsUseCase)
 	getTenantHandler := getTenant.NewGetTenantHandler(getTenantUseCase)
+	createTenantHandler := createTenant.NewCreateTenantHandler(createTenantUseCase)
 
-	createTenantHandler := createTenant.NewCreateTenantHandler()
-	updateTenantHandler := updateTenant.NewUpdateTenantHandler()
-	deleteTenantHandler := deleteTenant.NewDeleteTenantHandler()
+	updateTenantHandler := updateTenant.NewUpdateTenantHandler(deps.TenantRepo)
+	deleteTenantHandler := deleteTenant.NewDeleteTenantHandler(deps.TenantRepo)
 
 	g.GET("/tenants", getAllTenantsHandler.GetAllTenants)
 	g.POST("/tenants", createTenantHandler.CreateTenant)

@@ -8,13 +8,20 @@ import (
 	"github.com/google/uuid"
 	"github.com/tu-org/embolsadora-api/internal/api/handler/httperr"
 	"github.com/tu-org/embolsadora-api/internal/api/handler/tenants/update_tenant/models"
+	ucUpdateTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/update_tenant"
 	apperrors "github.com/tu-org/embolsadora-api/internal/core/errors"
+	"github.com/tu-org/embolsadora-api/internal/repo/pg/tenants"
 )
 
-type UpdateTenantHandler struct{}
+type UpdateTenantHandler struct {
+	useCase ucUpdateTenant.UseCase
+}
 
-func NewUpdateTenantHandler() *UpdateTenantHandler {
-	return &UpdateTenantHandler{}
+func NewUpdateTenantHandler(repo tenants.TenantRepository) *UpdateTenantHandler {
+	useCase := ucUpdateTenant.NewUseCase(repo)
+	return &UpdateTenantHandler{
+		useCase: useCase,
+	}
 }
 
 func (h *UpdateTenantHandler) UpdateTenant(c *gin.Context) {
@@ -30,16 +37,81 @@ func (h *UpdateTenantHandler) UpdateTenant(c *gin.Context) {
 		return
 	}
 
-	log.Printf("not implemented: UpdateTenant with ID: %s, data: %+v", id.String(), req)
-	// TODO: Implementar lógica de negocio para actualizar tenant
-	response := models.TenantResponse{
-		ID:          id.String(),
-		Name:        "Tenant Demo Updated",
-		Description: "Tenant de ejemplo actualizado",
-		Domain:      "demo.example.com",
-		Active:      true,
-		CreatedAt:   "2024-01-01T00:00:00Z",
-		UpdatedAt:   "2024-01-01T00:00:00Z",
+	// Convert request to usecase request
+	useCaseReq := &ucUpdateTenant.UpdateTenantRequest{}
+
+	// Only set fields that are provided in the request
+	if req.Name != nil {
+		useCaseReq.Name = req.Name
 	}
-	c.JSON(http.StatusOK, models.TenantResponseSingle{Tenant: response})
+	if req.CompanyName != nil {
+		useCaseReq.CompanyName = req.CompanyName
+	}
+	if req.Subdomain != nil {
+		useCaseReq.Subdomain = req.Subdomain
+	}
+	if req.Description != nil {
+		useCaseReq.Description = req.Description
+	}
+	if req.IsActive != nil {
+		useCaseReq.IsActive = req.IsActive
+	}
+
+	// Handle theme updates
+	if req.Theme != nil {
+		themeUpdate := &ucUpdateTenant.ThemeUpdate{}
+		if req.Theme.PrimaryColor != nil {
+			themeUpdate.PrimaryColor = req.Theme.PrimaryColor
+		}
+		if req.Theme.SecondaryColor != nil {
+			themeUpdate.SecondaryColor = req.Theme.SecondaryColor
+		}
+		if req.Theme.AccentColor != nil {
+			themeUpdate.AccentColor = req.Theme.AccentColor
+		}
+		if req.Theme.TextColor != nil {
+			themeUpdate.TextColor = req.Theme.TextColor
+		}
+		if req.Theme.BackgroundColor != nil {
+			themeUpdate.BackgroundColor = req.Theme.BackgroundColor
+		}
+		if req.Theme.LogoUrl != nil {
+			themeUpdate.LogoUrl = req.Theme.LogoUrl
+		}
+		if req.Theme.FaviconUrl != nil {
+			themeUpdate.FaviconUrl = req.Theme.FaviconUrl
+		}
+		useCaseReq.Theme = themeUpdate
+	}
+
+	// Handle address updates
+	if req.Address != nil {
+		addressUpdate := &ucUpdateTenant.AddressUpdate{}
+		if req.Address.Street != nil {
+			addressUpdate.Street = req.Address.Street
+		}
+		if req.Address.City != nil {
+			addressUpdate.City = req.Address.City
+		}
+		if req.Address.State != nil {
+			addressUpdate.State = req.Address.State
+		}
+		if req.Address.PostalCode != nil {
+			addressUpdate.PostalCode = req.Address.PostalCode
+		}
+		if req.Address.Country != nil {
+			addressUpdate.Country = req.Address.Country
+		}
+		useCaseReq.Address = addressUpdate
+	}
+
+	tenant, err := h.useCase.Update(c.Request.Context(), id, useCaseReq)
+	if err != nil {
+		log.Printf("error updating tenant: %v", err)
+		httperr.WriteError(c, apperrors.NewInternalServerError("Failed to update tenant"))
+		return
+	}
+
+	response := models.FromDomain(tenant)
+	c.JSON(http.StatusOK, models.TenantResponseSingle{Tenant: *response})
 }

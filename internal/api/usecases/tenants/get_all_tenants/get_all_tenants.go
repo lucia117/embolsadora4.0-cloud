@@ -16,10 +16,6 @@ func NewUseCase(repo tenants.TenantRepository) *UseCase {
 }
 
 func (uc *UseCase) Execute(ctx context.Context) ([]domain.Tenant, error) {
-	tenants, err := uc.repo.FindAll(ctx)
-	if err != nil {
-		return nil, err
-	}
+	return uc.repo.FindAll(ctx)
 
-	return tenants, nil
 }
