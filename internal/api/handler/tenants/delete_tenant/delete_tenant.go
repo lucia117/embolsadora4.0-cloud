@@ -9,15 +9,13 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/api/handler/httperr"
 	ucDeleteTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/delete_tenant"
 	apperrors "github.com/tu-org/embolsadora-api/internal/core/errors"
-	"github.com/tu-org/embolsadora-api/internal/repo/pg/tenants"
 )
 
 type DeleteTenantHandler struct {
 	useCase ucDeleteTenant.UseCase
 }
 
-func NewDeleteTenantHandler(repo tenants.TenantRepository) *DeleteTenantHandler {
-	useCase := ucDeleteTenant.NewUseCase(repo)
+func NewDeleteTenantHandler(useCase ucDeleteTenant.UseCase) *DeleteTenantHandler {
 	return &DeleteTenantHandler{
 		useCase: useCase,
 	}
@@ -37,5 +35,7 @@ func (h *DeleteTenantHandler) DeleteTenant(c *gin.Context) {
 		return
 	}
 
-	c.Status(http.StatusNoContent)
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Tenant deleted successfully",
+	})
 }

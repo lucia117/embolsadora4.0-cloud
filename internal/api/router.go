@@ -17,6 +17,7 @@ import (
 	userhandlers "github.com/tu-org/embolsadora-api/internal/api/handler/users"
 	"github.com/tu-org/embolsadora-api/internal/api/usecases/tasks"
 	ucCreateTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/create_tenant"
+	ucDeleteTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/delete_tenant"
 	ucGetAllTenants "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/get_all_tenants"
 	ucGetTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/get_tenant"
 	"github.com/tu-org/embolsadora-api/internal/repo/pg/tenants"
@@ -57,13 +58,14 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 	getAllTenantsUseCase := ucGetAllTenants.NewUseCase(deps.TenantRepo)
 	getTenantUseCase := ucGetTenant.NewUseCase(deps.TenantRepo)
 	createTenantUseCase := ucCreateTenant.NewUseCase(deps.TenantRepo)
+	deleteTenantUseCase := ucDeleteTenant.NewUseCase(deps.TenantRepo)
 
 	getAllTenantsHandler := getAllTenants.NewGetAllTenantsHandler(getAllTenantsUseCase)
 	getTenantHandler := getTenant.NewGetTenantHandler(getTenantUseCase)
 	createTenantHandler := createTenant.NewCreateTenantHandler(createTenantUseCase)
+	deleteTenantHandler := deleteTenant.NewDeleteTenantHandler(deleteTenantUseCase)
 
 	updateTenantHandler := updateTenant.NewUpdateTenantHandler(deps.TenantRepo)
-	deleteTenantHandler := deleteTenant.NewDeleteTenantHandler(deps.TenantRepo)
 
 	g.GET("/tenants", getAllTenantsHandler.GetAllTenants)
 	g.POST("/tenants", createTenantHandler.CreateTenant)
