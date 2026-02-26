@@ -10,15 +10,13 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/api/handler/tenants/update_tenant/models"
 	ucUpdateTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/update_tenant"
 	apperrors "github.com/tu-org/embolsadora-api/internal/core/errors"
-	"github.com/tu-org/embolsadora-api/internal/repo/pg/tenants"
 )
 
 type UpdateTenantHandler struct {
 	useCase ucUpdateTenant.UseCase
 }
 
-func NewUpdateTenantHandler(repo tenants.TenantRepository) *UpdateTenantHandler {
-	useCase := ucUpdateTenant.NewUseCase(repo)
+func NewUpdateTenantHandler(useCase ucUpdateTenant.UseCase) *UpdateTenantHandler {
 	return &UpdateTenantHandler{
 		useCase: useCase,
 	}
@@ -113,5 +111,5 @@ func (h *UpdateTenantHandler) UpdateTenant(c *gin.Context) {
 	}
 
 	response := models.FromDomain(tenant)
-	c.JSON(http.StatusOK, models.TenantResponseSingle{Tenant: *response})
+	c.JSON(http.StatusOK, response)
 }

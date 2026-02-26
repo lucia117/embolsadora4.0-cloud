@@ -40,11 +40,6 @@ type TenantResponse struct {
 	UpdatedAt   string  `json:"updatedAt"`
 }
 
-// TenantResponseSingle define la estructura de respuesta para un solo tenant
-type TenantResponseSingle struct {
-	Tenant TenantResponse `json:"tenant"`
-}
-
 func FromDomain(tenant *domain.Tenant) *TenantResponse {
 	return &TenantResponse{
 		ID:          tenant.ID.String(),

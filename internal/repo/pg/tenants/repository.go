@@ -96,7 +96,7 @@ func (r *tenantRepository) FindAll(ctx context.Context) ([]domain.Tenant, error)
 
 func (r *tenantRepository) Update(ctx context.Context, tenant *domain.Tenant) error {
 	_, err := r.db.Exec(ctx, UpdateQuery,
-		tenant.ID, tenant.Name, tenant.CompanyName, tenant.Subdomain, tenant.Description, tenant.IsActive,
+		tenant.Name, tenant.CompanyName, tenant.Subdomain, tenant.Description, tenant.IsActive,
 		tenant.Theme.PrimaryColor, tenant.Theme.SecondaryColor, tenant.Theme.AccentColor, tenant.Theme.TextColor, tenant.Theme.BackgroundColor, tenant.Theme.LogoUrl, tenant.Theme.FaviconUrl,
 		tenant.Address.Street, tenant.Address.City, tenant.Address.State, tenant.Address.PostalCode, tenant.Address.Country,
 		tenant.UpdatedAt,
