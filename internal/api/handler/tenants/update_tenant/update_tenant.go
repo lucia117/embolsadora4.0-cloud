@@ -105,6 +105,10 @@ func (h *UpdateTenantHandler) UpdateTenant(c *gin.Context) {
 
 	tenant, err := h.useCase.Update(c.Request.Context(), id, useCaseReq)
 	if err != nil {
+		if err == ucUpdateTenant.ErrTenantNotFound {
+			httperr.WriteError(c, apperrors.NewNotFound("Tenant no encontrado"))
+			return
+		}
 		log.Printf("error updating tenant: %v", err)
 		httperr.WriteError(c, apperrors.NewInternalServerError("Failed to update tenant"))
 		return

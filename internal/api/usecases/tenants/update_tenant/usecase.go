@@ -2,12 +2,15 @@ package update_tenant
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/tu-org/embolsadora-api/internal/domain"
 	"github.com/tu-org/embolsadora-api/internal/repo/pg/tenants"
 )
+
+var ErrTenantNotFound = errors.New("tenant not found")
 
 // UseCase defines the interface for tenant update use case
 type UseCase interface {
@@ -62,6 +65,9 @@ func (uc *useCase) Update(ctx context.Context, id uuid.UUID, req *UpdateTenantRe
 	tenant, err := uc.repo.FindByID(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	if tenant == nil {
+		return nil, ErrTenantNotFound
 	}
 
 	// Update fields if they are provided (not nil)
