@@ -1,11 +1,11 @@
-package crate_task
+package create_task
 
 import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/tu-org/embolsadora-api/internal/api/handler/httperr"
-	"github.com/tu-org/embolsadora-api/internal/api/handler/tasks/crate_task/models"
+	"github.com/tu-org/embolsadora-api/internal/api/handler/tasks/create_task/models"
 	"github.com/tu-org/embolsadora-api/internal/api/usecases/tasks"
 	apperrors "github.com/tu-org/embolsadora-api/internal/core/errors"
 )

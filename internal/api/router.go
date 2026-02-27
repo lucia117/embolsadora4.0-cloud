@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/gin-gonic/gin"
-	createTask "github.com/tu-org/embolsadora-api/internal/api/handler/tasks/crate_task"
+	createTask "github.com/tu-org/embolsadora-api/internal/api/handler/tasks/create_task"
 	deleteTask "github.com/tu-org/embolsadora-api/internal/api/handler/tasks/delete_task"
 	getTask "github.com/tu-org/embolsadora-api/internal/api/handler/tasks/get_task"
 	getTasks "github.com/tu-org/embolsadora-api/internal/api/handler/tasks/get_tasks"
