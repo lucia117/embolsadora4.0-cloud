@@ -31,10 +31,13 @@ func (r *tenantRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.
 	var address domain.Address
 	var tenantID uuid.UUID
 
+	var description, logoUrl, faviconUrl *string
+	var street, city, state, postalCode, country *string
+
 	err := r.db.QueryRow(ctx, FindByIDQuery, id).Scan(
-		&tenantID, &tenant.Name, &tenant.CompanyName, &tenant.Subdomain, &tenant.Description, &tenant.IsActive,
-		&theme.PrimaryColor, &theme.SecondaryColor, &theme.AccentColor, &theme.TextColor, &theme.BackgroundColor, &theme.LogoUrl, &theme.FaviconUrl,
-		&address.Street, &address.City, &address.State, &address.PostalCode, &address.Country,
+		&tenantID, &tenant.Name, &tenant.CompanyName, &tenant.Subdomain, &description, &tenant.IsActive,
+		&theme.PrimaryColor, &theme.SecondaryColor, &theme.AccentColor, &theme.TextColor, &theme.BackgroundColor, &logoUrl, &faviconUrl,
+		&street, &city, &state, &postalCode, &country,
 		&tenant.CreatedAt, &tenant.UpdatedAt,
 	)
 
@@ -43,7 +46,15 @@ func (r *tenantRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.
 	}
 
 	tenant.ID = tenantID
+	tenant.Description = derefString(description)
+	theme.LogoUrl = derefString(logoUrl)
+	theme.FaviconUrl = derefString(faviconUrl)
 	tenant.Theme = theme
+	address.Street = derefString(street)
+	address.City = derefString(city)
+	address.State = derefString(state)
+	address.PostalCode = derefString(postalCode)
+	address.Country = derefString(country)
 	tenant.Address = address
 	return &tenant, nil
 }
@@ -71,10 +82,13 @@ func (r *tenantRepository) FindAll(ctx context.Context) ([]domain.Tenant, error)
 		var theme domain.Theme
 		var address domain.Address
 
+		var description, logoUrl, faviconUrl *string
+		var street, city, state, postalCode, country *string
+
 		err := rows.Scan(
-			&tenant.ID, &tenant.Name, &tenant.CompanyName, &tenant.Subdomain, &tenant.Description, &tenant.IsActive,
-			&theme.PrimaryColor, &theme.SecondaryColor, &theme.AccentColor, &theme.TextColor, &theme.BackgroundColor, &theme.LogoUrl, &theme.FaviconUrl,
-			&address.Street, &address.City, &address.State, &address.PostalCode, &address.Country,
+			&tenant.ID, &tenant.Name, &tenant.CompanyName, &tenant.Subdomain, &description, &tenant.IsActive,
+			&theme.PrimaryColor, &theme.SecondaryColor, &theme.AccentColor, &theme.TextColor, &theme.BackgroundColor, &logoUrl, &faviconUrl,
+			&street, &city, &state, &postalCode, &country,
 			&tenant.CreatedAt, &tenant.UpdatedAt,
 		)
 
@@ -82,7 +96,15 @@ func (r *tenantRepository) FindAll(ctx context.Context) ([]domain.Tenant, error)
 			return nil, err
 		}
 
+		tenant.Description = derefString(description)
+		theme.LogoUrl = derefString(logoUrl)
+		theme.FaviconUrl = derefString(faviconUrl)
 		tenant.Theme = theme
+		address.Street = derefString(street)
+		address.City = derefString(city)
+		address.State = derefString(state)
+		address.PostalCode = derefString(postalCode)
+		address.Country = derefString(country)
 		tenant.Address = address
 		tenants = append(tenants, tenant)
 	}
@@ -108,4 +130,12 @@ func (r *tenantRepository) Update(ctx context.Context, tenant *domain.Tenant) er
 func (r *tenantRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	_, err := r.db.Exec(ctx, DeleteQuery, id)
 	return err
+}
+
+// derefString convierte un *string nullable a string, retornando "" si es nil
+func derefString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
