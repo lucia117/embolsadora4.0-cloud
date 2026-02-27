@@ -1,6 +1,7 @@
 package create_tenant
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -28,7 +29,8 @@ func (h *CreateTenantHandler) CreateTenant(c *gin.Context) {
 
 	err = h.useCase.Create(c.Request.Context(), tenant)
 	if err != nil {
-		httperr.WriteError(c, apperrors.NewInternalServerError("Failed to create tenant. "+err.Error()))
+		log.Printf("error creating tenant: %v", err)
+		httperr.WriteError(c, apperrors.NewInternalServerError("Failed to create tenant"))
 		return
 	}
 
