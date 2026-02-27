@@ -6,3 +6,6 @@ import "errors"
 
 // ErrForbidden is returned when the operation lacks a tenant in context or violates tenant access rules.
 var ErrForbidden = errors.New("forbidden")
+
+// ErrNotFound is returned when a requested resource does not exist.
+var ErrNotFound = errors.New("not found")

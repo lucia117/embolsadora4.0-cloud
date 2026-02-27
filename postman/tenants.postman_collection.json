@@ -1,0 +1,228 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "Embolsadora API - Tenants",
+    "description": "Endpoints CRUD para la gestión de tenants en la API Embolsadora 4.0.\n\nBase URL: `{{baseUrl}}/api/v1`\n\nAutenticación: JWT Bearer Token en el header `Authorization`.\n\n**Flujo sugerido:**\n1. POST Create Tenant → guarda el `id` en la variable `{{tenantId}}`\n2. GET All Tenants\n3. GET Tenant by ID\n4. PATCH Update Tenant\n5. DELETE Tenant",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string",
+      "description": "URL base de la API. Sobreescribir con el ambiente correspondiente."
+    },
+    {
+      "key": "tenantId",
+      "value": "",
+      "type": "string",
+      "description": "ID del tenant. Se setea automáticamente al ejecutar POST Create Tenant."
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "GET All Tenants",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/tenants",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "tenants"]
+        },
+        "description": "Retorna la lista de todos los tenants registrados en el sistema."
+      },
+      "response": [
+        {
+          "name": "200 OK - Lista de tenants",
+          "status": "OK",
+          "code": 200,
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "[\n  {\n    \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"name\": \"mrg-equipamientos\",\n    \"companyName\": \"M.R.G. Equipamientos S.R.L.\",\n    \"subdomain\": \"mrg\",\n    \"description\": \"Empresa fabricante de embolsadoras industriales\",\n    \"isActive\": true,\n    \"theme\": {\n      \"primaryColor\": \"#1A73E8\",\n      \"secondaryColor\": \"#34A853\",\n      \"accentColor\": \"#FBBC04\",\n      \"textColor\": \"#202124\",\n      \"backgroundColor\": \"#FFFFFF\",\n      \"logoUrl\": \"\",\n      \"faviconUrl\": \"/favicon.ico\"\n    },\n    \"address\": {\n      \"street\": \"Av. Industrial 1234\",\n      \"city\": \"Santa Fe\",\n      \"state\": \"Santa Fe\",\n      \"postalCode\": \"3000\",\n      \"country\": \"Argentina\"\n    },\n    \"createdAt\": \"2025-05-01T00:00:00.000Z\",\n    \"updatedAt\": \"2025-05-01T00:00:00.000Z\"\n  }\n]",
+          "_postman_previewlanguage": "json"
+        }
+      ]
+    },
+    {
+      "name": "POST Create Tenant",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "  const body = pm.response.json();",
+              "  if (body.tenant && body.tenant.id) {",
+              "    pm.collectionVariables.set('tenantId', body.tenant.id);",
+              "    console.log('tenantId seteado:', body.tenant.id);",
+              "  }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"mrg-equipamientos\",\n  \"companyName\": \"M.R.G. Equipamientos S.R.L.\",\n  \"subdomain\": \"mrg\",\n  \"description\": \"Empresa fabricante de embolsadoras industriales\",\n  \"adminUser\": {\n    \"email\": \"admin@mrg.com\",\n    \"firstName\": \"Admin\",\n    \"lastName\": \"MRG\",\n    \"password\": \"password123\"\n  },\n  \"theme\": {\n    \"primaryColor\": \"#1A73E8\",\n    \"secondaryColor\": \"#34A853\",\n    \"accentColor\": \"#FBBC04\",\n    \"textColor\": \"#202124\",\n    \"backgroundColor\": \"#FFFFFF\"\n  },\n  \"address\": {\n    \"street\": \"Av. Industrial 1234\",\n    \"city\": \"Santa Fe\",\n    \"state\": \"Santa Fe\",\n    \"postalCode\": \"3000\",\n    \"country\": \"Argentina\"\n  }\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/tenants",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "tenants"]
+        },
+        "description": "Crea un nuevo tenant con su usuario administrador, tema visual y dirección.\n\n**Campos requeridos:** `name`, `companyName`, `subdomain`, `adminUser` (con `email`, `firstName`, `lastName`, `password`), `theme` (con `primaryColor`), `address` (todos los campos).\n\nEl script de test guarda automáticamente el `id` del tenant creado en la variable de colección `{{tenantId}}`."
+      },
+      "response": [
+        {
+          "name": "201 Created",
+          "status": "Created",
+          "code": 201,
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n  \"tenant\": {\n    \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"name\": \"mrg-equipamientos\",\n    \"companyName\": \"M.R.G. Equipamientos S.R.L.\",\n    \"subdomain\": \"mrg\",\n    \"description\": \"Empresa fabricante de embolsadoras industriales\",\n    \"isActive\": true,\n    \"theme\": {\n      \"primaryColor\": \"#1A73E8\",\n      \"secondaryColor\": \"#34A853\",\n      \"accentColor\": \"#FBBC04\",\n      \"textColor\": \"#202124\",\n      \"backgroundColor\": \"#FFFFFF\",\n      \"logoUrl\": \"\",\n      \"faviconUrl\": \"/favicon.ico\"\n    },\n    \"address\": {\n      \"street\": \"Av. Industrial 1234\",\n      \"city\": \"Santa Fe\",\n      \"state\": \"Santa Fe\",\n      \"postalCode\": \"3000\",\n      \"country\": \"Argentina\"\n    },\n    \"createdAt\": \"2025-05-01T00:00:00Z\",\n    \"updatedAt\": \"2025-05-01T00:00:00Z\"\n  }\n}",
+          "_postman_previewlanguage": "json"
+        },
+        {
+          "name": "400 Bad Request - Campos requeridos faltantes",
+          "status": "Bad Request",
+          "code": 400,
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n  \"error\": \"Key: 'TenantRequest.Name' Error:Field validation for 'Name' failed on the 'required' tag\"\n}",
+          "_postman_previewlanguage": "json"
+        }
+      ]
+    },
+    {
+      "name": "GET Tenant by ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "tenants", "{{tenantId}}"]
+        },
+        "description": "Retorna los datos de un tenant específico por su UUID.\n\nUsa la variable `{{tenantId}}` seteada automáticamente al ejecutar POST Create Tenant, o reemplazá con un UUID válido."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "status": "OK",
+          "code": 200,
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n  \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"name\": \"mrg-equipamientos\",\n  \"companyName\": \"M.R.G. Equipamientos S.R.L.\",\n  \"subdomain\": \"mrg\",\n  \"description\": \"Empresa fabricante de embolsadoras industriales\",\n  \"isActive\": true,\n  \"theme\": {\n    \"primaryColor\": \"#1A73E8\",\n    \"secondaryColor\": \"#34A853\",\n    \"accentColor\": \"#FBBC04\",\n    \"textColor\": \"#202124\",\n    \"backgroundColor\": \"#FFFFFF\",\n    \"logoUrl\": \"\",\n    \"faviconUrl\": \"/favicon.ico\"\n  },\n  \"address\": {\n    \"street\": \"Av. Industrial 1234\",\n    \"city\": \"Santa Fe\",\n    \"state\": \"Santa Fe\",\n    \"postalCode\": \"3000\",\n    \"country\": \"Argentina\"\n  },\n  \"createdAt\": \"2025-05-01 00:00:00\",\n  \"updatedAt\": \"2025-05-01 00:00:00\"\n}",
+          "_postman_previewlanguage": "json"
+        },
+        {
+          "name": "404 Not Found",
+          "status": "Not Found",
+          "code": 404,
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n  \"error\": \"Tenant no encontrado\"\n}",
+          "_postman_previewlanguage": "json"
+        },
+        {
+          "name": "400 Bad Request - ID inválido",
+          "status": "Bad Request",
+          "code": 400,
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n  \"error\": \"ID de tenant inválido\"\n}",
+          "_postman_previewlanguage": "json"
+        }
+      ]
+    },
+    {
+      "name": "PATCH Update Tenant",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"mrg-equipamientos-v2\",\n  \"companyName\": \"M.R.G. Equipamientos S.R.L.\",\n  \"description\": \"Descripción actualizada\",\n  \"isActive\": true,\n  \"theme\": {\n    \"primaryColor\": \"#0D47A1\",\n    \"secondaryColor\": \"#1B5E20\"\n  },\n  \"address\": {\n    \"street\": \"Av. Industrial 5678\",\n    \"city\": \"Santa Fe\",\n    \"state\": \"Santa Fe\",\n    \"postalCode\": \"3000\",\n    \"country\": \"Argentina\"\n  }\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "tenants", "{{tenantId}}"]
+        },
+        "description": "Actualiza parcialmente un tenant. Todos los campos del body son **opcionales** (PATCH semántico). Solo se actualizan los campos enviados.\n\n**Campos actualizables:** `name`, `companyName`, `subdomain`, `description`, `isActive`, `theme` (parcial), `address` (parcial)."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "status": "OK",
+          "code": 200,
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n  \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"name\": \"mrg-equipamientos-v2\",\n  \"companyName\": \"M.R.G. Equipamientos S.R.L.\",\n  \"subdomain\": \"mrg\",\n  \"description\": \"Descripción actualizada\",\n  \"isActive\": true,\n  \"theme\": {\n    \"primaryColor\": \"#0D47A1\",\n    \"secondaryColor\": \"#1B5E20\",\n    \"accentColor\": \"\",\n    \"textColor\": \"\",\n    \"backgroundColor\": \"\",\n    \"logoUrl\": \"\",\n    \"faviconUrl\": \"/favicon.ico\"\n  },\n  \"address\": {\n    \"street\": \"Av. Industrial 5678\",\n    \"city\": \"Santa Fe\",\n    \"state\": \"Santa Fe\",\n    \"postalCode\": \"3000\",\n    \"country\": \"Argentina\"\n  },\n  \"createdAt\": \"2025-05-01T00:00:00Z\",\n  \"updatedAt\": \"2025-05-02T00:00:00Z\"\n}",
+          "_postman_previewlanguage": "json"
+        },
+        {
+          "name": "404 Not Found",
+          "status": "Not Found",
+          "code": 404,
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n  \"error\": \"Tenant no encontrado\"\n}",
+          "_postman_previewlanguage": "json"
+        }
+      ]
+    },
+    {
+      "name": "DELETE Tenant",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "tenants", "{{tenantId}}"]
+        },
+        "description": "Elimina un tenant por su UUID. La operación es permanente."
+      },
+      "response": [
+        {
+          "name": "200 OK",
+          "status": "OK",
+          "code": 200,
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n  \"message\": \"Tenant deleted successfully\"\n}",
+          "_postman_previewlanguage": "json"
+        },
+        {
+          "name": "404 Not Found",
+          "status": "Not Found",
+          "code": 404,
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n  \"error\": \"Tenant no encontrado\"\n}",
+          "_postman_previewlanguage": "json"
+        },
+        {
+          "name": "400 Bad Request - ID inválido",
+          "status": "Bad Request",
+          "code": 400,
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n  \"error\": \"ID de tenant inválido\"\n}",
+          "_postman_previewlanguage": "json"
+        }
+      ]
+    }
+  ]
+}

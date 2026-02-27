@@ -184,6 +184,21 @@ make docker   # docker compose -f docker-compose.dev.yml up --build
 make migrate  # placeholder
 ```
 
+## Colecciones Postman
+
+Las colecciones Postman están en la carpeta [`postman/`](postman/).
+
+| Archivo | Descripción |
+|---|---|
+| [`tenants.postman_collection.json`](postman/tenants.postman_collection.json) | CRUD completo de tenants (`GET`, `POST`, `PATCH`, `DELETE`) |
+| [`env-local.postman_environment.json`](postman/env-local.postman_environment.json) | Variables de entorno para desarrollo local (`http://localhost:8080`) |
+
+**Cómo usar:**
+1. Importar el archivo de colección en Postman.
+2. Importar el ambiente local y seleccionarlo como activo.
+3. Completar la variable `token` con el JWT obtenido desde `POST /auth/login`.
+4. Ejecutar `POST Create Tenant`: el `id` del tenant creado se guarda automáticamente en la variable `{{tenantId}}` para los demás requests.
+
 ## OpenAPI y ADRs
 
 - La especificación está en `docs/openapi.yaml`.
