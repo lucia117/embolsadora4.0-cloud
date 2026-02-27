@@ -133,8 +133,14 @@ func (r *tenantRepository) Update(ctx context.Context, tenant *domain.Tenant) er
 }
 
 func (r *tenantRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.Exec(ctx, DeleteQuery, id)
-	return err
+	tag, err := r.db.Exec(ctx, DeleteQuery, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
 }
 
 // derefString convierte un *string nullable a string, retornando "" si es nil

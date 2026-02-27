@@ -30,6 +30,10 @@ func (h *DeleteTenantHandler) DeleteTenant(c *gin.Context) {
 
 	err = h.useCase.Delete(c.Request.Context(), id)
 	if err != nil {
+		if err == ucDeleteTenant.ErrTenantNotFound {
+			httperr.WriteError(c, apperrors.NewNotFound("Tenant no encontrado"))
+			return
+		}
 		log.Printf("error deleting tenant: %v", err)
 		httperr.WriteError(c, apperrors.NewInternalServerError("Failed to delete tenant"))
 		return
