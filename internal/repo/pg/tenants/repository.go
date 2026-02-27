@@ -2,8 +2,10 @@ package tenants
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tu-org/embolsadora-api/internal/domain"
 )
@@ -42,6 +44,9 @@ func (r *tenantRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.
 	)
 
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
