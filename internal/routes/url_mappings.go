@@ -8,7 +8,6 @@ import (
 
 	api "github.com/tu-org/embolsadora-api/internal/api"
 	apimw "github.com/tu-org/embolsadora-api/internal/api/middleware"
-	"github.com/tu-org/embolsadora-api/internal/api/usecases/tasks"
 	"github.com/tu-org/embolsadora-api/internal/auth"
 	consumers "github.com/tu-org/embolsadora-api/internal/consumers"
 	consumermw "github.com/tu-org/embolsadora-api/internal/consumers/middleware"
@@ -50,8 +49,7 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool) {
 	tenantRepo := tenantsRepository.NewTenantRepository(db)
 
 	api.RegisterAdminRoutes(v1, api.Deps{
-		TaskService: tasks.NewMockService(db),
-		TenantRepo:  tenantRepo,
+		TenantRepo: tenantRepo,
 	}, api.Config{})
 
 	// Superficie para consumidores (IoT / dispositivos, etc.)
