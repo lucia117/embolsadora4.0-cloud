@@ -1,6 +1,10 @@
 package models
 
-import "github.com/tu-org/embolsadora-api/internal/domain"
+import (
+	"time"
+
+	"github.com/tu-org/embolsadora-api/internal/domain"
+)
 
 // Theme represents the visual theme configuration for a tenant
 type Theme struct {
@@ -60,7 +64,7 @@ func FromDomain(tenant *domain.Tenant) *TenantResponse {
 			PostalCode: tenant.Address.PostalCode,
 			Country:    tenant.Address.Country,
 		},
-		CreatedAt: tenant.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt: tenant.UpdatedAt.Format("2006-01-02 15:04:05"),
+		CreatedAt: tenant.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: tenant.UpdatedAt.Format(time.RFC3339),
 	}
 }
