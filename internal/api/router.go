@@ -4,18 +4,12 @@ import (
 	"context"
 
 	"github.com/gin-gonic/gin"
-	createTask "github.com/tu-org/embolsadora-api/internal/api/handler/tasks/create_task"
-	deleteTask "github.com/tu-org/embolsadora-api/internal/api/handler/tasks/delete_task"
-	getTask "github.com/tu-org/embolsadora-api/internal/api/handler/tasks/get_task"
-	getTasks "github.com/tu-org/embolsadora-api/internal/api/handler/tasks/get_tasks"
-	updateTask "github.com/tu-org/embolsadora-api/internal/api/handler/tasks/update_task"
 	createTenant "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/create_tenant"
 	deleteTenant "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/delete_tenant"
 	getAllTenants "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/get_all_tenants"
 	getTenant "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/get_tenant"
 	updateTenant "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/update_tenant"
 	userhandlers "github.com/tu-org/embolsadora-api/internal/api/handler/users"
-	"github.com/tu-org/embolsadora-api/internal/api/usecases/tasks"
 	ucCreateTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/create_tenant"
 	ucDeleteTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/delete_tenant"
 	ucGetAllTenants "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/get_all_tenants"
@@ -29,7 +23,6 @@ import (
 type Deps struct {
 	JWTVerifier security.Verifier
 	RBACCan     func(ctx context.Context, perm string) error
-	TaskService tasks.Service
 	TenantRepo  tenants.TenantRepository
 }
 
@@ -55,7 +48,6 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 	g.POST("/machines", CreateMachine)
 
 	// Tenants
-
 	getAllTenantsUseCase := ucGetAllTenants.NewUseCase(deps.TenantRepo)
 	getTenantUseCase := ucGetTenant.NewUseCase(deps.TenantRepo)
 	createTenantUseCase := ucCreateTenant.NewUseCase(deps.TenantRepo)
@@ -73,16 +65,4 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 	g.GET("/tenants/:id", getTenantHandler.GetTenant)
 	g.PATCH("/tenants/:id", updateTenantHandler.UpdateTenant)
 	g.DELETE("/tenants/:id", deleteTenantHandler.DeleteTenant)
-
-	// Tasks
-	getTasksHandler := getTasks.NewGetTasksHandler(deps.TaskService)
-	getTaskHandler := getTask.NewGetTaskHandler(deps.TaskService)
-	createTaskHandler := createTask.NewCreateTaskHandler(deps.TaskService)
-	updateTaskHandler := updateTask.NewUpdateTaskHandler(deps.TaskService)
-	deleteTaskHandler := deleteTask.NewDeleteTaskHandler(deps.TaskService)
-	g.GET("/tasks", getTasksHandler.GetTasks)
-	g.POST("/tasks", createTaskHandler.CreateTask)
-	g.GET("/tasks/:id", getTaskHandler.GetTask)
-	g.PUT("/tasks/:id", updateTaskHandler.UpdateTask)
-	g.DELETE("/tasks/:id", deleteTaskHandler.DeleteTask)
 }

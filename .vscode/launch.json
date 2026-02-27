@@ -10,8 +10,7 @@
       "cwd": "${workspaceFolder}",
       "env": {
         "APP_ENV": "dev",
-        "DB_URL": "postgres://postgres://embolsadora_user:embolsadora_password@localhost:5432/embolsadora_test?sslmode=disable",
-        // "DB_URL": "postgres://embolsadora_user:embolsadora_password@localhost:5432/embolsadora_dev?sslmode=disable",        
+        "DB_URL": "postgres://postgres:postgres@localhost:5432/embolsadora?sslmode=disable",
         "REDIS_ADDR": "localhost:6379",
         "AUTH_JWT_ISSUER": "embolsadora",
         "AUTH_JWT_PUBLIC": "__placeholder__",
