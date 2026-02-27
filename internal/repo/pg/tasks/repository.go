@@ -9,12 +9,21 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/domain"
 )
 
+// TaskRepository define la interfaz para el repositorio de tareas
+type TaskRepository interface {
+	Create(ctx context.Context, task *domain.Task) error
+	FindAll(ctx context.Context) ([]domain.Task, error)
+	FindByID(ctx context.Context, id uuid.UUID) (*domain.Task, error)
+	Update(ctx context.Context, task *domain.Task) error
+	Delete(ctx context.Context, id uuid.UUID) error
+}
+
 type taskRepository struct {
 	db *sql.DB
 }
 
 // NewTaskRepository crea una nueva instancia del repositorio de tareas
-func NewTaskRepository(db *sql.DB) domain.TaskRepository {
+func NewTaskRepository(db *sql.DB) TaskRepository {
 	return &taskRepository{db: db}
 }
 

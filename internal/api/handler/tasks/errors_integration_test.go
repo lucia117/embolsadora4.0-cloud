@@ -10,6 +10,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/tu-org/embolsadora-api/internal/api/handler/tasks/get_task"
+	"github.com/tu-org/embolsadora-api/internal/api/handler/tasks/get_tasks"
 	"github.com/tu-org/embolsadora-api/internal/api/usecases/tasks"
 	"github.com/tu-org/embolsadora-api/internal/domain"
 )
@@ -50,8 +52,8 @@ func TestTaskHandlers_ErrorPayloads(t *testing.T) {
 
 	t.Run("list tasks internal error", func(t *testing.T) {
 		router := gin.New()
-		handler := NewTaskHandler(stubTaskService{getTasksErr: errors.New("boom")})
-		router.GET("/tasks", handler.ListTasks)
+		handler := get_tasks.NewGetTasksHandler(stubTaskService{getTasksErr: errors.New("boom")})
+		router.GET("/tasks", handler.GetTasks)
 
 		resp := performRequest(router, http.MethodGet, "/tasks")
 
@@ -77,7 +79,7 @@ func TestTaskHandlers_ErrorPayloads(t *testing.T) {
 
 	t.Run("get task not found", func(t *testing.T) {
 		router := gin.New()
-		handler := NewTaskHandler(stubTaskService{getTaskByIDErr: tasks.ErrTaskNotFound})
+		handler := get_task.NewGetTaskHandler(stubTaskService{getTaskByIDErr: tasks.ErrTaskNotFound})
 		router.GET("/tasks/:id", handler.GetTask)
 
 		taskID := uuid.New().String()

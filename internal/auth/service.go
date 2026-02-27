@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -140,12 +141,8 @@ func (s *AuthService) ForgotPassword(ctx context.Context, email string) error {
 	}
 
 	// Crear token de reseteo (válido por 1 hora)
-	uuid, err := generateUUID()
-	if err != nil {
-		return fmt.Errorf("failed to generate UUID: %w", err)
-	}
 	resetToken := &PasswordResetToken{
-		ID:        uuid,
+		ID:        uuid.New().String(),
 		UserID:    user.ID,
 		Token:     tokenStr,
 		ExpiresAt: time.Now().Add(1 * time.Hour),
@@ -226,15 +223,6 @@ func generateSecureToken(length int) (string, error) {
 		return "", err
 	}
 	return base64.URLEncoding.EncodeToString(bytes), nil
-}
-
-// generateUUID genera un UUID simple (para IDs de tokens)
-func generateUUID() (string, error) {
-	bytes := make([]byte, 16)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", fmt.Errorf("failed to generate random bytes for UUID: %w", err)
-	}
-	return fmt.Sprintf("%x-%x-%x-%x-%x", bytes[0:4], bytes[4:6], bytes[6:8], bytes[8:10], bytes[10:]), nil
 }
 
 // EmailService define la interfaz para envío de emails
