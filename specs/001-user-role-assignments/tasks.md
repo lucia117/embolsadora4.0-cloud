@@ -18,8 +18,8 @@
 
 **Purpose**: Create database schema — required before any code references the new tables.
 
-- [ ] T001 [P] Create migration UP file `migrations/000003_create_roles_and_user_tenant_roles.up.sql` — roles catalog + user_tenant_roles table + partial unique index + seed data
-- [ ] T002 [P] Create migration DOWN file `migrations/000003_create_roles_and_user_tenant_roles.down.sql` — drop indexes then tables in reverse order
+- [x] T001 [P] Create migration UP file `migrations/000003_create_roles_and_user_tenant_roles.up.sql` — roles catalog + user_tenant_roles table + partial unique index + seed data
+- [x] T002 [P] Create migration DOWN file `migrations/000003_create_roles_and_user_tenant_roles.down.sql` — drop indexes then tables in reverse order
 
 **Checkpoint**: Run `migrate up` and verify `roles` and `user_tenant_roles` tables exist in the database
 
