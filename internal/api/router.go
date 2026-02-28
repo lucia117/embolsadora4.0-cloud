@@ -10,6 +10,7 @@ import (
 	getTenant "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/get_tenant"
 	updateTenant "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/update_tenant"
 	assignUserRole "github.com/tu-org/embolsadora-api/internal/api/handler/user_roles/assign_user_role"
+	listUserRoles "github.com/tu-org/embolsadora-api/internal/api/handler/user_roles/list_user_roles"
 	userhandlers "github.com/tu-org/embolsadora-api/internal/api/handler/users"
 	ucCreateTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/create_tenant"
 	ucDeleteTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/delete_tenant"
@@ -17,6 +18,7 @@ import (
 	ucGetTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/get_tenant"
 	ucUpdateTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/update_tenant"
 	ucAssignUserRole "github.com/tu-org/embolsadora-api/internal/api/usecases/user_roles/assign_user_role"
+	ucListUserRoles "github.com/tu-org/embolsadora-api/internal/api/usecases/user_roles/list_user_roles"
 	"github.com/tu-org/embolsadora-api/internal/repo/pg/tenants"
 	userRolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/user_roles"
 	"github.com/tu-org/embolsadora-api/internal/security"
@@ -72,8 +74,10 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 
 	// User Roles
 	assignUserRoleUseCase := ucAssignUserRole.NewUseCase(deps.UserRoleRepo)
-
 	assignUserRoleHandler := assignUserRole.NewAssignUserRoleHandler(assignUserRoleUseCase)
-
 	g.POST("/user-roles", assignUserRoleHandler.Handle)
+
+	listUserRolesUseCase := ucListUserRoles.NewUseCase(deps.UserRoleRepo)
+	listUserRolesHandler := listUserRoles.NewListUserRolesHandler(listUserRolesUseCase)
+	g.GET("/user-roles", listUserRolesHandler.Handle)
 }
