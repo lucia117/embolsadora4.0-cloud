@@ -12,6 +12,7 @@ import (
 	assignUserRole "github.com/tu-org/embolsadora-api/internal/api/handler/user_roles/assign_user_role"
 	listUserRoles "github.com/tu-org/embolsadora-api/internal/api/handler/user_roles/list_user_roles"
 	revokeUserRole "github.com/tu-org/embolsadora-api/internal/api/handler/user_roles/revoke_user_role"
+	updateUserRole "github.com/tu-org/embolsadora-api/internal/api/handler/user_roles/update_user_role"
 	userhandlers "github.com/tu-org/embolsadora-api/internal/api/handler/users"
 	ucCreateTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/create_tenant"
 	ucDeleteTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/delete_tenant"
@@ -21,6 +22,7 @@ import (
 	ucAssignUserRole "github.com/tu-org/embolsadora-api/internal/api/usecases/user_roles/assign_user_role"
 	ucListUserRoles "github.com/tu-org/embolsadora-api/internal/api/usecases/user_roles/list_user_roles"
 	ucRevokeUserRole "github.com/tu-org/embolsadora-api/internal/api/usecases/user_roles/revoke_user_role"
+	ucUpdateUserRole "github.com/tu-org/embolsadora-api/internal/api/usecases/user_roles/update_user_role"
 	"github.com/tu-org/embolsadora-api/internal/repo/pg/tenants"
 	userRolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/user_roles"
 	"github.com/tu-org/embolsadora-api/internal/security"
@@ -82,6 +84,10 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 	listUserRolesUseCase := ucListUserRoles.NewUseCase(deps.UserRoleRepo)
 	listUserRolesHandler := listUserRoles.NewListUserRolesHandler(listUserRolesUseCase)
 	g.GET("/user-roles", listUserRolesHandler.Handle)
+
+	updateUserRoleUseCase := ucUpdateUserRole.NewUseCase(deps.UserRoleRepo)
+	updateUserRoleHandler := updateUserRole.NewUpdateUserRoleHandler(updateUserRoleUseCase)
+	g.PUT("/user-roles/:id", updateUserRoleHandler.Handle)
 
 	revokeUserRoleUseCase := ucRevokeUserRole.NewUseCase(deps.UserRoleRepo)
 	revokeUserRoleHandler := revokeUserRole.NewRevokeUserRoleHandler(revokeUserRoleUseCase)
