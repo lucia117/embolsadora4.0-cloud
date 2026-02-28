@@ -138,8 +138,8 @@
 
 **Purpose**: Final validation that all stories work together and the build is clean.
 
-- [ ] T035 [P] Run `go build ./...` from repo root and fix any compilation errors
-- [ ] T036 [P] Verify Gin routing order in `internal/api/router.go`: confirm `POST /user-roles/bulk` appears before `PUT /user-roles/:id` and `DELETE /user-roles/:id`
+- [x] T035 [P] Run `go build ./...` from repo root and fix any compilation errors
+- [x] T036 [P] Verify Gin routing order in `internal/api/router.go`: confirm `POST /user-roles/bulk` appears before `PUT /user-roles/:id` and `DELETE /user-roles/:id`
 - [ ] T037 Run migration against local PostgreSQL and verify schema: `roles` table seeded with 4 rows, `user_tenant_roles` table exists, partial unique index `idx_utr_active_unique` present
 - [ ] T038 Smoke-test all 6 Pact interactions manually using Postman or curl against local server — verify request/response shapes match `specs/001-user-role-assignments/contracts/user-role-service-api.md`
 
