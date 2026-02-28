@@ -31,11 +31,11 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T003 [P] Create domain types in `internal/domain/user_roles.go` — `UserRoleStatus` type + constants (`active`/`pending`/`revoked`), `UserTenantRole` struct (all fields with nullable pointers), `UserRoleWithContext` struct (for cross-tenant view with TenantName + RoleName)
-- [ ] T004 [P] Add domain errors to `internal/domain/errors.go` — `ErrUserAlreadyHasActiveRole` and `ErrAssignmentNotFound`
-- [ ] T005 [P] Create SQL query constants in `internal/repo/pg/user_roles/resources.go` — `FindByTenantQuery` (with optional status filter via LEFT JOIN roles), `CreateQuery`, `FindByIDQuery`, `UpdateQuery`, `RevokeQuery`, `FindByUserQuery` (JOIN tenants + roles for roleName/tenantName)
-- [ ] T006 Create `UserRoleRepository` interface + full pgx implementation in `internal/repo/pg/user_roles/repository.go` — implement all 7 methods: `FindByTenant`, `FindByID`, `Create`, `Update`, `Revoke`, `BulkCreate` (transactional), `FindByUser`; catch pgconn PgError code `23505` in `Create` and `BulkCreate` → return `domain.ErrUserAlreadyHasActiveRole`; use nullable pointer helpers matching the tenant repo pattern
-- [ ] T007 Wire repository into router: add `UserRoleRepo userrolesrepo.UserRoleRepository` to `Deps` struct in `internal/api/router.go`; instantiate `userRolesRepository.NewUserRoleRepository(db)` and pass it to `api.Deps` in `internal/routes/url_mappings.go`
+- [x] T003 [P] Create domain types in `internal/domain/user_roles.go` — `UserRoleStatus` type + constants (`active`/`pending`/`revoked`), `UserTenantRole` struct (all fields with nullable pointers), `UserRoleWithContext` struct (for cross-tenant view with TenantName + RoleName)
+- [x] T004 [P] Add domain errors to `internal/domain/errors.go` — `ErrUserAlreadyHasActiveRole` and `ErrAssignmentNotFound`
+- [x] T005 [P] Create SQL query constants in `internal/repo/pg/user_roles/resources.go` — `FindByTenantQuery` (with optional status filter via LEFT JOIN roles), `CreateQuery`, `FindByIDQuery`, `UpdateQuery`, `RevokeQuery`, `FindByUserQuery` (JOIN tenants + roles for roleName/tenantName)
+- [x] T006 Create `UserRoleRepository` interface + full pgx implementation in `internal/repo/pg/user_roles/repository.go` — implement all 7 methods: `FindByTenant`, `FindByID`, `Create`, `Update`, `Revoke`, `BulkCreate` (transactional), `FindByUser`; catch pgconn PgError code `23505` in `Create` and `BulkCreate` → return `domain.ErrUserAlreadyHasActiveRole`; use nullable pointer helpers matching the tenant repo pattern
+- [x] T007 Wire repository into router: add `UserRoleRepo userrolesrepo.UserRoleRepository` to `Deps` struct in `internal/api/router.go`; instantiate `userRolesRepository.NewUserRoleRepository(db)` and pass it to `api.Deps` in `internal/routes/url_mappings.go`
 
 **Checkpoint**: `go build ./...` passes — all new types compile, router compiles with new Deps field
 

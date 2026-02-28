@@ -16,14 +16,16 @@ import (
 	ucGetTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/get_tenant"
 	ucUpdateTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/update_tenant"
 	"github.com/tu-org/embolsadora-api/internal/repo/pg/tenants"
+	userRolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/user_roles"
 	"github.com/tu-org/embolsadora-api/internal/security"
 )
 
 // Deps contiene las dependencias necesarias para los handlers
 type Deps struct {
-	JWTVerifier security.Verifier
-	RBACCan     func(ctx context.Context, perm string) error
-	TenantRepo  tenants.TenantRepository
+	JWTVerifier  security.Verifier
+	RBACCan      func(ctx context.Context, perm string) error
+	TenantRepo   tenants.TenantRepository
+	UserRoleRepo userRolesRepo.UserRoleRepository
 }
 
 // TODO: fill in configuration as needed.
