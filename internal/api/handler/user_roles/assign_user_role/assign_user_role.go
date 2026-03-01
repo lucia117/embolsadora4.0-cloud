@@ -5,10 +5,10 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	ucAssignUserRole "github.com/tu-org/embolsadora-api/internal/api/usecases/user_roles/assign_user_role"
 	"github.com/tu-org/embolsadora-api/internal/api/handler/user_roles/assign_user_role/models"
+	ucAssignUserRole "github.com/tu-org/embolsadora-api/internal/api/usecases/user_roles/assign_user_role"
 	"github.com/tu-org/embolsadora-api/internal/domain"
+	"github.com/tu-org/embolsadora-api/internal/platform"
 )
 
 // Handler handles POST /api/v1/user-roles requests.
@@ -28,12 +28,8 @@ func (h *Handler) Handle(c *gin.Context) {
 		return
 	}
 
-	var assignedBy *uuid.UUID
-	if v, exists := c.Get("userID"); exists {
-		if id, ok := v.(uuid.UUID); ok {
-			assignedBy = &id
-		}
-	}
+	// Extract authenticated user ID from request context (populated by JWTAuth middleware)
+	assignedBy := platform.UserID(c.Request.Context())
 
 	result, err := h.useCase.Execute(c.Request.Context(), ucAssignUserRole.AssignRequest{
 		UserID:     req.UserID,
