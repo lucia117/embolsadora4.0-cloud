@@ -103,5 +103,5 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 
 	getUserRolesUseCase := ucGetUserRoles.NewUseCase(deps.UserRoleRepo)
 	getUserRolesHandler := getUserRoles.NewGetUserRolesHandler(getUserRolesUseCase)
-	g.GET("/users/:id/roles", getUserRolesHandler.Handle)
+	g.GET("/users/:userId/roles", getUserRolesHandler.Handle)
 }

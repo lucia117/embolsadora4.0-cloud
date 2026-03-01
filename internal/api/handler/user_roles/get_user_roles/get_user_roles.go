@@ -21,9 +21,9 @@ func NewGetUserRolesHandler(useCase ucGetUserRoles.UseCase) *Handler {
 
 // Handle retrieves all role assignments for a user across all tenants.
 func (h *Handler) Handle(c *gin.Context) {
-	userID, err := uuid.Parse(c.Param("id"))
+	userID, err := uuid.Parse(c.Param("userId"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid id: must be a UUID"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid userId: must be a UUID"})
 		return
 	}
 
