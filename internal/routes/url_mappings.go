@@ -12,6 +12,7 @@ import (
 	consumers "github.com/tu-org/embolsadora-api/internal/consumers"
 	consumermw "github.com/tu-org/embolsadora-api/internal/consumers/middleware"
 	tenantsRepository "github.com/tu-org/embolsadora-api/internal/repo/pg/tenants"
+	userRolesRepository "github.com/tu-org/embolsadora-api/internal/repo/pg/user_roles"
 	"github.com/tu-org/embolsadora-api/internal/telemetry"
 )
 
@@ -45,11 +46,13 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool) {
 		apimw.CORS(),
 	)
 
-	// Inicializar repositorio de tenants
+	// Inicializar repositorios
 	tenantRepo := tenantsRepository.NewTenantRepository(db)
+	userRoleRepo := userRolesRepository.NewUserRoleRepository(db)
 
 	api.RegisterAdminRoutes(v1, api.Deps{
-		TenantRepo: tenantRepo,
+		TenantRepo:   tenantRepo,
+		UserRoleRepo: userRoleRepo,
 	}, api.Config{})
 
 	// Superficie para consumidores (IoT / dispositivos, etc.)

@@ -9,3 +9,9 @@ var ErrForbidden = errors.New("forbidden")
 
 // ErrNotFound is returned when a requested resource does not exist.
 var ErrNotFound = errors.New("not found")
+
+// ErrUserAlreadyHasActiveRole is returned when a user already has an active role in a tenant.
+var ErrUserAlreadyHasActiveRole = errors.New("User already has an active role in this tenant. Use PUT to update.")
+
+// ErrAssignmentNotFound is returned when a user-role assignment does not exist.
+var ErrAssignmentNotFound = errors.New("user-role assignment not found")

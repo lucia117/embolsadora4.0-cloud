@@ -9,21 +9,35 @@ import (
 	getAllTenants "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/get_all_tenants"
 	getTenant "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/get_tenant"
 	updateTenant "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/update_tenant"
+	assignUserRole "github.com/tu-org/embolsadora-api/internal/api/handler/user_roles/assign_user_role"
+	listUserRoles "github.com/tu-org/embolsadora-api/internal/api/handler/user_roles/list_user_roles"
+	revokeUserRole "github.com/tu-org/embolsadora-api/internal/api/handler/user_roles/revoke_user_role"
+	updateUserRole "github.com/tu-org/embolsadora-api/internal/api/handler/user_roles/update_user_role"
+	bulkAssignUserRole "github.com/tu-org/embolsadora-api/internal/api/handler/user_roles/bulk_assign_user_roles"
+	getUserRoles "github.com/tu-org/embolsadora-api/internal/api/handler/user_roles/get_user_roles"
 	userhandlers "github.com/tu-org/embolsadora-api/internal/api/handler/users"
 	ucCreateTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/create_tenant"
 	ucDeleteTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/delete_tenant"
 	ucGetAllTenants "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/get_all_tenants"
 	ucGetTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/get_tenant"
 	ucUpdateTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/update_tenant"
+	ucAssignUserRole "github.com/tu-org/embolsadora-api/internal/api/usecases/user_roles/assign_user_role"
+	ucListUserRoles "github.com/tu-org/embolsadora-api/internal/api/usecases/user_roles/list_user_roles"
+	ucRevokeUserRole "github.com/tu-org/embolsadora-api/internal/api/usecases/user_roles/revoke_user_role"
+	ucUpdateUserRole "github.com/tu-org/embolsadora-api/internal/api/usecases/user_roles/update_user_role"
+	ucBulkAssignUserRole "github.com/tu-org/embolsadora-api/internal/api/usecases/user_roles/bulk_assign_user_roles"
+	ucGetUserRoles "github.com/tu-org/embolsadora-api/internal/api/usecases/user_roles/get_user_roles"
 	"github.com/tu-org/embolsadora-api/internal/repo/pg/tenants"
+	userRolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/user_roles"
 	"github.com/tu-org/embolsadora-api/internal/security"
 )
 
 // Deps contiene las dependencias necesarias para los handlers
 type Deps struct {
-	JWTVerifier security.Verifier
-	RBACCan     func(ctx context.Context, perm string) error
-	TenantRepo  tenants.TenantRepository
+	JWTVerifier  security.Verifier
+	RBACCan      func(ctx context.Context, perm string) error
+	TenantRepo   tenants.TenantRepository
+	UserRoleRepo userRolesRepo.UserRoleRepository
 }
 
 // TODO: fill in configuration as needed.
@@ -65,4 +79,29 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 	g.GET("/tenants/:id", getTenantHandler.GetTenant)
 	g.PATCH("/tenants/:id", updateTenantHandler.UpdateTenant)
 	g.DELETE("/tenants/:id", deleteTenantHandler.DeleteTenant)
+
+	// User Roles
+	assignUserRoleUseCase := ucAssignUserRole.NewUseCase(deps.UserRoleRepo)
+	assignUserRoleHandler := assignUserRole.NewAssignUserRoleHandler(assignUserRoleUseCase)
+	g.POST("/user-roles", assignUserRoleHandler.Handle)
+
+	listUserRolesUseCase := ucListUserRoles.NewUseCase(deps.UserRoleRepo)
+	listUserRolesHandler := listUserRoles.NewListUserRolesHandler(listUserRolesUseCase)
+	g.GET("/user-roles", listUserRolesHandler.Handle)
+
+	bulkAssignUserRoleUseCase := ucBulkAssignUserRole.NewUseCase(deps.UserRoleRepo)
+	bulkAssignUserRoleHandler := bulkAssignUserRole.NewBulkAssignUserRolesHandler(bulkAssignUserRoleUseCase)
+	g.POST("/user-roles/bulk", bulkAssignUserRoleHandler.Handle)
+
+	updateUserRoleUseCase := ucUpdateUserRole.NewUseCase(deps.UserRoleRepo)
+	updateUserRoleHandler := updateUserRole.NewUpdateUserRoleHandler(updateUserRoleUseCase)
+	g.PUT("/user-roles/:id", updateUserRoleHandler.Handle)
+
+	revokeUserRoleUseCase := ucRevokeUserRole.NewUseCase(deps.UserRoleRepo)
+	revokeUserRoleHandler := revokeUserRole.NewRevokeUserRoleHandler(revokeUserRoleUseCase)
+	g.DELETE("/user-roles/:id", revokeUserRoleHandler.Handle)
+
+	getUserRolesUseCase := ucGetUserRoles.NewUseCase(deps.UserRoleRepo)
+	getUserRolesHandler := getUserRoles.NewGetUserRolesHandler(getUserRolesUseCase)
+	g.GET("/users/:userId/roles", getUserRolesHandler.Handle)
 }
