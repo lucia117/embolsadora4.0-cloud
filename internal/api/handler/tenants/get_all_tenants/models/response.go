@@ -1,6 +1,10 @@
 package models
 
-import "github.com/tu-org/embolsadora-api/internal/domain"
+import (
+	"time"
+
+	"github.com/tu-org/embolsadora-api/internal/domain"
+)
 
 // GetAllTenantsResponse representa la respuesta del endpoint GET /api/tenants
 type GetAllTenantsResponse []TenantResponse
@@ -65,8 +69,8 @@ func FromDomain(tenants []domain.Tenant) GetAllTenantsResponse {
 				PostalCode: tenant.Address.PostalCode,
 				Country:    tenant.Address.Country,
 			},
-			CreatedAt: tenant.CreatedAt.Format("2006-01-02T15:04:05.000Z"),
-			UpdatedAt: tenant.UpdatedAt.Format("2006-01-02T15:04:05.000Z"),
+			CreatedAt: tenant.CreatedAt.Format(time.RFC3339),
+			UpdatedAt: tenant.UpdatedAt.Format(time.RFC3339),
 		}
 	}
 	return response
