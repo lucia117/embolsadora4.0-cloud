@@ -38,5 +38,5 @@ func (h *GetTenantHandler) GetTenant(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"tenant": models.FromDomain(tenant)})
+	c.JSON(http.StatusOK, models.FromDomain(tenant))
 }
