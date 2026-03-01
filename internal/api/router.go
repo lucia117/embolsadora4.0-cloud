@@ -49,6 +49,13 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 	uh := userhandlers.NewUserHandler()
 	g.GET("/users", uh.ListUsers)
 	g.POST("/users", uh.CreateUser)
+
+	// User Roles - Register these BEFORE generic /users/:id to avoid wildcard conflicts
+	getUserRolesUseCase := ucGetUserRoles.NewUseCase(deps.UserRoleRepo)
+	getUserRolesHandler := getUserRoles.NewGetUserRolesHandler(getUserRolesUseCase)
+	g.GET("/users/:userId/roles", getUserRolesHandler.Handle)
+
+	// Generic user routes (after specific routes to avoid wildcard conflicts)
 	g.GET("/users/:id", uh.GetUser)
 	g.PUT("/users/:id", uh.UpdateUser)
 	g.DELETE("/users/:id", uh.DeleteUser)
@@ -100,8 +107,4 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 	revokeUserRoleUseCase := ucRevokeUserRole.NewUseCase(deps.UserRoleRepo)
 	revokeUserRoleHandler := revokeUserRole.NewRevokeUserRoleHandler(revokeUserRoleUseCase)
 	g.DELETE("/user-roles/:id", revokeUserRoleHandler.Handle)
-
-	getUserRolesUseCase := ucGetUserRoles.NewUseCase(deps.UserRoleRepo)
-	getUserRolesHandler := getUserRoles.NewGetUserRolesHandler(getUserRolesUseCase)
-	g.GET("/users/:userId/roles", getUserRolesHandler.Handle)
 }
