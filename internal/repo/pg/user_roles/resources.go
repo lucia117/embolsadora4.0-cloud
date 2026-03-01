@@ -19,8 +19,8 @@ const (
 
 	// CreateQuery inserts a new UTR assignment and returns the full created row.
 	CreateQuery = `
-		INSERT INTO user_tenant_roles (user_id, tenant_id, role_id, status, assigned_by, assigned_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO user_tenant_roles (id, user_id, tenant_id, role_id, status, assigned_by, assigned_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id, user_id, tenant_id, role_id, status, assigned_by, assigned_at, created_at, updated_at
 	`
 

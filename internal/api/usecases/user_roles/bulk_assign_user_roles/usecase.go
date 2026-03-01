@@ -11,9 +11,9 @@ import (
 
 // BulkAssignRequest holds the data needed to bulk-assign the same role to multiple users.
 type BulkAssignRequest struct {
-	UserIDs   []uuid.UUID
-	TenantID  uuid.UUID
-	RoleID    string
+	UserIDs    []uuid.UUID
+	TenantID   uuid.UUID
+	RoleID     string
 	AssignedBy *uuid.UUID
 }
 
@@ -46,6 +46,7 @@ func (uc *useCase) Execute(ctx context.Context, req BulkAssignRequest) (*BulkAss
 
 	for _, userID := range req.UserIDs {
 		utr := domain.UserTenantRole{
+			ID:         uuid.New(),
 			UserID:     userID,
 			TenantID:   req.TenantID,
 			RoleID:     &req.RoleID,

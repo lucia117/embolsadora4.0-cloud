@@ -75,7 +75,7 @@ func (r *userRoleRepository) FindByID(ctx context.Context, id uuid.UUID) (*domai
 
 func (r *userRoleRepository) Create(ctx context.Context, utr *domain.UserTenantRole) (*domain.UserTenantRole, error) {
 	created, err := scanUTR(r.db.QueryRow(ctx, CreateQuery,
-		utr.UserID, utr.TenantID, utr.RoleID, utr.Status, utr.AssignedBy, utr.AssignedAt,
+		utr.ID, utr.UserID, utr.TenantID, utr.RoleID, utr.Status, utr.AssignedBy, utr.AssignedAt,
 	))
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -119,7 +119,7 @@ func (r *userRoleRepository) BulkCreate(ctx context.Context, utrs []domain.UserT
 	results := make([]domain.UserTenantRole, 0, len(utrs))
 	for _, utr := range utrs {
 		created, err := scanUTR(tx.QueryRow(ctx, CreateQuery,
-			utr.UserID, utr.TenantID, utr.RoleID, utr.Status, utr.AssignedBy, utr.AssignedAt,
+			utr.ID, utr.UserID, utr.TenantID, utr.RoleID, utr.Status, utr.AssignedBy, utr.AssignedAt,
 		))
 		if err != nil {
 			var pgErr *pgconn.PgError
