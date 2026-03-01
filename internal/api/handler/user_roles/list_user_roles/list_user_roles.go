@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/tu-org/embolsadora-api/internal/api/handler/user_roles/list_user_roles/models"
 	ucListUserRoles "github.com/tu-org/embolsadora-api/internal/api/usecases/user_roles/list_user_roles"
+	"github.com/tu-org/embolsadora-api/internal/domain"
 )
 
 // Handler handles GET /api/v1/user-roles requests.
@@ -35,6 +36,16 @@ func (h *Handler) Handle(c *gin.Context) {
 
 	var status *string
 	if s := c.Query("status"); s != "" {
+		// Validate status against allowed values
+		if s != string(domain.UserRoleStatusActive) &&
+			s != string(domain.UserRoleStatusPending) &&
+			s != string(domain.UserRoleStatusRevoked) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"error":   "invalid status: must be one of 'active', 'pending', or 'revoked'",
+			})
+			return
+		}
 		status = &s
 	}
 
