@@ -9,7 +9,7 @@ import (
 	ucGetUserRoles "github.com/tu-org/embolsadora-api/internal/api/usecases/user_roles/get_user_roles"
 )
 
-// Handler handles GET /api/v1/users/:userId/roles requests.
+// Handler handles GET /api/v1/users/:id/roles requests.
 type Handler struct {
 	useCase ucGetUserRoles.UseCase
 }
@@ -21,9 +21,9 @@ func NewGetUserRolesHandler(useCase ucGetUserRoles.UseCase) *Handler {
 
 // Handle retrieves all role assignments for a user across all tenants.
 func (h *Handler) Handle(c *gin.Context) {
-	userID, err := uuid.Parse(c.Param("userId"))
+	userID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid userId: must be a UUID"})
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid id: must be a UUID"})
 		return
 	}
 

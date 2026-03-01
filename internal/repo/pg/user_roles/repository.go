@@ -11,6 +11,12 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/domain"
 )
 
+const (
+	// PostgreSQL error codes
+	errCodeUniqueViolation     = "23505"
+	errCodeForeignKeyViolation = "23503"
+)
+
 // UserRoleRepository defines the persistence interface for user-tenant-role assignments.
 type UserRoleRepository interface {
 	FindByTenant(ctx context.Context, tenantID uuid.UUID, status *string) ([]domain.UserTenantRole, error)
@@ -75,12 +81,17 @@ func (r *userRoleRepository) FindByID(ctx context.Context, id uuid.UUID) (*domai
 
 func (r *userRoleRepository) Create(ctx context.Context, utr *domain.UserTenantRole) (*domain.UserTenantRole, error) {
 	created, err := scanUTR(r.db.QueryRow(ctx, CreateQuery,
-		utr.UserID, utr.TenantID, utr.RoleID, utr.Status, utr.AssignedBy, utr.AssignedAt,
+		utr.ID, utr.UserID, utr.TenantID, utr.RoleID, utr.Status, utr.AssignedBy, utr.AssignedAt,
 	))
 	if err != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return nil, domain.ErrUserAlreadyHasActiveRole
+		if errors.As(err, &pgErr) {
+			if pgErr.Code == errCodeUniqueViolation {
+				return nil, domain.ErrUserAlreadyHasActiveRole
+			}
+			if pgErr.Code == errCodeForeignKeyViolation {
+				return nil, domain.ErrInvalidRoleID
+			}
 		}
 		return nil, err
 	}
@@ -92,6 +103,10 @@ func (r *userRoleRepository) Update(ctx context.Context, utr *domain.UserTenantR
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
+		}
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == errCodeForeignKeyViolation {
+			return nil, domain.ErrInvalidRoleID
 		}
 		return nil, err
 	}
@@ -119,12 +134,17 @@ func (r *userRoleRepository) BulkCreate(ctx context.Context, utrs []domain.UserT
 	results := make([]domain.UserTenantRole, 0, len(utrs))
 	for _, utr := range utrs {
 		created, err := scanUTR(tx.QueryRow(ctx, CreateQuery,
-			utr.UserID, utr.TenantID, utr.RoleID, utr.Status, utr.AssignedBy, utr.AssignedAt,
+			utr.ID, utr.UserID, utr.TenantID, utr.RoleID, utr.Status, utr.AssignedBy, utr.AssignedAt,
 		))
 		if err != nil {
 			var pgErr *pgconn.PgError
-			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				return nil, domain.ErrUserAlreadyHasActiveRole
+			if errors.As(err, &pgErr) {
+				if pgErr.Code == errCodeUniqueViolation {
+					return nil, domain.ErrUserAlreadyHasActiveRole
+				}
+				if pgErr.Code == errCodeForeignKeyViolation {
+					return nil, domain.ErrInvalidRoleID
+				}
 			}
 			return nil, err
 		}

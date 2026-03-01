@@ -36,6 +36,7 @@ func NewUseCase(repo userrolesrepo.UserRoleRepository) UseCase {
 func (uc *useCase) Execute(ctx context.Context, req AssignRequest) (*domain.UserTenantRole, error) {
 	now := time.Now()
 	utr := &domain.UserTenantRole{
+		ID:         uuid.New(),
 		UserID:     req.UserID,
 		TenantID:   req.TenantID,
 		RoleID:     &req.RoleID,

@@ -16,7 +16,7 @@ ON CONFLICT (id) DO NOTHING;
 
 -- Create user-tenant-role assignments table
 CREATE TABLE IF NOT EXISTS user_tenant_roles (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id),
     tenant_id UUID NOT NULL REFERENCES tenants(id),
     role_id VARCHAR(50) REFERENCES roles(id),
