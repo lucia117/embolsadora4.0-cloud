@@ -50,7 +50,7 @@ const (
 	// FindByUserQuery retrieves all UTR assignments for a user across all tenants,
 	// joining tenants and roles tables to include display names.
 	FindByUserQuery = `
-		SELECT utr.tenant_id, t.name, utr.role_id, COALESCE(r.name, utr.role_id), utr.status
+		SELECT utr.tenant_id, t.name, utr.role_id, COALESCE(r.name, utr.role_id, ''), utr.status
 		FROM user_tenant_roles utr
 		JOIN tenants t ON t.id = utr.tenant_id
 		LEFT JOIN roles r ON r.id = utr.role_id
