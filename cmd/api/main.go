@@ -41,6 +41,10 @@ func main() {
 
 	r := gin.New()
 
+	// Configure trusted proxies to eliminate security warning
+	// Use empty slice if running locally without proxy, or add specific IPs if behind reverse proxy
+	_ = r.SetTrustedProxies([]string{"127.0.0.1"})
+
 	// Global middlewares: RequestID and Logger (stubs for now)
 	r.Use(apimw.RequestID())
 	r.Use(apimw.Logger())
