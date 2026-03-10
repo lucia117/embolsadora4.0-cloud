@@ -36,23 +36,29 @@ func (h *Handler) ListUsers(c *gin.Context) {
 	offset := 0
 
 	if l := c.Query("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil {
-			limit = parsed
+		parsed, err := strconv.Atoi(l)
+		if err != nil || parsed < 1 || parsed > 100 {
+			c.JSON(http.StatusBadRequest, ErrorResponse{
+				Error:   "VALIDATION_ERROR",
+				Message: "limit must be an integer between 1 and 100",
+				Status:  http.StatusBadRequest,
+			})
+			return
 		}
+		limit = parsed
 	}
 
 	if o := c.Query("offset"); o != "" {
-		if parsed, err := strconv.Atoi(o); err == nil {
-			offset = parsed
+		parsed, err := strconv.Atoi(o)
+		if err != nil || parsed < 0 {
+			c.JSON(http.StatusBadRequest, ErrorResponse{
+				Error:   "VALIDATION_ERROR",
+				Message: "offset must be a non-negative integer",
+				Status:  http.StatusBadRequest,
+			})
+			return
 		}
-	}
-
-	// Validate pagination
-	if limit < 1 || limit > 100 {
-		limit = 20
-	}
-	if offset < 0 {
-		offset = 0
+		offset = parsed
 	}
 
 	h.logger.Debug("list users request", zap.String("tenant_id", tenantID), zap.Int("limit", limit), zap.Int("offset", offset))

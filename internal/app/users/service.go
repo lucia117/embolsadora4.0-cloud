@@ -26,14 +26,6 @@ func NewService(repo users.Repository, logger *zap.Logger) *Service {
 
 // ListUsers retrieves paginated users for a tenant
 func (s *Service) ListUsers(ctx context.Context, tenantID string, limit, offset int) ([]*domainUsers.User, int64, error) {
-	// Validate pagination params
-	if limit < 1 || limit > 100 {
-		limit = 20
-	}
-	if offset < 0 {
-		offset = 0
-	}
-
 	s.logger.Debug("listing users", zap.String("tenant_id", tenantID), zap.Int("limit", limit), zap.Int("offset", offset))
 
 	users, total, err := s.repo.ListByTenant(ctx, tenantID, limit, offset)
