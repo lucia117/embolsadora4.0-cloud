@@ -86,8 +86,8 @@ func (u *User) ValidateEmail() error {
 	if len(u.Email) > 254 {
 		return fmt.Errorf("email must be at most 254 characters")
 	}
-	_, err := mail.ParseAddress(u.Email)
-	if err != nil {
+	addr, err := mail.ParseAddress(u.Email)
+	if err != nil || addr.Address != u.Email {
 		return fmt.Errorf("email format is invalid")
 	}
 	return nil
