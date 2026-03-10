@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 
 	apimw "github.com/tu-org/embolsadora-api/internal/api/middleware"
 	"github.com/tu-org/embolsadora-api/internal/routes"
@@ -15,6 +16,13 @@ import (
 
 // TODO: Bootstrap config, telemetry, repositories, services, and dependency wiring.
 func main() {
+	// Inicializar logger (debe vivir hasta el cierre de la app)
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		log.Fatalf("failed to initialize logger: %v", err)
+	}
+	defer logger.Sync()
+
 	// Cargar variables de entorno desde .env
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using environment variables")
@@ -41,12 +49,16 @@ func main() {
 
 	r := gin.New()
 
+	// Configure trusted proxies to eliminate security warning
+	// Use empty slice if running locally without proxy, or add specific IPs if behind reverse proxy
+	_ = r.SetTrustedProxies([]string{"127.0.0.1"})
+
 	// Global middlewares: RequestID and Logger (stubs for now)
 	r.Use(apimw.RequestID())
 	r.Use(apimw.Logger())
 
 	// Centralizar registro de rutas
-	routes.RegisterURLMappings(r, db)
+	routes.RegisterURLMappings(r, db, logger)
 
 	// Get port from environment or use default
 	port := os.Getenv("PORT")
