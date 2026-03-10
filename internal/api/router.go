@@ -52,29 +52,26 @@ type Config struct{}
 
 // RegisterAdminRoutes wires API surface routes under the provided group (e.g., /api/v1).
 func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
-	// Users - New multi-tenant CRUD endpoints
-	if deps.Logger != nil && deps.UserRepo != nil {
-		userService := appUsers.NewService(deps.UserRepo, deps.Logger)
-		uh := userhandlers.NewHandler(userService, deps.Logger)
+	// Users - All /users routes share a single group with tenant middleware to avoid
+	// wildcard conflicts between groups (e.g., /users/:id vs /users/:id/roles).
+	userService := appUsers.NewService(deps.UserRepo, deps.Logger)
+	uh := userhandlers.NewHandler(userService, deps.Logger)
 
-		// Apply tenant middleware to all user endpoints
-		userRoutes := g.Group("")
-		userRoutes.Use(middleware.ExtractTenantID())
-
-		// Read operations (no RBAC required)
-		userRoutes.GET("/users", uh.ListUsers)
-		userRoutes.GET("/users/:id", uh.GetUser)
-
-		// Write operations (admin only)
-		userRoutes.POST("/users", middleware.RequireRole("admin"), uh.CreateUser)
-		userRoutes.PATCH("/users/:id", middleware.RequireRole("admin"), uh.UpdateUser)
-		userRoutes.DELETE("/users/:id", middleware.RequireRole("admin"), uh.DeleteUser)
-	}
-
-	// User Roles - Register these BEFORE generic /users/:id to avoid wildcard conflicts
 	getUserRolesUseCase := ucGetUserRoles.NewUseCase(deps.UserRoleRepo)
 	getUserRolesHandler := getUserRoles.NewGetUserRolesHandler(getUserRolesUseCase)
-	g.GET("/users/:id/roles", getUserRolesHandler.Handle)
+
+	userRoutes := g.Group("")
+	userRoutes.Use(middleware.ExtractTenantID())
+
+	// Read operations (no RBAC required)
+	userRoutes.GET("/users", uh.ListUsers)
+	userRoutes.GET("/users/:id", uh.GetUser)
+	userRoutes.GET("/users/:id/roles", getUserRolesHandler.Handle)
+
+	// Write operations (admin only)
+	userRoutes.POST("/users", middleware.RequireRole("admin"), uh.CreateUser)
+	userRoutes.PATCH("/users/:id", middleware.RequireRole("admin"), uh.UpdateUser)
+	userRoutes.DELETE("/users/:id", middleware.RequireRole("admin"), uh.DeleteUser)
 
 	// Machines
 	g.GET("/machines", ListMachines)
