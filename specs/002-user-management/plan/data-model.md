@@ -2,7 +2,7 @@
 
 ## Entity: User
 
-Represents a platform user with admin or operario role within a tenant.
+Represents a platform user with admin or user role within a tenant.
 
 ### Fields
 
