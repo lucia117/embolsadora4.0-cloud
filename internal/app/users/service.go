@@ -2,6 +2,7 @@ package users
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	domainUsers "github.com/tu-org/embolsadora-api/internal/domain/users"
@@ -51,7 +52,7 @@ func (s *Service) GetUser(ctx context.Context, tenantID, userID string) (*domain
 
 	user, err := s.repo.GetByID(ctx, tenantID, userID)
 	if err != nil {
-		if err == domainUsers.ErrNotFound {
+		if errors.Is(err, domainUsers.ErrNotFound) {
 			s.logger.Debug("user not found", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 			return nil, err
 		}
@@ -84,7 +85,7 @@ func (s *Service) CreateUser(ctx context.Context, tenantID string, cmd *domainUs
 
 	created, err := s.repo.Create(ctx, user)
 	if err != nil {
-		if err == domainUsers.ErrEmailTaken {
+		if errors.Is(err, domainUsers.ErrEmailTaken) {
 			s.logger.Warn("email already taken", zap.String("tenant_id", tenantID), zap.String("email", cmd.Email))
 			return nil, err
 		}
@@ -108,7 +109,7 @@ func (s *Service) UpdateUser(ctx context.Context, tenantID, userID string, cmd *
 	// Get current user
 	current, err := s.repo.GetByID(ctx, tenantID, userID)
 	if err != nil {
-		if err == domainUsers.ErrNotFound {
+		if errors.Is(err, domainUsers.ErrNotFound) {
 			s.logger.Debug("user not found for update", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 			return nil, err
 		}
@@ -146,7 +147,7 @@ func (s *Service) DeleteUser(ctx context.Context, tenantID, userID string) error
 
 	err := s.repo.Delete(ctx, tenantID, userID)
 	if err != nil {
-		if err == domainUsers.ErrNotFound {
+		if errors.Is(err, domainUsers.ErrNotFound) {
 			s.logger.Debug("user not found for deletion", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 			return err
 		}
