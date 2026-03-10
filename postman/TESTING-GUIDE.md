@@ -517,7 +517,7 @@ Request: GET /users?limit=0&offset=0
 
 1. En **Params**, cambia `limit` a `0`
 2. Haz clic en **Send**
-3. Verifica que usa default `limit: 20`
+3. Verifica que retorna **400 Bad Request** con `VALIDATION_ERROR` y mensaje `"limit must be an integer between 1 and 100"`
 
 ### Test 4.4: Invalid Offset (negativo)
 
@@ -527,7 +527,7 @@ Request: GET /users?limit=20&offset=-1
 
 1. En **Params**, cambia `offset` a `-1`
 2. Haz clic en **Send**
-3. Verifica que usa default `offset: 0`
+3. Verifica que retorna **400 Bad Request** con `VALIDATION_ERROR` y mensaje `"offset must be a non-negative integer"`
 
 ---
 
