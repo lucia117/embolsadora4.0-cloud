@@ -159,30 +159,13 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	var req struct {
-		FirstName *string `json:"firstName"`
-		LastName  *string `json:"lastName"`
-		Role      *string `json:"role"`
-		Image     *string `json:"image"`
-		Email     *string `json:"email"`      // Should not be allowed
-		TenantID  *string `json:"tenantId"`   // Should not be allowed
-	}
+	var req dto.UpdateUserRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Warn("invalid update user request", zap.Error(err))
 		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error:   "VALIDATION_ERROR",
 			Message: err.Error(),
-			Status:  http.StatusBadRequest,
-		})
-		return
-	}
-
-	// Check for immutable field attempts
-	if req.Email != nil || req.TenantID != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error:   "IMMUTABLE_FIELD",
-			Message: "Email and tenantId cannot be modified",
 			Status:  http.StatusBadRequest,
 		})
 		return
