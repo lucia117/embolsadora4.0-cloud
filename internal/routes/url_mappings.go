@@ -19,7 +19,7 @@ import (
 )
 
 // RegisterURLMappings configura todas las rutas de la API en un único lugar.
-func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool) {
+func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, logger *zap.Logger) {
 	// Health checks
 	r.GET("/ping", func(c *gin.Context) {
 		c.String(http.StatusOK, "pong")
@@ -48,10 +48,6 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool) {
 		apimw.Logger(),
 		apimw.CORS(),
 	)
-
-	// Inicializar logger
-	logger := zap.NewExample() // TODO: Use production logger from config
-	defer logger.Sync()
 
 	// Inicializar repositorios
 	tenantRepo := tenantsRepository.NewTenantRepository(db)
