@@ -26,8 +26,12 @@ func RegisterRoutes(g *gin.RouterGroup, service *edge_devices.Service) {
 	// US6 – Status Check
 	g.POST("/edge-devices/:deviceId/status", StatusCheck(service))
 
+	// US7 – Health Check
+	g.POST("/edge-devices/:deviceId/health-check", HealthCheck(service))
+
+	// US8 – Telemetry
+	g.GET("/edge-devices/:deviceId/telemetry", GetTelemetry(service))
+
 	// Routes for remaining operations will be added per user story phase:
-	// US7 – Health Check: POST /edge-devices/:deviceId/health-check
-	// US8 – Telemetry: GET /edge-devices/:deviceId/telemetry
 	// US9 – Events: GET /edge-devices/:deviceId/events
 }

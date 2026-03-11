@@ -182,15 +182,85 @@ func (s *Service) StatusCheck(ctx context.Context, tenantID, deviceID, userID uu
 }
 
 // HealthCheck performs a full hardware diagnostic.
-// Stub — implementation added per user story phase.
 func (s *Service) HealthCheck(ctx context.Context, tenantID, deviceID, userID uuid.UUID, userEmail string) (*edge_devices.CheckResult, error) {
-	return nil, nil
+	// Get device
+	device, err := s.repo.GetByID(ctx, tenantID, deviceID)
+	if err != nil {
+		s.logger.Error("device not found", zap.Error(err), zap.String("device_id", deviceID.String()))
+		return nil, edge_devices.ErrDeviceNotFound
+	}
+
+	// Check if device is disabled
+	if device.Status == "DISABLED" {
+		s.logger.Warn("attempted health check on disabled device", zap.String("device_id", deviceID.String()))
+		return nil, edge_devices.ErrDeviceDisabled
+	}
+
+	// Call client to perform health check
+	result, err := s.client.HealthCheck(ctx, device.RaspberryBaseURL)
+	if err != nil || result == nil {
+		result = &edge_devices.CheckResult{
+			CheckType:     "HEALTH_CHECK",
+			OverallStatus: "ERROR",
+		}
+	}
+	result.CheckType = "HEALTH_CHECK"
+
+	// Persist event
+	event := &edge_devices.DeviceEvent{
+		ID:            uuid.New(),
+		DeviceID:      deviceID,
+		TenantID:      tenantID,
+		CheckType:     "HEALTH_CHECK",
+		CheckedAt:     result.CheckedAt,
+		OverallStatus: result.OverallStatus,
+		Summary:       result.Summary,
+		Details:       result.Details,
+		UserID:        userID,
+		UserEmail:     userEmail,
+	}
+
+	if err := s.repo.SaveEvent(ctx, event); err != nil {
+		s.logger.Error("failed to save event", zap.Error(err), zap.String("device_id", deviceID.String()))
+	}
+
+	// Update device health state
+	summary := ""
+	if result.Summary != nil {
+		summary = *result.Summary
+	}
+	if err := s.repo.UpdateHealthState(ctx, tenantID, deviceID, result.OverallStatus, summary); err != nil {
+		s.logger.Error("failed to update health state", zap.Error(err), zap.String("device_id", deviceID.String()))
+	}
+
+	s.logger.Info("health check completed", zap.String("device_id", deviceID.String()), zap.String("check_type", "HEALTH_CHECK"), zap.String("overall_status", result.OverallStatus))
+	return result, nil
 }
 
-// GetTelemetry retrieves a live telemetry snapshot.
-// Stub — implementation added per user story phase.
+// GetTelemetry retrieves a live telemetry snapshot from a device.
 func (s *Service) GetTelemetry(ctx context.Context, tenantID, deviceID uuid.UUID) (*edge_devices.TelemetrySnapshot, error) {
-	return nil, nil
+	// Get device
+	device, err := s.repo.GetByID(ctx, tenantID, deviceID)
+	if err != nil {
+		s.logger.Error("device not found", zap.Error(err), zap.String("device_id", deviceID.String()))
+		return nil, edge_devices.ErrDeviceNotFound
+	}
+
+	// Check if device is disabled
+	if device.Status == "DISABLED" {
+		s.logger.Warn("attempted telemetry retrieval on disabled device", zap.String("device_id", deviceID.String()))
+		return nil, edge_devices.ErrDeviceDisabled
+	}
+
+	// Call client to retrieve telemetry
+	telemetry, err := s.client.GetTelemetry(ctx, device.RaspberryBaseURL)
+	if err != nil || telemetry == nil {
+		s.logger.Error("failed to retrieve telemetry", zap.Error(err), zap.String("device_id", deviceID.String()))
+		return nil, err
+	}
+
+	s.logger.Info("telemetry retrieved", zap.String("device_id", deviceID.String()))
+	return telemetry, nil
 }
 
 // ListEvents returns all events for a device.
