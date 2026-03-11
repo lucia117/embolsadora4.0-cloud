@@ -38,9 +38,15 @@ func (s *Service) ListDevices(ctx context.Context, tenantID uuid.UUID) ([]*edge_
 }
 
 // GetDevice returns a single device by ID.
-// Stub — implementation added per user story phase.
 func (s *Service) GetDevice(ctx context.Context, tenantID, deviceID uuid.UUID) (*edge_devices.EdgeDevice, error) {
-	return nil, nil
+	device, err := s.repo.GetByID(ctx, tenantID, deviceID)
+	if err != nil {
+		s.logger.Error("failed to get device", zap.Error(err), zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()))
+		return nil, edge_devices.ErrDeviceNotFound
+	}
+
+	s.logger.Info("device retrieved", zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()))
+	return device, nil
 }
 
 // CreateDevice creates a new device.
@@ -68,22 +74,55 @@ func (s *Service) CreateDevice(ctx context.Context, tenantID uuid.UUID, cmd edge
 	return device, nil
 }
 
-// UpdateDevice updates an existing device.
-// Stub — implementation added per user story phase.
+// UpdateDevice updates an existing device (name, description).
 func (s *Service) UpdateDevice(ctx context.Context, tenantID, deviceID uuid.UUID, cmd edge_devices.UpdateDeviceCommand) (*edge_devices.EdgeDevice, error) {
-	return nil, nil
+	// Get current device
+	device, err := s.repo.GetByID(ctx, tenantID, deviceID)
+	if err != nil {
+		s.logger.Error("failed to get device", zap.Error(err), zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()))
+		return nil, edge_devices.ErrDeviceNotFound
+	}
+
+	// Update mutable fields
+	if cmd.Name != nil {
+		device.Name = *cmd.Name
+	}
+	if cmd.Description != nil {
+		device.Description = cmd.Description
+	}
+
+	// Persist update
+	if err := s.repo.Update(ctx, device); err != nil {
+		s.logger.Error("failed to update device", zap.Error(err), zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()))
+		return nil, err
+	}
+
+	s.logger.Info("device updated", zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()), zap.String("name", device.Name))
+	return device, nil
 }
 
 // EnableDevice enables a device (sets status to ACTIVE).
-// Stub — implementation added per user story phase.
 func (s *Service) EnableDevice(ctx context.Context, tenantID, deviceID uuid.UUID) (*edge_devices.EdgeDevice, error) {
-	return nil, nil
+	device, err := s.repo.SetStatus(ctx, tenantID, deviceID, "ACTIVE")
+	if err != nil {
+		s.logger.Error("failed to enable device", zap.Error(err), zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()))
+		return nil, edge_devices.ErrDeviceNotFound
+	}
+
+	s.logger.Info("device enabled", zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()), zap.String("status", device.Status))
+	return device, nil
 }
 
 // DisableDevice disables a device (sets status to DISABLED).
-// Stub — implementation added per user story phase.
 func (s *Service) DisableDevice(ctx context.Context, tenantID, deviceID uuid.UUID) (*edge_devices.EdgeDevice, error) {
-	return nil, nil
+	device, err := s.repo.SetStatus(ctx, tenantID, deviceID, "DISABLED")
+	if err != nil {
+		s.logger.Error("failed to disable device", zap.Error(err), zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()))
+		return nil, edge_devices.ErrDeviceNotFound
+	}
+
+	s.logger.Info("device disabled", zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()), zap.String("status", device.Status))
+	return device, nil
 }
 
 // StatusCheck performs a connectivity + version check.
