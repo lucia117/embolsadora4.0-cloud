@@ -1,0 +1,752 @@
+{
+  "info": {
+    "_postman_id": "embolsadora-api-master-collection",
+    "name": "Embolsadora API - Complete Collection",
+    "description": "Master collection for Embolsadora 4.0 Cloud API\n\nConsolidated endpoints across all features:\n- Tenants management\n- Users CRUD\n- User Role Assignments\n- Edge Device Management\n\n**Base URL:** {{baseUrl}}/api/v1\n**Authentication:** Bearer JWT Token (header: Authorization)\n**Multi-tenant:** X-Tenant-ID header or :tenantId in path\n\n**Quick Start:**\n1. Set {{baseUrl}} = http://localhost:8080\n2. Set {{jwt_token}} from auth endpoint\n3. Set {{tenant_id}} and {{tenantId}} (tenant UUID)\n4. Execute requests folder by folder",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Tenants",
+      "item": [
+        {
+          "name": "GET All Tenants",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tenants",
+              "host": ["{{baseUrl}}"],
+              "path": ["tenants"]
+            },
+            "description": "Retorna la lista de todos los tenants registrados en el sistema."
+          },
+          "response": [
+            {
+              "name": "200 OK - Lista de tenants",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "[\n  {\n    \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"name\": \"mrg-equipamientos\",\n    \"companyName\": \"M.R.G. Equipamientos S.R.L.\",\n    \"subdomain\": \"mrg\",\n    \"description\": \"Empresa fabricante de embolsadoras industriales\",\n    \"isActive\": true,\n    \"theme\": {\n      \"primaryColor\": \"#1A73E8\",\n      \"secondaryColor\": \"#34A853\",\n      \"accentColor\": \"#FBBC04\",\n      \"textColor\": \"#202124\",\n      \"backgroundColor\": \"#FFFFFF\",\n      \"logoUrl\": \"\",\n      \"faviconUrl\": \"/favicon.ico\"\n    },\n    \"address\": {\n      \"street\": \"Av. Industrial 1234\",\n      \"city\": \"Santa Fe\",\n      \"state\": \"Santa Fe\",\n      \"postalCode\": \"3000\",\n      \"country\": \"Argentina\"\n    },\n    \"createdAt\": \"2025-05-01T00:00:00.000Z\",\n    \"updatedAt\": \"2025-05-01T00:00:00.000Z\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "POST Create Tenant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.tenant && body.tenant.id) {",
+                  "    pm.collectionVariables.set('tenantId', body.tenant.id);",
+                  "    console.log('tenantId seteado:', body.tenant.id);",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"mrg-equipamientos\",\n  \"companyName\": \"M.R.G. Equipamientos S.R.L.\",\n  \"subdomain\": \"mrg\",\n  \"description\": \"Empresa fabricante de embolsadoras industriales\",\n  \"adminUser\": {\n    \"email\": \"admin@mrg.com\",\n    \"firstName\": \"Admin\",\n    \"lastName\": \"MRG\",\n    \"password\": \"password123\"\n  },\n  \"theme\": {\n    \"primaryColor\": \"#1A73E8\",\n    \"secondaryColor\": \"#34A853\",\n    \"accentColor\": \"#FBBC04\",\n    \"textColor\": \"#202124\",\n    \"backgroundColor\": \"#FFFFFF\"\n  },\n  \"address\": {\n    \"street\": \"Av. Industrial 1234\",\n    \"city\": \"Santa Fe\",\n    \"state\": \"Santa Fe\",\n    \"postalCode\": \"3000\",\n    \"country\": \"Argentina\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tenants",
+              "host": ["{{baseUrl}}"],
+              "path": ["tenants"]
+            },
+            "description": "Crea un nuevo tenant con su usuario administrador, tema visual y dirección."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"tenant\": {\n    \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"name\": \"mrg-equipamientos\",\n    \"companyName\": \"M.R.G. Equipamientos S.R.L.\",\n    \"subdomain\": \"mrg\",\n    \"description\": \"Empresa fabricante de embolsadoras industriales\",\n    \"isActive\": true,\n    \"theme\": {\n      \"primaryColor\": \"#1A73E8\",\n      \"secondaryColor\": \"#34A853\"\n    },\n    \"address\": {\"street\": \"Av. Industrial 1234\"},\n    \"createdAt\": \"2025-05-01T00:00:00Z\",\n    \"updatedAt\": \"2025-05-01T00:00:00Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "GET Tenant by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tenants/{{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tenants", "{{tenantId}}"]
+            },
+            "description": "Retorna los datos de un tenant específico por su UUID."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"name\": \"mrg-equipamientos\",\n  \"companyName\": \"M.R.G. Equipamientos S.R.L.\",\n  \"subdomain\": \"mrg\",\n  \"isActive\": true\n}"
+            }
+          ]
+        },
+        {
+          "name": "PATCH Update Tenant",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"mrg-equipamientos-v2\",\n  \"companyName\": \"M.R.G. Equipamientos S.R.L.\",\n  \"description\": \"Descripción actualizada\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tenants/{{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tenants", "{{tenantId}}"]
+            },
+            "description": "Actualiza parcialmente un tenant. Todos los campos son opcionales."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"name\": \"mrg-equipamientos-v2\",\n  \"updatedAt\": \"2025-05-02T00:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "DELETE Tenant",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tenants/{{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tenants", "{{tenantId}}"]
+            },
+            "description": "Elimina un tenant por su UUID. La operación es permanente."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"message\": \"Tenant deleted successfully\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "List Users (with pagination)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}",
+                "type": "text",
+                "description": "Tenant identifier for multi-tenant isolation"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users?limit=20&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"],
+              "query": [
+                {"key": "limit", "value": "20", "description": "Number of results (1-100)"},
+                {"key": "offset", "value": "0", "description": "Skip results"}
+              ]
+            },
+            "description": "Retrieve a paginated list of all users for the tenant"
+          },
+          "response": [
+            {
+              "name": "200 OK - User List",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"data\": [\n    {\n      \"id\": \"123e4567-e89b-12d3-a456-426614174000\",\n      \"firstName\": \"Juan\",\n      \"lastName\": \"Pérez\",\n      \"email\": \"juan.perez@example.com\",\n      \"role\": \"admin\",\n      \"tenantId\": \"550e8400-e29b-41d4-a716-446655440000\",\n      \"image\": \"https://example.com/avatar/juan.jpg\",\n      \"createdAt\": \"2026-01-15T10:30:00Z\",\n      \"updatedAt\": \"2026-02-20T14:45:00Z\",\n      \"deletedAt\": null\n    }\n  ],\n  \"pagination\": {\n    \"total\": 1,\n    \"count\": 1,\n    \"limit\": 20,\n    \"offset\": 0\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{user_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{user_id}}"]
+            },
+            "description": "Retrieve the full profile of a specific user by ID"
+          },
+          "response": [
+            {
+              "name": "200 OK - User Profile",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"id\": \"123e4567-e89b-12d3-a456-426614174000\",\n  \"firstName\": \"Juan\",\n  \"lastName\": \"Pérez\",\n  \"email\": \"juan.perez@example.com\",\n  \"role\": \"admin\",\n  \"tenantId\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"createdAt\": \"2026-01-15T10:30:00Z\",\n  \"updatedAt\": \"2026-02-20T14:45:00Z\",\n  \"deletedAt\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text",
+                "description": "JWT token for authentication (must have 'admin' role)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Carlos\",\n  \"lastName\": \"López\",\n  \"email\": \"carlos.lopez@example.com\",\n  \"role\": \"admin\",\n  \"image\": \"https://example.com/avatar/carlos.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"]
+            },
+            "description": "Create a new user account within the tenant. Requires admin role."
+          },
+          "response": [
+            {
+              "name": "201 Created - User Created",
+              "status": "Created",
+              "code": 201,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"id\": \"323e4567-e89b-12d3-a456-426614174002\",\n  \"firstName\": \"Carlos\",\n  \"lastName\": \"López\",\n  \"email\": \"carlos.lopez@example.com\",\n  \"role\": \"admin\",\n  \"tenantId\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"image\": \"https://example.com/avatar/carlos.jpg\",\n  \"createdAt\": \"2026-03-02T12:00:00Z\",\n  \"updatedAt\": \"2026-03-02T12:00:00Z\",\n  \"deletedAt\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Carlos Eduardo\",\n  \"role\": \"user\",\n  \"image\": \"https://example.com/avatar/carlos-updated.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/{{user_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{user_id}}"]
+            },
+            "description": "Partially update a user's profile. Requires admin role."
+          },
+          "response": [
+            {
+              "name": "200 OK - User Updated",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"id\": \"323e4567-e89b-12d3-a456-426614174002\",\n  \"firstName\": \"Carlos Eduardo\",\n  \"lastName\": \"López\",\n  \"email\": \"carlos.lopez@example.com\",\n  \"role\": \"user\",\n  \"tenantId\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"image\": \"https://example.com/avatar/carlos-updated.jpg\",\n  \"createdAt\": \"2026-03-02T12:00:00Z\",\n  \"updatedAt\": \"2026-03-02T13:15:00Z\",\n  \"deletedAt\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{user_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{user_id}}"]
+            },
+            "description": "Soft-delete a user (sets deletedAt timestamp). Requires admin role."
+          },
+          "response": [
+            {
+              "name": "204 No Content - User Deleted",
+              "status": "No Content",
+              "code": 204,
+              "header": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "User Roles",
+      "item": [
+        {
+          "name": "POST Assign Role",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.data && body.data.id) {",
+                  "    pm.collectionVariables.set('utrId', body.data.id);",
+                  "    console.log('utrId seteado:', body.data.id);",
+                  "  }",
+                  "}",
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('success = true', () => pm.expect(pm.response.json().success).to.be.true);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"tenantId\": \"{{tenantId}}\",\n  \"roleId\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-roles",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-roles"]
+            },
+            "description": "Asigna un rol a un usuario dentro de un tenant. Roles válidos: admin, operario, cliente_admin, cliente_operario"
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"userId\": \"00000000-0000-0000-0000-000000000001\",\n    \"tenantId\": \"550e8400-e29b-41d4-a716-446655440001\",\n    \"roleId\": \"admin\",\n    \"status\": \"active\",\n    \"assignedAt\": \"2026-02-28T10:00:00Z\",\n    \"createdAt\": \"2026-02-28T10:00:00Z\",\n    \"updatedAt\": \"2026-02-28T10:00:00Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "GET List Assignments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/user-roles?tenantId={{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-roles"],
+              "query": [
+                {"key": "tenantId", "value": "{{tenantId}}", "description": "UUID del tenant (requerido)"}
+              ]
+            },
+            "description": "Lista todas las asignaciones de roles para un tenant."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"userId\": \"00000000-0000-0000-0000-000000000001\",\n      \"tenantId\": \"550e8400-e29b-41d4-a716-446655440001\",\n      \"roleId\": \"admin\",\n      \"status\": \"active\",\n      \"assignedAt\": \"2026-02-28T10:00:00Z\",\n      \"createdAt\": \"2026-02-28T10:00:00Z\",\n      \"updatedAt\": \"2026-02-28T10:00:00Z\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "GET List Assignments (filtered by status)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/user-roles?tenantId={{tenantId}}&status=active",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-roles"],
+              "query": [
+                {"key": "tenantId", "value": "{{tenantId}}", "description": "UUID del tenant (requerido)"},
+                {"key": "status", "value": "active", "description": "Filtro por status: active | pending | revoked"}
+              ]
+            },
+            "description": "Lista las asignaciones de roles filtradas por status. Valores válidos: active, pending, revoked"
+          },
+          "response": [
+            {
+              "name": "200 OK - Solo activos",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"success\": true,\n  \"data\": [{\"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\", \"status\": \"active\"}]\n}"
+            }
+          ]
+        },
+        {
+          "name": "PUT Update Role",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleId\": \"operario\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-roles/{{utrId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-roles", "{{utrId}}"]
+            },
+            "description": "Actualiza el roleId de una asignación existente sin necesidad de revocarla."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"roleId\": \"operario\",\n    \"status\": \"active\",\n    \"updatedAt\": \"2026-02-28T10:30:00Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "DELETE Revoke Role",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/user-roles/{{utrId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-roles", "{{utrId}}"]
+            },
+            "description": "Revoca una asignación de rol (soft delete). El registro permanece con status: revoked."
+          },
+          "response": [
+            {
+              "name": "200 OK - Revocado",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"status\": \"revoked\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "POST Bulk Assign Roles",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userIds\": [\n    \"{{userId1}}\",\n    \"{{userId2}}\"\n  ],\n  \"tenantId\": \"{{tenantId}}\",\n  \"roleId\": \"operario\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-roles/bulk",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-roles", "bulk"]
+            },
+            "description": "Asigna el mismo rol a múltiples usuarios en una operación todo-o-nada."
+          },
+          "response": [
+            {
+              "name": "201 Created - Todos asignados",
+              "status": "Created",
+              "code": 201,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"assigned\": 2,\n    \"failed\": 0,\n    \"assignments\": [\n      {\"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\", \"roleId\": \"operario\", \"status\": \"active\"},\n      {\"id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\", \"roleId\": \"operario\", \"status\": \"active\"}\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "GET User Roles (cross-tenant)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}", "type": "text"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}/roles",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{userId}}", "roles"]
+            },
+            "description": "Retorna todos los roles de un usuario en todos los tenants. Requiere permisos de administrador global."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"tenantId\": \"550e8400-e29b-41d4-a716-446655440001\",\n      \"tenantName\": \"Demo Tenant\",\n      \"roleId\": \"admin\",\n      \"roleName\": \"Admin\",\n      \"status\": \"active\"\n    }\n  ]\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Edge Devices",
+      "item": [
+        {
+          "name": "US1 - List Edge Devices",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tenants/{{tenant_id}}/edge-devices",
+              "host": ["{{baseUrl}}"],
+              "path": ["tenants", "{{tenant_id}}", "edge-devices"]
+            },
+            "description": "Retrieve all edge devices for a tenant.\n\n**Status Code:** 200 OK\n**Response:** Array of EdgeDeviceResponse objects"
+          },
+          "response": [
+            {
+              "name": "Success - List Devices",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n      \"tenantId\": \"123e4567-e89b-12d3-a456-426614174000\",\n      \"name\": \"RaspPi-01\",\n      \"description\": \"Main edge gateway\",\n      \"machineId\": \"M-EQ-001\",\n      \"edgeType\": \"RASPBERRY_PLC\",\n      \"raspberryBaseUrl\": \"http://192.168.1.100:8080\",\n      \"plcAddress\": \"192.168.1.50\",\n      \"status\": \"ACTIVE\",\n      \"lastSeenAt\": \"2026-03-11T15:30:00Z\",\n      \"lastHealthCheckAt\": \"2026-03-11T15:25:00Z\",\n      \"lastHealthStatus\": \"OK\",\n      \"lastHealthSummary\": \"All systems operational\",\n      \"createdAt\": \"2026-03-10T10:00:00Z\",\n      \"updatedAt\": \"2026-03-11T15:30:00Z\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "US2 - Create Edge Device",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"RaspPi-02\",\n  \"machineId\": \"M-EQ-002\",\n  \"edgeType\": \"RASPBERRY_PLC\",\n  \"raspberryBaseUrl\": \"http://192.168.1.101:8080\",\n  \"description\": \"Secondary edge gateway\",\n  \"plcAddress\": \"192.168.1.51\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tenants/{{tenant_id}}/edge-devices",
+              "host": ["{{baseUrl}}"],
+              "path": ["tenants", "{{tenant_id}}", "edge-devices"]
+            },
+            "description": "Register a new edge device for a tenant.\n\n**Required Fields:** name, machineId, edgeType, raspberryBaseUrl\n**Optional Fields:** description, plcAddress\n\n**Status Code:** 201 Created\n**Error Codes:**\n- 400: Validation error\n- 409: machineId already exists for tenant"
+          },
+          "response": [
+            {
+              "name": "Success - Device Created",
+              "status": "Created",
+              "code": 201,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"660e8400-e29b-41d4-a716-446655440001\",\n    \"tenantId\": \"123e4567-e89b-12d3-a456-426614174000\",\n    \"name\": \"RaspPi-02\",\n    \"description\": \"Secondary edge gateway\",\n    \"machineId\": \"M-EQ-002\",\n    \"edgeType\": \"RASPBERRY_PLC\",\n    \"raspberryBaseUrl\": \"http://192.168.1.101:8080\",\n    \"plcAddress\": \"192.168.1.51\",\n    \"status\": \"ACTIVE\",\n    \"lastSeenAt\": null,\n    \"lastHealthCheckAt\": null,\n    \"lastHealthStatus\": \"UNKNOWN\",\n    \"lastHealthSummary\": null,\n    \"createdAt\": \"2026-03-11T16:00:00Z\",\n    \"updatedAt\": \"2026-03-11T16:00:00Z\"\n  }\n}"
+            },
+            {
+              "name": "Error - machineId Conflict (409)",
+              "status": "Conflict",
+              "code": 409,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"success\": false,\n  \"error\": \"CONFLICT: machineId ya existe en el tenant\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "US6 - Status Check",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}", "status"]
+            },
+            "description": "Perform connectivity + version check on an active device.\n\n**Path Parameters:**\n- tenantId: Tenant slug (e.g., 'acme')\n- deviceId: UUID of the device\n\n**Status Code:** 200 OK\n**Error Codes:**\n- 404: Device not found\n- 400: Device is disabled (EDGE_DEVICE_DISABLED)"
+          },
+          "response": [
+            {
+              "name": "Success - Status Check OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"checkType\": \"STATUS\",\n    \"checkedAt\": \"2026-03-11T16:15:00Z\",\n    \"overallStatus\": \"OK\",\n    \"summary\": \"Device reachable, version 1.2.3\",\n    \"details\": {\n      \"version\": \"1.2.3\",\n      \"reachable\": true,\n      \"responseTime\": 120\n    }\n  }\n}"
+            },
+            {
+              "name": "Error - Device Disabled (400)",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"success\": false,\n  \"error\": \"EDGE_DEVICE_DISABLED\"\n}"
+            },
+            {
+              "name": "Error - Device Not Found (404)",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"success\": false,\n  \"error\": \"Not found\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api/v1",
+      "type": "string",
+      "description": "Base URL for the API (local development)"
+    },
+    {
+      "key": "tenant_id",
+      "value": "acme",
+      "type": "string",
+      "description": "Tenant subdomain slug for edge device endpoints"
+    },
+    {
+      "key": "tenantId",
+      "value": "550e8400-e29b-41d4-a716-446655440000",
+      "type": "string",
+      "description": "Tenant UUID for user roles and other endpoints"
+    },
+    {
+      "key": "jwt_token",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+      "type": "string",
+      "description": "JWT Bearer token for authentication"
+    },
+    {
+      "key": "user_id",
+      "value": "323e4567-e89b-12d3-a456-426614174002",
+      "type": "string",
+      "description": "User UUID for user endpoints"
+    },
+    {
+      "key": "userId",
+      "value": "00000000-0000-0000-0000-000000000001",
+      "type": "string",
+      "description": "User UUID for role assignment"
+    },
+    {
+      "key": "userId1",
+      "value": "00000000-0000-0000-0000-000000000001",
+      "type": "string",
+      "description": "User UUID 1 for bulk role assign"
+    },
+    {
+      "key": "userId2",
+      "value": "00000000-0000-0000-0000-000000000002",
+      "type": "string",
+      "description": "User UUID 2 for bulk role assign"
+    },
+    {
+      "key": "utrId",
+      "value": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "type": "string",
+      "description": "User-Tenant-Role assignment UUID (set automatically after POST Assign Role)"
+    },
+    {
+      "key": "device_id",
+      "value": "550e8400-e29b-41d4-a716-446655440000",
+      "type": "string",
+      "description": "Edge device UUID for device status check"
+    }
+  ]
+}
