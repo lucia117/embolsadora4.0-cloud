@@ -18,3 +18,18 @@ var ErrAssignmentNotFound = errors.New("user-role assignment not found")
 
 // ErrInvalidRoleID is returned when the provided role_id does not exist in the roles table.
 var ErrInvalidRoleID = errors.New("invalid roleId: role does not exist")
+
+// ErrAccountSuspended is returned when a user's account has been revoked or disabled.
+var ErrAccountSuspended = errors.New("account suspended")
+
+// ErrPasswordChangeRequired is returned when the user must change their password before proceeding.
+var ErrPasswordChangeRequired = errors.New("password_change_required")
+
+// ErrInvitationAlreadyPending is returned when a pending invitation already exists for this email+tenant.
+var ErrInvitationAlreadyPending = errors.New("invitation already pending for this email")
+
+// ErrInvitationRateLimitExceeded is returned when the invitation rate limit per tenant per hour is exceeded.
+var ErrInvitationRateLimitExceeded = errors.New("invitation rate limit exceeded")
+
+// ErrInvitationNotPending is returned when the invitation is not in pending status.
+var ErrInvitationNotPending = errors.New("invitation is not in pending status")

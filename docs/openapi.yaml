@@ -1,21 +1,213 @@
  openapi: 3.1.0
 info:
   title: Embolsadora Cloud API
-  version: 1.0.0
+  version: 2.0.0-alpha
   description: >
     Superficies separadas:
-    - **/api/v1/**: ABM (JWT + RBAC)
+    - **/api/v1/**: ABM (JWT RS256 via Supabase JWKS + X-Tenant-ID + RBAC)
     - **/api/v1/consumers/**: Ingesta batch (API Key + idempotencia)
+
+    **Breaking changes desde v1**: eliminado `/api/auth` — autenticación delegada a Supabase Auth.
 servers:
   - url: https://api.tu-dominio.com
 
 tags:
+  - name: Auth
+  - name: Me
+  - name: Invitations
   - name: Users
   - name: Machines
   - name: Tenants
   - name: Consumers
 
 paths:
+  ########################
+  # Auth (Supabase delegado)
+  ########################
+  /api/v1/me:
+    get:
+      tags: [Me]
+      summary: Perfil propio con tenant, rol y permisos
+      description: No requiere `X-Tenant-ID`. Devuelve tenant/role/permissions si el usuario tiene un rol activo.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Perfil del usuario autenticado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id: { type: string, format: uuid }
+                      email: { type: string, format: email, nullable: true }
+                      name: { type: string, nullable: true }
+                      password_change_required: { type: boolean }
+                    required: [id, password_change_required]
+                  tenant:
+                    type: object
+                    nullable: true
+                    properties:
+                      id: { type: string, format: uuid }
+                      name: { type: string }
+                      subdomain: { type: string }
+                    required: [id, name, subdomain]
+                  role:
+                    type: object
+                    nullable: true
+                    properties:
+                      id: { type: string }
+                      name: { type: string }
+                    required: [id, name]
+                  permissions:
+                    type: array
+                    items: { type: string }
+                required: [user, permissions]
+        '401': { description: Token ausente o inválido }
+        '503': { description: Supabase JWKS no disponible }
+
+  /api/v1/auth/change-password:
+    post:
+      tags: [Auth]
+      summary: Confirmar cambio de contraseña (limpia el flag password_change_required)
+      description: No requiere `X-Tenant-ID` ni pasa por `PasswordChangeGuard`. El nuevo token de Supabase ya contiene la sesión renovada.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Flag limpiado correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: password changed }
+        '401': { description: Token ausente o inválido }
+
+  ########################
+  # Invitations
+  ########################
+  /api/v1/invitations:
+    get:
+      tags: [Invitations]
+      summary: Listar invitaciones del tenant
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: status
+          required: false
+          schema: { type: string, enum: [pending, accepted, revoked, expired] }
+      responses:
+        '200':
+          description: Lista de invitaciones
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Invitation' }
+        '401': { description: Token ausente o inválido }
+        '403': { description: Sin acceso al tenant }
+    post:
+      tags: [Invitations]
+      summary: Crear invitación (requiere permiso invitations:write)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+                role_id: { type: string }
+              required: [email, role_id]
+      responses:
+        '201':
+          description: Invitación creada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Invitation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { description: Token ausente o inválido }
+        '403': { description: Sin permiso invitations:write }
+        '409':
+          description: Ya existe invitación pendiente para este email en el tenant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/invitations/{id}/resend:
+    post:
+      tags: [Invitations]
+      summary: Reenviar invitación pendiente
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200': { description: Email reenviado }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: Invitación no está en estado pending
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+
+  /api/v1/invitations/{id}:
+    delete:
+      tags: [Invitations]
+      summary: Revocar invitación (requiere permiso invitations:write)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200': { description: Invitación revocada }
+        '403': { description: Sin permiso invitations:write }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  ########################
+  # Users (force password change)
+  ########################
+  /api/v1/users/{id}/force-password-change:
+    post:
+      tags: [Users]
+      summary: Forzar cambio de contraseña (requiere permiso users:write)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200': { description: Flag activado y email de reset enviado }
+        '403': { description: Sin permiso users:write }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   ########################
   # ABM (JWT + RBAC)
   ########################
@@ -207,7 +399,7 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: >
-        Requiere claim `tenant_id` y `roles[]`. El servidor ignora `X-Tenant-Id` del cliente.
+        JWT RS256 emitido por Supabase Auth. El tenant se resuelve desde el header `X-Tenant-ID` validando membresía activa en `user_tenant_roles`.
     apiKeyAuth:
       type: apiKey
       in: header
@@ -409,6 +601,21 @@ components:
             state: { type: string }
             postalCode: { type: string }
             country: { type: string }
+
+    # Invitations
+    Invitation:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        role_id: { type: string }
+        status: { type: string, enum: [pending, accepted, revoked, expired] }
+        invited_by: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+      required: [id, tenant_id, email, role_id, status, invited_by, created_at, updated_at, expires_at]
 
     # Consumers (events & heartbeat)
     BatchEvents:
