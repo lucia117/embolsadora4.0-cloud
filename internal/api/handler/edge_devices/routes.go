@@ -32,6 +32,6 @@ func RegisterRoutes(g *gin.RouterGroup, service *edge_devices.Service) {
 	// US8 – Telemetry
 	g.GET("/edge-devices/:deviceId/telemetry", GetTelemetry(service))
 
-	// Routes for remaining operations will be added per user story phase:
-	// US9 – Events: GET /edge-devices/:deviceId/events
+	// US9 – Events
+	g.GET("/edge-devices/:deviceId/events", ListEvents(service))
 }

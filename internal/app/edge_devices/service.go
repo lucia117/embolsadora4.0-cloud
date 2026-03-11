@@ -264,7 +264,21 @@ func (s *Service) GetTelemetry(ctx context.Context, tenantID, deviceID uuid.UUID
 }
 
 // ListEvents returns all events for a device.
-// Stub — implementation added per user story phase.
 func (s *Service) ListEvents(ctx context.Context, tenantID, deviceID uuid.UUID) ([]*edge_devices.DeviceEvent, error) {
-	return nil, nil
+	// Verify device exists in tenant
+	device, err := s.repo.GetByID(ctx, tenantID, deviceID)
+	if err != nil {
+		s.logger.Error("device not found", zap.Error(err), zap.String("device_id", deviceID.String()))
+		return nil, edge_devices.ErrDeviceNotFound
+	}
+
+	// Get events for device
+	events, err := s.repo.ListEvents(ctx, tenantID, deviceID)
+	if err != nil {
+		s.logger.Error("failed to list events", zap.Error(err), zap.String("device_id", deviceID.String()))
+		return nil, err
+	}
+
+	s.logger.Info("events listed", zap.String("device_id", deviceID.String()), zap.String("device_name", device.Name), zap.Int("count", len(events)))
+	return events, nil
 }
