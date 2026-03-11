@@ -11,7 +11,8 @@
       "Bash(echo \"Exit: $?\")",
       "Bash(migrate -path migrations -database \"postgres://embolsadora_user:embolsadora_password@localhost:5432/embolsadora_dev?sslmode=disable\" up)",
       "Bash(docker exec embolsadora_db psql -U embolsadora_user -d embolsadora_dev -c \"\\\\dt users\")",
-      "Bash(pkill -f \"go run ./cmd/api\")"
+      "Bash(pkill -f \"go run ./cmd/api\")",
+      "Bash(go mod:*)"
     ]
   }
 }
