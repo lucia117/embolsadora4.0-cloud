@@ -2,7 +2,9 @@ package edge_devices
 
 import (
 	"context"
+	"errors"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"github.com/tu-org/embolsadora-api/internal/domain/edge_devices"
@@ -41,8 +43,14 @@ func (s *Service) ListDevices(ctx context.Context, tenantID uuid.UUID) ([]*edge_
 func (s *Service) GetDevice(ctx context.Context, tenantID, deviceID uuid.UUID) (*edge_devices.EdgeDevice, error) {
 	device, err := s.repo.GetByID(ctx, tenantID, deviceID)
 	if err != nil {
+		// Only map to 404 if device truly not found
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.logger.Warn("device not found", zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()))
+			return nil, edge_devices.ErrDeviceNotFound
+		}
+		// Infrastructure errors should propagate as 500
 		s.logger.Error("failed to get device", zap.Error(err), zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()))
-		return nil, edge_devices.ErrDeviceNotFound
+		return nil, err
 	}
 
 	s.logger.Info("device retrieved", zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()))
@@ -79,8 +87,14 @@ func (s *Service) UpdateDevice(ctx context.Context, tenantID, deviceID uuid.UUID
 	// Get current device
 	device, err := s.repo.GetByID(ctx, tenantID, deviceID)
 	if err != nil {
+		// Only map to 404 if device truly not found
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.logger.Warn("device not found", zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()))
+			return nil, edge_devices.ErrDeviceNotFound
+		}
+		// Infrastructure errors should propagate as 500
 		s.logger.Error("failed to get device", zap.Error(err), zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()))
-		return nil, edge_devices.ErrDeviceNotFound
+		return nil, err
 	}
 
 	// Update mutable fields
@@ -105,8 +119,14 @@ func (s *Service) UpdateDevice(ctx context.Context, tenantID, deviceID uuid.UUID
 func (s *Service) EnableDevice(ctx context.Context, tenantID, deviceID uuid.UUID) (*edge_devices.EdgeDevice, error) {
 	device, err := s.repo.SetStatus(ctx, tenantID, deviceID, "ACTIVE")
 	if err != nil {
+		// Only map to 404 if device truly not found
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.logger.Warn("device not found", zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()))
+			return nil, edge_devices.ErrDeviceNotFound
+		}
+		// Infrastructure errors should propagate as 500
 		s.logger.Error("failed to enable device", zap.Error(err), zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()))
-		return nil, edge_devices.ErrDeviceNotFound
+		return nil, err
 	}
 
 	s.logger.Info("device enabled", zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()), zap.String("status", device.Status))
@@ -117,8 +137,14 @@ func (s *Service) EnableDevice(ctx context.Context, tenantID, deviceID uuid.UUID
 func (s *Service) DisableDevice(ctx context.Context, tenantID, deviceID uuid.UUID) (*edge_devices.EdgeDevice, error) {
 	device, err := s.repo.SetStatus(ctx, tenantID, deviceID, "DISABLED")
 	if err != nil {
+		// Only map to 404 if device truly not found
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.logger.Warn("device not found", zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()))
+			return nil, edge_devices.ErrDeviceNotFound
+		}
+		// Infrastructure errors should propagate as 500
 		s.logger.Error("failed to disable device", zap.Error(err), zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()))
-		return nil, edge_devices.ErrDeviceNotFound
+		return nil, err
 	}
 
 	s.logger.Info("device disabled", zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()), zap.String("status", device.Status))
@@ -130,8 +156,14 @@ func (s *Service) StatusCheck(ctx context.Context, tenantID, deviceID, userID uu
 	// Get device
 	device, err := s.repo.GetByID(ctx, tenantID, deviceID)
 	if err != nil {
-		s.logger.Error("device not found", zap.Error(err), zap.String("device_id", deviceID.String()))
-		return nil, edge_devices.ErrDeviceNotFound
+		// Only map to 404 if device truly not found
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.logger.Warn("device not found", zap.String("device_id", deviceID.String()))
+			return nil, edge_devices.ErrDeviceNotFound
+		}
+		// Infrastructure errors should propagate as 500
+		s.logger.Error("failed to get device", zap.Error(err), zap.String("device_id", deviceID.String()))
+		return nil, err
 	}
 
 	// Check if device is disabled
@@ -186,8 +218,14 @@ func (s *Service) HealthCheck(ctx context.Context, tenantID, deviceID, userID uu
 	// Get device
 	device, err := s.repo.GetByID(ctx, tenantID, deviceID)
 	if err != nil {
-		s.logger.Error("device not found", zap.Error(err), zap.String("device_id", deviceID.String()))
-		return nil, edge_devices.ErrDeviceNotFound
+		// Only map to 404 if device truly not found
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.logger.Warn("device not found", zap.String("device_id", deviceID.String()))
+			return nil, edge_devices.ErrDeviceNotFound
+		}
+		// Infrastructure errors should propagate as 500
+		s.logger.Error("failed to get device", zap.Error(err), zap.String("device_id", deviceID.String()))
+		return nil, err
 	}
 
 	// Check if device is disabled
@@ -242,8 +280,14 @@ func (s *Service) GetTelemetry(ctx context.Context, tenantID, deviceID uuid.UUID
 	// Get device
 	device, err := s.repo.GetByID(ctx, tenantID, deviceID)
 	if err != nil {
-		s.logger.Error("device not found", zap.Error(err), zap.String("device_id", deviceID.String()))
-		return nil, edge_devices.ErrDeviceNotFound
+		// Only map to 404 if device truly not found
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.logger.Warn("device not found", zap.String("device_id", deviceID.String()))
+			return nil, edge_devices.ErrDeviceNotFound
+		}
+		// Infrastructure errors should propagate as 500
+		s.logger.Error("failed to get device", zap.Error(err), zap.String("device_id", deviceID.String()))
+		return nil, err
 	}
 
 	// Check if device is disabled
@@ -268,8 +312,14 @@ func (s *Service) ListEvents(ctx context.Context, tenantID, deviceID uuid.UUID) 
 	// Verify device exists in tenant
 	device, err := s.repo.GetByID(ctx, tenantID, deviceID)
 	if err != nil {
-		s.logger.Error("device not found", zap.Error(err), zap.String("device_id", deviceID.String()))
-		return nil, edge_devices.ErrDeviceNotFound
+		// Only map to 404 if device truly not found
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.logger.Warn("device not found", zap.String("device_id", deviceID.String()))
+			return nil, edge_devices.ErrDeviceNotFound
+		}
+		// Infrastructure errors should propagate as 500
+		s.logger.Error("failed to get device", zap.Error(err), zap.String("device_id", deviceID.String()))
+		return nil, err
 	}
 
 	// Get events for device
