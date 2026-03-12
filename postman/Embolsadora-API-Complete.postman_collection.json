@@ -254,8 +254,8 @@
               {"key": "Content-Type", "value": "application/json"}
             ],
             "url": {
-              "raw": "{{baseUrl}}/tenants/{{tenant_id}}/edge-devices",
-              "host": ["{{baseUrl}}"],
+              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices",
+              "host": ["{{edgeDevicesBaseUrl}}"],
               "path": ["tenants", "{{tenant_id}}", "edge-devices"]
             },
             "description": "Retrieve all edge devices for a tenant"
@@ -274,8 +274,8 @@
               "raw": "{\n  \"name\": \"RaspPi-02\",\n  \"machineId\": \"M-EQ-002\",\n  \"edgeType\": \"RASPBERRY_PLC\",\n  \"raspberryBaseUrl\": \"http://192.168.1.101:8080\",\n  \"description\": \"Secondary edge gateway\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/tenants/{{tenant_id}}/edge-devices",
-              "host": ["{{baseUrl}}"],
+              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices",
+              "host": ["{{edgeDevicesBaseUrl}}"],
               "path": ["tenants", "{{tenant_id}}", "edge-devices"]
             },
             "description": "Register a new edge device for a tenant"
@@ -289,8 +289,8 @@
               {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
             ],
             "url": {
-              "raw": "{{baseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}",
-              "host": ["{{baseUrl}}"],
+              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}",
+              "host": ["{{edgeDevicesBaseUrl}}"],
               "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}"]
             },
             "description": "Retrieve a specific edge device by ID"
@@ -309,8 +309,8 @@
               "raw": "{\n  \"name\": \"RaspPi-Updated\",\n  \"description\": \"Updated description\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}",
-              "host": ["{{baseUrl}}"],
+              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}",
+              "host": ["{{edgeDevicesBaseUrl}}"],
               "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}"]
             },
             "description": "Update edge device name and/or description"
@@ -324,8 +324,8 @@
               {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
             ],
             "url": {
-              "raw": "{{baseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/enable",
-              "host": ["{{baseUrl}}"],
+              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/enable",
+              "host": ["{{edgeDevicesBaseUrl}}"],
               "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}", "enable"]
             },
             "description": "Enable an edge device (set status to ACTIVE)"
@@ -339,8 +339,8 @@
               {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
             ],
             "url": {
-              "raw": "{{baseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/disable",
-              "host": ["{{baseUrl}}"],
+              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/disable",
+              "host": ["{{edgeDevicesBaseUrl}}"],
               "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}", "disable"]
             },
             "description": "Disable an edge device (set status to DISABLED)"
@@ -355,8 +355,8 @@
               {"key": "Content-Type", "value": "application/json"}
             ],
             "url": {
-              "raw": "{{baseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/status",
-              "host": ["{{baseUrl}}"],
+              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/status",
+              "host": ["{{edgeDevicesBaseUrl}}"],
               "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}", "status"]
             },
             "description": "Perform connectivity + version check on an edge device"
@@ -370,8 +370,8 @@
               {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
             ],
             "url": {
-              "raw": "{{baseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/health-check",
-              "host": ["{{baseUrl}}"],
+              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/health-check",
+              "host": ["{{edgeDevicesBaseUrl}}"],
               "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}", "health-check"]
             },
             "description": "Perform full hardware diagnostic (CPU, RAM, disk, temperature, uptime)"
@@ -385,8 +385,8 @@
               {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
             ],
             "url": {
-              "raw": "{{baseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/telemetry",
-              "host": ["{{baseUrl}}"],
+              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/telemetry",
+              "host": ["{{edgeDevicesBaseUrl}}"],
               "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}", "telemetry"]
             },
             "description": "Retrieve live telemetry snapshot (CPU, RAM, disk, temperature, PLC status)"
@@ -400,8 +400,8 @@
               {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
             ],
             "url": {
-              "raw": "{{baseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/events",
-              "host": ["{{baseUrl}}"],
+              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/events",
+              "host": ["{{edgeDevicesBaseUrl}}"],
               "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}", "events"]
             },
             "description": "Retrieve historical log of all check events for an edge device"
@@ -415,7 +415,13 @@
       "key": "baseUrl",
       "value": "http://localhost:8080/api/v1",
       "type": "string",
-      "description": "Base URL for the API"
+      "description": "Base URL for the API (v1 endpoints: tenants, users, roles)"
+    },
+    {
+      "key": "edgeDevicesBaseUrl",
+      "value": "http://localhost:8080/api",
+      "type": "string",
+      "description": "Base URL for Edge Devices API (without /v1)"
     },
     {
       "key": "tenant_id",
