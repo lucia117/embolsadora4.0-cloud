@@ -43,7 +43,7 @@ Click collection **Variables** tab and update:
 ### Step 3: Start API Server
 
 ```bash
-go run cmd/main.go
+go run cmd/api/main.go
 # Output: Listening on :8080
 ```
 

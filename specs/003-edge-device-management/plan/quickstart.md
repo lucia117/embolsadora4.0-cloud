@@ -7,7 +7,7 @@
 docker-compose up -d
 
 # 2. Run migrations
-go run cmd/migrate/main.go up
+make migrate-up
 
 # 3. Start the API server
 go run cmd/api/main.go

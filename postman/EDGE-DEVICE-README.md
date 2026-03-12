@@ -27,7 +27,7 @@ Update these variables:
 ### 3. Start the API Server
 
 ```bash
-go run cmd/main.go
+go run cmd/api/main.go
 ```
 
 Wait for: `Listening on :8080`
@@ -354,7 +354,7 @@ curl -X POST \
 
 ## ✅ MVP Validation Checklist
 
-- [ ] Server running: `go run cmd/main.go`
+- [ ] Server running: `go run cmd/api/main.go`
 - [ ] Environment variables set (base_url, tenant_id, jwt_token)
 - [ ] [1] List Devices: 200 OK
 - [ ] [2] Create Device: 201 Created + save device_id
