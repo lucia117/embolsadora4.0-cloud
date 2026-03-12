@@ -80,16 +80,15 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, deviceID uui
 func (r *PostgresRepository) Create(ctx context.Context, device *edge_devices.EdgeDevice) error {
 	query := `
 		INSERT INTO edge_devices (id, tenant_id, name, description, machine_id, edge_type,
-		                          raspberry_base_url, plc_address, status, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		                          raspberry_base_url, plc_address, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING created_at, updated_at
 	`
 
-	var createdAt, updatedAt interface{}
 	err := r.pool.QueryRow(ctx, query,
 		device.ID, device.TenantID, device.Name, device.Description, device.MachineID,
-		device.EdgeType, device.RaspberryBaseURL, device.PLCAddress, device.Status,
-		device.CreatedAt, device.UpdatedAt).Scan(&createdAt, &updatedAt)
+		device.EdgeType, device.RaspberryBaseURL, device.PLCAddress, device.Status).
+		Scan(&device.CreatedAt, &device.UpdatedAt)
 
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -106,14 +105,14 @@ func (r *PostgresRepository) Create(ctx context.Context, device *edge_devices.Ed
 func (r *PostgresRepository) Update(ctx context.Context, device *edge_devices.EdgeDevice) error {
 	query := `
 		UPDATE edge_devices
-		SET name = $1, description = $2, plc_address = $3, status = $4, updated_at = $5
-		WHERE tenant_id = $6 AND id = $7
+		SET name = $1, description = $2, plc_address = $3, status = $4, updated_at = CURRENT_TIMESTAMP
+		WHERE tenant_id = $5 AND id = $6
 		RETURNING updated_at
 	`
 
 	err := r.pool.QueryRow(ctx, query,
 		device.Name, device.Description, device.PLCAddress, device.Status,
-		device.UpdatedAt, device.TenantID, device.ID).Scan(&device.UpdatedAt)
+		device.TenantID, device.ID).Scan(&device.UpdatedAt)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
