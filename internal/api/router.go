@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
+
 	createTenant "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/create_tenant"
 	deleteTenant "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/delete_tenant"
 	getAllTenants "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/get_all_tenants"
@@ -15,7 +17,10 @@ import (
 	updateUserRole "github.com/tu-org/embolsadora-api/internal/api/handler/user_roles/update_user_role"
 	bulkAssignUserRole "github.com/tu-org/embolsadora-api/internal/api/handler/user_roles/bulk_assign_user_roles"
 	getUserRoles "github.com/tu-org/embolsadora-api/internal/api/handler/user_roles/get_user_roles"
+	appUsers "github.com/tu-org/embolsadora-api/internal/app/users"
 	userhandlers "github.com/tu-org/embolsadora-api/internal/api/handler/users"
+	usersRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/users"
+	"github.com/tu-org/embolsadora-api/internal/api/middleware"
 	ucCreateTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/create_tenant"
 	ucDeleteTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/delete_tenant"
 	ucGetAllTenants "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/get_all_tenants"
@@ -38,6 +43,8 @@ type Deps struct {
 	RBACCan      func(ctx context.Context, perm string) error
 	TenantRepo   tenants.TenantRepository
 	UserRoleRepo userRolesRepo.UserRoleRepository
+	Logger       *zap.Logger                    // New: for user management
+	UserRepo     usersRepo.Repository           // New: for user management
 }
 
 // TODO: fill in configuration as needed.
@@ -45,24 +52,26 @@ type Config struct{}
 
 // RegisterAdminRoutes wires API surface routes under the provided group (e.g., /api/v1).
 func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
-	// Users
-	uh := userhandlers.NewUserHandler()
-	g.GET("/users", uh.ListUsers)
-	g.POST("/users", uh.CreateUser)
+	// Users - All /users routes share a single group with tenant middleware to avoid
+	// wildcard conflicts between groups (e.g., /users/:id vs /users/:id/roles).
+	userService := appUsers.NewService(deps.UserRepo, deps.Logger)
+	uh := userhandlers.NewHandler(userService, deps.Logger)
 
-	// User Roles - Register these BEFORE generic /users/:id to avoid wildcard conflicts
 	getUserRolesUseCase := ucGetUserRoles.NewUseCase(deps.UserRoleRepo)
 	getUserRolesHandler := getUserRoles.NewGetUserRolesHandler(getUserRolesUseCase)
-	g.GET("/users/:id/roles", getUserRolesHandler.Handle)
 
-	// Generic user routes (after specific routes to avoid wildcard conflicts)
-	g.GET("/users/:id", uh.GetUser)
-	g.PUT("/users/:id", uh.UpdateUser)
-	g.DELETE("/users/:id", uh.DeleteUser)
+	userRoutes := g.Group("")
+	userRoutes.Use(middleware.ExtractTenantID())
 
-	// User profile
-	g.GET("/profile", uh.GetProfile)
-	g.PUT("/password", uh.UpdatePassword)
+	// Read operations (no RBAC required)
+	userRoutes.GET("/users", uh.ListUsers)
+	userRoutes.GET("/users/:id", uh.GetUser)
+	userRoutes.GET("/users/:id/roles", getUserRolesHandler.Handle)
+
+	// Write operations (admin only)
+	userRoutes.POST("/users", middleware.RequireRole("admin"), uh.CreateUser)
+	userRoutes.PATCH("/users/:id", middleware.RequireRole("admin"), uh.UpdateUser)
+	userRoutes.DELETE("/users/:id", middleware.RequireRole("admin"), uh.DeleteUser)
 
 	// Machines
 	g.GET("/machines", ListMachines)

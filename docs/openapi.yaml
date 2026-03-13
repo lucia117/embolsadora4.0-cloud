@@ -16,6 +16,7 @@ tags:
   - name: Me
   - name: Invitations
   - name: Users
+  - name: UserRoles
   - name: Machines
   - name: Tenants
   - name: Consumers
@@ -214,23 +215,301 @@ paths:
   /api/v1/users:
     get:
       tags: [Users]
-      summary: Listar usuarios
+      summary: Listar usuarios del tenant
       security: [{ bearerAuth: [] }]
       parameters:
-        - $ref: '#/components/parameters/Cursor'
-        - $ref: '#/components/parameters/Limit'
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+          description: UUID del tenant
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: offset
+          in: query
+          required: false
+          schema: { type: integer, minimum: 0, default: 0 }
       responses:
         '200': { $ref: '#/components/responses/UserList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
     post:
       tags: [Users]
-      summary: Crear usuario
+      summary: Crear usuario (admin only)
       security: [{ bearerAuth: [] }]
+      parameters:
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
       requestBody:
         required: true
         content:
           application/json: { schema: { $ref: '#/components/schemas/UserCreate' } }
       responses:
-        '201': { $ref: '#/components/responses/CreatedID' }
+        '201':
+          description: Usuario creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: Email ya existe en el tenant
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Envelope' }
+
+  /api/v1/users/{userId}:
+    get:
+      tags: [Users]
+      summary: Obtener usuario por ID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Usuario encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Users]
+      summary: Actualizar usuario (admin only)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: '#/components/schemas/UserUpdate' } }
+      responses:
+        '200':
+          description: Usuario actualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Users]
+      summary: Eliminar usuario — soft delete (admin only)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Usuario eliminado (soft delete)
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/users/{userId}/roles:
+    get:
+      tags: [UserRoles]
+      summary: Obtener roles de un usuario
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Lista de roles del usuario
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/UserRoleItem' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/user-roles:
+    get:
+      tags: [UserRoles]
+      summary: Listar asignaciones de rol
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: tenantId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [active, pending, revoked] }
+      responses:
+        '200':
+          description: Lista de asignaciones
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/UserRole' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [UserRoles]
+      summary: Asignar rol a un usuario
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserRoleAssign' }
+      responses:
+        '201':
+          description: Rol asignado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/UserRole' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: El usuario ya tiene un rol activo en este tenant
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Envelope' }
+
+  /api/v1/user-roles/bulk:
+    post:
+      tags: [UserRoles]
+      summary: Asignación masiva de roles (all-or-nothing)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserRoleBulkAssign' }
+      responses:
+        '201':
+          description: Todos los roles asignados
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          assigned: { type: integer }
+                          failed: { type: integer }
+                          assignments:
+                            type: array
+                            items: { $ref: '#/components/schemas/UserRole' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: Uno o más usuarios ya tienen rol activo
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Envelope' }
+
+  /api/v1/user-roles/{id}:
+    put:
+      tags: [UserRoles]
+      summary: Actualizar rol de una asignación
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                roleId: { type: string }
+              required: [roleId]
+      responses:
+        '200':
+          description: Asignación actualizada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/UserRole' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [UserRoles]
+      summary: Revocar asignación de rol (soft delete — status revoked)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Asignación revocada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id: { type: string, format: uuid }
+                          status: { type: string, enum: [revoked] }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /api/v1/machines:
     get:
@@ -463,24 +742,76 @@ components:
     User:
       type: object
       properties:
-        id: { type: string }
-        email: { type: string, format: email }
-        name: { type: string }
-        roles:
-          type: array
-          items: { type: string, enum: [owner, admin, viewer, operator] }
-        active: { type: boolean }
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        firstName: { type: string, maxLength: 100 }
+        lastName: { type: string, maxLength: 100 }
+        email: { type: string, format: email, maxLength: 254 }
+        role: { type: string, enum: [admin, user] }
+        image: { type: string, nullable: true }
         createdAt: { type: string, format: date-time }
-      required: [id, email, name, roles, active]
+        updatedAt: { type: string, format: date-time }
+        deletedAt: { type: string, format: date-time, nullable: true }
+      required: [id, tenantId, firstName, lastName, email, role, createdAt, updatedAt]
     UserCreate:
       type: object
       properties:
-        email: { type: string, format: email }
-        name: { type: string }
-        roles:
+        firstName: { type: string, maxLength: 100 }
+        lastName: { type: string, maxLength: 100 }
+        email: { type: string, format: email, maxLength: 254 }
+        role: { type: string, enum: [admin, user] }
+        image: { type: string, nullable: true }
+      required: [firstName, lastName, email, role]
+    UserUpdate:
+      type: object
+      description: Todos los campos son opcionales. Email y tenantId son inmutables.
+      properties:
+        firstName: { type: string, maxLength: 100 }
+        lastName: { type: string, maxLength: 100 }
+        role: { type: string, enum: [admin, user] }
+        image: { type: string, nullable: true }
+      minProperties: 1
+
+    # User Roles
+    UserRole:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        roleId: { type: string }
+        status: { type: string, enum: [active, pending, revoked] }
+        assignedBy: { type: string, format: uuid, nullable: true }
+        assignedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, userId, tenantId, roleId, status, createdAt, updatedAt]
+    UserRoleItem:
+      type: object
+      properties:
+        tenantId: { type: string, format: uuid }
+        tenantName: { type: string }
+        roleId: { type: string }
+        roleName: { type: string }
+        status: { type: string, enum: [active, pending, revoked] }
+      required: [tenantId, roleId, status]
+    UserRoleAssign:
+      type: object
+      properties:
+        userId: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        roleId: { type: string }
+      required: [userId, tenantId, roleId]
+    UserRoleBulkAssign:
+      type: object
+      properties:
+        userIds:
           type: array
-          items: { type: string, enum: [admin, viewer, operator] }
-      required: [email, name]
+          items: { type: string, format: uuid }
+          minItems: 1
+        tenantId: { type: string, format: uuid }
+        roleId: { type: string }
+      required: [userIds, tenantId, roleId]
 
     # Machines
     Machine:
@@ -723,6 +1054,12 @@ components:
 
     BadRequest:
       description: Datos inválidos
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Envelope'
+    Unauthorized:
+      description: No autenticado (JWT inválido o ausente)
       content:
         application/json:
           schema:

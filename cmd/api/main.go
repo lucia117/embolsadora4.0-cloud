@@ -8,6 +8,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 
 	apimw "github.com/tu-org/embolsadora-api/internal/api/middleware"
 	"github.com/tu-org/embolsadora-api/internal/config"
@@ -15,6 +16,13 @@ import (
 )
 
 func main() {
+	// Inicializar logger (debe vivir hasta el cierre de la app)
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		log.Fatalf("failed to initialize logger: %v", err)
+	}
+	defer logger.Sync()
+
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using environment variables")
 	}

@@ -1,9 +1,9 @@
-# Embolsadora API (skeleton)
+# Embolsadora API
 
-Repositorio Go 1.22 con arquitectura clean/hexagonal. Este repo contiene el esqueleto y wiring mínimo (sin lógica de negocio) para dos superficies:
+Repositorio Go 1.24+ con arquitectura clean/hexagonal para el monitoreo de máquinas embolsadoras industriales. Expone dos superficies HTTP:
 
-- `/api` (ABM)
-- `/consumers` (ingesta)
+- `/api/v1` (ABM — JWT + RBAC)
+- `/api/v1/consumers` (ingesta IoT — API Key + rate limit + idempotencia)
 
 ## Arquitectura (resumen)
 
@@ -15,8 +15,8 @@ Repositorio Go 1.22 con arquitectura clean/hexagonal. Este repo contiene el esqu
 
 ## Superficies
 
-- `/api/v1/**`: ABM (JWT + RBAC). Rutas stub 501 para `users`, `machines`, `tenants`.
-- `/api/v1/consumers/**`: Ingesta (API Key + rate limit + idempotencia). Rutas stub 501 para `events` y `heartbeat`.
+- `/api/v1/**`: ABM (JWT + RBAC). Gestión de usuarios, tenants, roles y asignaciones.
+- `/api/v1/consumers/**`: Ingesta (API Key + rate limit + idempotencia). Recepción de eventos y heartbeats desde dispositivos IoT.
 
 ## Requisitos
 
@@ -66,13 +66,19 @@ Endpoint de salud:
 
 - `GET http://localhost:8080/ping` → 200 "pong"
 
-Rutas stub (501 Not Implemented):
+Endpoints disponibles:
 
-- `/api/v1/users` (GET/POST)
-- `/api/v1/machines` (GET/POST)
-- `/api/v1/tenants` (GET/POST)
-- `/api/v1/consumers/events` (POST)
-- `/api/v1/consumers/heartbeat` (POST)
+- `/api/v1/users` (GET, POST) — listado y creación de usuarios
+- `/api/v1/users/:id` (GET, PATCH, DELETE) — gestión individual de usuarios
+- `/api/v1/users/:id/roles` (GET) — roles de un usuario
+- `/api/v1/user-roles` (GET, POST) — asignaciones de rol
+- `/api/v1/user-roles/bulk` (POST) — asignación masiva
+- `/api/v1/user-roles/:id` (PUT, DELETE) — actualización y revocación
+- `/api/v1/tenants` (GET, POST) — listado y creación de tenants
+- `/api/v1/tenants/:id` (GET, PATCH, DELETE) — gestión individual de tenants
+- `/api/v1/machines` (GET, POST) — listado y creación de máquinas
+- `/api/v1/consumers/events` (POST) — ingesta batch de eventos
+- `/api/v1/consumers/heartbeat` (POST) — heartbeat de dispositivo
 
 ## Ejecutar con Docker Compose
 
@@ -190,7 +196,10 @@ Las colecciones Postman están en la carpeta [`postman/`](postman/).
 
 | Archivo | Descripción |
 |---|---|
+| [`User-Management-API.postman_collection.json`](postman/User-Management-API.postman_collection.json) | CRUD completo de usuarios con ejemplos y casos de error |
+| [`user-role-assignments.postman_collection.json`](postman/user-role-assignments.postman_collection.json) | Asignación, actualización y revocación de roles |
 | [`tenants.postman_collection.json`](postman/tenants.postman_collection.json) | CRUD completo de tenants (`GET`, `POST`, `PATCH`, `DELETE`) |
+| [`User-Management-API.postman_environment.json`](postman/User-Management-API.postman_environment.json) | Variables para user management (`base_url`, `tenant_id`, `jwt_token`, `user_id`) |
 | [`env-local.postman_environment.json`](postman/env-local.postman_environment.json) | Variables de entorno para desarrollo local (`http://localhost:8080`) |
 
 **Cómo usar:**
@@ -206,5 +215,5 @@ Las colecciones Postman están en la carpeta [`postman/`](postman/).
 
 ## Notas
 
-- Este repo es un esqueleto: no contiene lógica de negocio. Los handlers devuelven `501 Not Implemented`.
 - Los comentarios/TODOs están en inglés por consistencia técnica interna.
+- Ver `postman/README.md` y `postman/TESTING-GUIDE.md` para guías detalladas de uso y testing.

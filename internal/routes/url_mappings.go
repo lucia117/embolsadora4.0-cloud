@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 
 	api "github.com/tu-org/embolsadora-api/internal/api"
 	apimw "github.com/tu-org/embolsadora-api/internal/api/middleware"
@@ -97,9 +98,12 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	v1.POST("/users/:id/force-password-change", apimw.RBACCheck("users:write"), forcePasswordHandler.Handle)
 
 	// Admin routes (tenants, user-roles, etc.)
+	logger, _ := zap.NewDevelopment()
 	api.RegisterAdminRoutes(v1, api.Deps{
 		TenantRepo:   tenantRepo,
 		UserRoleRepo: userRoleRepo,
+		Logger:       logger,
+		UserRepo:     userRepo,
 	}, api.Config{})
 
 	// ── Consumer surface (IoT devices, etc.) ──────────────────────────────────
