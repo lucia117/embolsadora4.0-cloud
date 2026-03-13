@@ -3,8 +3,8 @@ package security
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
-	"strings"
 
 	"github.com/MicahParks/keyfunc/v3"
 	jwt "github.com/golang-jwt/jwt/v5"
@@ -56,13 +56,9 @@ func isJWKSFetchError(err error) bool {
 	if err == nil {
 		return false
 	}
-	msg := err.Error()
-	for _, s := range []string{"failed to fetch", "connection refused", "no such host", "dial tcp", "context deadline exceeded", "JWKS"} {
-		if strings.Contains(msg, s) {
-			return true
-		}
-	}
-	return false
+	var netErr net.Error
+	var urlErr *url.Error
+	return errors.As(err, &netErr) || errors.As(err, &urlErr)
 }
 
 // StubVerifier returns a no-op verifier placeholder for tests.

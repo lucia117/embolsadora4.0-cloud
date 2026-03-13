@@ -39,6 +39,15 @@ func (uc *PasswordUsecase) ForcePasswordChange(ctx context.Context, targetUserID
 		return err
 	}
 
+	// Validate that target user belongs to the caller's tenant
+	member, err := uc.userRepo.IsActiveMemberOfTenant(ctx, targetUserID, tenantID)
+	if err != nil {
+		return fmt.Errorf("check tenant membership: %w", err)
+	}
+	if !member {
+		return domain.ErrForbidden
+	}
+
 	// Set the flag in our DB
 	if err := uc.userRepo.SetPasswordChangeRequired(ctx, targetUserID, true); err != nil {
 		return fmt.Errorf("set password_change_required: %w", err)

@@ -212,11 +212,6 @@ func CORS() gin.HandlerFunc {
 	}
 }
 
-// TenantFromJWT is kept as an alias for backward compatibility during refactor.
-// Deprecated: use TenantFromHeader.
-func TenantFromJWT() gin.HandlerFunc {
-	return func(c *gin.Context) { c.Next() }
-}
 
 func isExemptFromTenant(path string) bool {
 	return path == "/api/v1/me" || path == "/api/v1/auth/change-password"

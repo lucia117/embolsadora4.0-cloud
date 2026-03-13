@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -41,7 +42,8 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	telemetry.RegisterMetrics(r)
 
 	// ── Repositories ──────────────────────────────────────────────────────────
-	userRepo := usersRepo.NewUserRepository(db)
+	userRepo := usersRepo.NewUserRepository(db)          // auth: UpsertBySupabaseID, GetBySupabaseID, etc.
+	mgmtUserRepo := usersRepo.NewPostgresRepository(db)  // user management CRUD
 	tenantRepo := tenantsRepository.NewTenantRepository(db)
 	userRoleRepo := userRolesRepository.NewUserRoleRepository(db)
 	invRepo := invitationsRepo.NewInvitationRepository(db)
@@ -58,8 +60,7 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	// ── JWT verifier ──────────────────────────────────────────────────────────
 	verifier, err := security.NewJWKSVerifier(cfg.Supabase.JWKSUrl, cfg.Supabase.JWTIssuer, cfg.Supabase.JWTAudience)
 	if err != nil {
-		// Log and fall back to stub verifier so server can still start with invalid config
-		verifier = security.StubVerifier()
+		log.Fatalf("failed to initialize JWKS verifier: %v", err)
 	}
 
 	// ── Handlers ──────────────────────────────────────────────────────────────
@@ -103,7 +104,7 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 		TenantRepo:   tenantRepo,
 		UserRoleRepo: userRoleRepo,
 		Logger:       logger,
-		UserRepo:     userRepo,
+		UserRepo:     mgmtUserRepo,
 	}, api.Config{})
 
 	// ── Consumer surface (IoT devices, etc.) ──────────────────────────────────

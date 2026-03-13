@@ -18,6 +18,7 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id string) (*domain.User, error)
 	SetStatus(ctx context.Context, userID string, status domain.UserStatus) error
 	SetPasswordChangeRequired(ctx context.Context, userID string, value bool) error
+	IsActiveMemberOfTenant(ctx context.Context, userID, tenantID string) (bool, error)
 }
 
 type pgUserRepo struct {
@@ -44,7 +45,7 @@ func (r *pgUserRepo) UpsertBySupabaseID(ctx context.Context, supabaseUserID, ema
 		          password_change_required, created_at, updated_at`
 
 	row := r.db.QueryRow(ctx, q, uuid.New().String(), supabaseUserID, email)
-	return scanUser(row)
+	return scanAuthUser(row)
 }
 
 // GetBySupabaseID retrieves a user by their Supabase user ID.
@@ -57,7 +58,7 @@ func (r *pgUserRepo) GetBySupabaseID(ctx context.Context, supabaseUserID string)
 		WHERE supabase_user_id = $1`
 
 	row := r.db.QueryRow(ctx, q, supabaseUserID)
-	u, err := scanUser(row)
+	u, err := scanAuthUser(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrNotFound
@@ -77,7 +78,7 @@ func (r *pgUserRepo) GetByID(ctx context.Context, id string) (*domain.User, erro
 		WHERE id = $1`
 
 	row := r.db.QueryRow(ctx, q, id)
-	u, err := scanUser(row)
+	u, err := scanAuthUser(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrNotFound
@@ -101,7 +102,18 @@ func (r *pgUserRepo) SetPasswordChangeRequired(ctx context.Context, userID strin
 	return err
 }
 
-func scanUser(row pgx.Row) (*domain.User, error) {
+// IsActiveMemberOfTenant returns true if the user has an active role in the given tenant.
+func (r *pgUserRepo) IsActiveMemberOfTenant(ctx context.Context, userID, tenantID string) (bool, error) {
+	var exists bool
+	err := r.db.QueryRow(ctx,
+		`SELECT EXISTS(
+			SELECT 1 FROM user_tenant_roles
+			WHERE user_id = $1 AND tenant_id = $2 AND status = 'active'
+		)`, userID, tenantID).Scan(&exists)
+	return exists, err
+}
+
+func scanAuthUser(row pgx.Row) (*domain.User, error) {
 	var u domain.User
 	var name *string
 	var authProvider *string

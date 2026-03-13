@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -47,6 +48,15 @@ type Config struct {
 }
 
 func Load() (*Config, error) {
+	var missing []string
+	require := func(key string) string {
+		v := os.Getenv(key)
+		if v == "" {
+			missing = append(missing, key)
+		}
+		return v
+	}
+
 	cfg := &Config{
 		HTTP: HTTPConfig{
 			Port:         getEnv("PORT", "8080"),
@@ -54,7 +64,7 @@ func Load() (*Config, error) {
 			WriteTimeout: getDurationEnv("HTTP_WRITE_TIMEOUT", 10*time.Second),
 		},
 		DB: DBConfig{
-			URL:             requireEnv("DATABASE_URL"),
+			URL:             require("DATABASE_URL"),
 			MaxConns:        getIntEnv("DB_MAX_CONNS", 10),
 			MinConns:        getIntEnv("DB_MIN_CONNS", 2),
 			ConnMaxLifetime: getDurationEnv("DB_CONN_MAX_LIFETIME", 30*time.Minute),
@@ -63,17 +73,20 @@ func Load() (*Config, error) {
 			URL: getEnv("REDIS_URL", ""),
 		},
 		Supabase: SupabaseConfig{
-			JWKSUrl:             requireEnv("SUPABASE_JWKS_URL"),
-			JWTIssuer:           requireEnv("SUPABASE_JWT_ISSUER"),
+			JWKSUrl:             require("SUPABASE_JWKS_URL"),
+			JWTIssuer:           require("SUPABASE_JWT_ISSUER"),
 			JWTAudience:         getEnv("SUPABASE_JWT_AUDIENCE", "authenticated"),
-			URL:                 requireEnv("SUPABASE_URL"),
-			ServiceRoleKey:      requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
-			AppBaseURL:          requireEnv("APP_BASE_URL"),
+			URL:                 require("SUPABASE_URL"),
+			ServiceRoleKey:      require("SUPABASE_SERVICE_ROLE_KEY"),
+			AppBaseURL:          require("APP_BASE_URL"),
 			InviteRateLimitHour: getIntEnv("INVITATION_RATE_LIMIT_PER_HOUR", 20),
 		},
 		Observability: ObservabilityConfig{
 			LogLevel: getEnv("LOG_LEVEL", "info"),
 		},
+	}
+	if len(missing) > 0 {
+		return nil, fmt.Errorf("missing required env vars: %s", strings.Join(missing, ", "))
 	}
 	return cfg, nil
 }
@@ -85,13 +98,6 @@ func getEnv(key, defaultVal string) string {
 	return defaultVal
 }
 
-func requireEnv(key string) string {
-	v := os.Getenv(key)
-	if v == "" {
-		fmt.Fprintf(os.Stderr, "WARNING: required env var %s is not set\n", key)
-	}
-	return v
-}
 
 func getIntEnv(key string, defaultVal int) int {
 	if v := os.Getenv(key); v != "" {
