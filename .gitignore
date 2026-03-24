@@ -9,3 +9,6 @@ postman/export-*.json
 
 # Environment variables
 .env
+
+# MacOS
+.DS_Store
