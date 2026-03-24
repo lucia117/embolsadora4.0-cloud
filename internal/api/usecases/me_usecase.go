@@ -93,7 +93,7 @@ func (uc *MeUsecase) GetMe(ctx context.Context) (*MeResponse, error) {
 			ID:   roleID,
 			Name: roleName,
 		}
-		resp.Permissions = security.PermissionsForRole(roleID)
+		resp.Permissions = security.PermissionsForRole(roleName)
 	}
 
 	return resp, nil
