@@ -3,6 +3,7 @@ package routes
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -24,6 +25,10 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/config"
 	"github.com/tu-org/embolsadora-api/internal/platform/supabase"
 	invitationsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/invitations"
+	edgeDevicesApp "github.com/tu-org/embolsadora-api/internal/app/edge_devices"
+	edgeDevicesHandler "github.com/tu-org/embolsadora-api/internal/api/handler/edge_devices"
+	edgeDevicesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/edge_devices"
+	"github.com/tu-org/embolsadora-api/internal/platform/edgeclient"
 	tenantsRepository "github.com/tu-org/embolsadora-api/internal/repo/pg/tenants"
 	userRolesRepository "github.com/tu-org/embolsadora-api/internal/repo/pg/user_roles"
 	usersRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/users"
@@ -117,4 +122,21 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 		consumermw.Timeout(),
 	)
 	consumers.RegisterConsumerRoutes(c1, consumers.Deps{}, consumers.Config{})
+
+	// Superficie de edge devices (/api/tenants/{tenantId}/edge-devices)
+	// Esta ruta sigue el contrato del pact y es parte de la superficie ABM
+	edgeDeviceTimeout := time.Duration(0) // usar timeout por defecto (10s)
+	edgeDeviceClient := edgeclient.NewHTTPClient(edgeDeviceTimeout)
+	edgeDeviceRepository := edgeDevicesRepo.NewPostgresRepository(db)
+	edgeDeviceService := edgeDevicesApp.NewService(edgeDeviceRepository, edgeDeviceClient, logger)
+
+	tenantsGroup := r.Group(
+		"/api/tenants/:tenantId",
+		apimw.RequestID(),
+		apimw.Logger(),
+		apimw.CORS(),
+		apimw.JWTAuth(),
+		apimw.ResolveTenantFromPath(db),
+	)
+	edgeDevicesHandler.RegisterRoutes(tenantsGroup, edgeDeviceService)
 }

@@ -1,0 +1,809 @@
+openapi: 3.0.3
+info:
+  title: Edge Device Service API
+  description: |
+    API for managing edge devices (Raspberry Pi + PLC units) deployed at industrial sites.
+    Supports device registration, lifecycle management (enable/disable), on-demand
+    connectivity checks, hardware health diagnostics, real-time telemetry, and event history.
+
+    **Consumer**: embolsadora-frontend
+    **Provider**: edge-device-service-api
+    **Pact version**: 2.0.0
+  version: 1.0.0
+  contact:
+    name: Embolsadora 4.0 Team
+
+servers:
+  - url: /api
+    description: Default base path
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    EdgeDevice:
+      type: object
+      required:
+        - id
+        - tenantId
+        - name
+        - machineId
+        - edgeType
+        - raspberryBaseUrl
+        - status
+        - lastHealthStatus
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Server-assigned unique identifier
+          example: device-uuid-001
+        tenantId:
+          type: string
+          format: uuid
+          description: UUID of the tenant this device belongs to
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        name:
+          type: string
+          description: Human-readable device label
+          example: Embolsadora Línea 1
+        description:
+          type: string
+          nullable: true
+          description: Optional operational notes
+          example: Dispositivo de control de línea 1
+        machineId:
+          type: string
+          description: Physical machine identifier; unique per tenant
+          example: EMB-L1-001
+        edgeType:
+          type: string
+          enum: [RASPBERRY_PLC]
+          description: Hardware profile of the edge device
+          example: RASPBERRY_PLC
+        raspberryBaseUrl:
+          type: string
+          format: uri
+          description: HTTP base URL of the Raspberry Pi service
+          example: http://192.168.1.10:8080
+        plcAddress:
+          type: string
+          nullable: true
+          description: Optional PLC IP address or hostname
+          example: 192.168.1.20
+        status:
+          type: string
+          enum: [ACTIVE, DISABLED]
+          description: Operational state of the device
+          example: ACTIVE
+        lastSeenAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp of last successful connectivity
+          example: "2026-03-01T22:00:00Z"
+        lastHealthCheckAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp of last health check
+          example: "2026-03-01T22:00:00Z"
+        lastHealthStatus:
+          type: string
+          enum: [OK, DEGRADED, ERROR, UNKNOWN]
+          description: Status from most recent health check
+          example: OK
+        lastHealthSummary:
+          type: string
+          nullable: true
+          description: Human-readable summary of last health check
+          example: Operativo
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-01-10T08:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-01-10T08:00:00Z"
+
+    CreateEdgeDeviceRequest:
+      type: object
+      required:
+        - name
+        - machineId
+        - edgeType
+        - raspberryBaseUrl
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          example: Embolsadora Línea 2
+        description:
+          type: string
+          nullable: true
+          example: Dispositivo de control de línea 2
+        machineId:
+          type: string
+          maxLength: 100
+          example: EMB-L2-001
+        edgeType:
+          type: string
+          enum: [RASPBERRY_PLC]
+          example: RASPBERRY_PLC
+        raspberryBaseUrl:
+          type: string
+          format: uri
+          example: http://192.168.1.11:8080
+        plcAddress:
+          type: string
+          nullable: true
+          example: 192.168.1.21
+
+    UpdateEdgeDeviceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          example: Embolsadora Línea 1 - Actualizada
+        description:
+          type: string
+          nullable: true
+          example: Descripción actualizada
+
+    CheckResult:
+      type: object
+      required:
+        - checkType
+        - checkedAt
+        - overallStatus
+        - summary
+        - details
+      properties:
+        checkType:
+          type: string
+          enum: [STATUS, HEALTH_CHECK]
+          example: STATUS
+        checkedAt:
+          type: string
+          format: date-time
+          example: "2026-03-02T10:00:00Z"
+        overallStatus:
+          type: string
+          enum: [OK, DEGRADED, ERROR, UNKNOWN]
+          example: OK
+        summary:
+          type: string
+          description: Human-readable summary; empty string if not provided by device
+          example: Operativo
+        details:
+          type: object
+          description: Type-specific payload; structure varies by checkType
+
+    StatusCheckDetails:
+      type: object
+      properties:
+        version:
+          type: string
+          example: 1.2.0
+
+    HealthCheckDetails:
+      type: object
+      properties:
+        cpu:
+          type: object
+          properties:
+            usagePercent:
+              type: number
+              format: float
+              example: 32.5
+        ram:
+          type: object
+          properties:
+            usedPercent:
+              type: number
+              format: float
+              example: 55.0
+        disk:
+          type: object
+          properties:
+            usedPercent:
+              type: number
+              format: float
+              example: 42.0
+        temperatureCelsius:
+          type: number
+          format: float
+          example: 52.3
+        uptimeSeconds:
+          type: integer
+          example: 1234567
+
+    TelemetrySnapshot:
+      type: object
+      required:
+        - capturedAt
+        - cpu
+        - ram
+        - disk
+        - temperatureCelsius
+        - uptimeSeconds
+        - plc
+      properties:
+        capturedAt:
+          type: string
+          format: date-time
+          example: "2026-03-02T10:00:00Z"
+        cpu:
+          type: object
+          properties:
+            usagePercent:
+              type: number
+              format: float
+              example: 28.5
+        ram:
+          type: object
+          properties:
+            usedPercent:
+              type: number
+              format: float
+              example: 52.0
+            usedMb:
+              type: integer
+              example: 1064
+            totalMb:
+              type: integer
+              example: 2048
+        disk:
+          type: object
+          properties:
+            usedPercent:
+              type: number
+              format: float
+              example: 38.5
+            usedGb:
+              type: number
+              format: float
+              example: 12.3
+            totalGb:
+              type: integer
+              example: 32
+        temperatureCelsius:
+          type: number
+          format: float
+          example: 49.1
+        uptimeSeconds:
+          type: integer
+          example: 5678901
+        plc:
+          type: object
+          properties:
+            reachable:
+              type: boolean
+              example: true
+            latencyMs:
+              type: integer
+              nullable: true
+              example: 12
+            lastHeartbeatAt:
+              type: string
+              format: date-time
+              nullable: true
+              example: "2026-03-02T09:59:30Z"
+
+    DeviceEvent:
+      type: object
+      required:
+        - id
+        - checkType
+        - checkedAt
+        - overallStatus
+        - userId
+        - userEmail
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: event-uuid-001
+        checkType:
+          type: string
+          enum: [STATUS, HEALTH_CHECK]
+          example: HEALTH_CHECK
+        checkedAt:
+          type: string
+          format: date-time
+          example: "2026-03-01T22:00:00Z"
+        overallStatus:
+          type: string
+          enum: [OK, DEGRADED, ERROR, UNKNOWN]
+          example: OK
+        summary:
+          type: string
+          nullable: true
+          example: Operativo
+        userId:
+          type: string
+          format: uuid
+          example: user-uuid-001
+        userEmail:
+          type: string
+          format: email
+          example: admin@acme.com
+
+    SuccessResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: Not found
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid Authorization token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "No autorizado"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "Not found"
+
+    Conflict:
+      description: Conflict — duplicate machineId within tenant
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "CONFLICT: machineId ya existe en el tenant"
+
+    DeviceDisabled:
+      description: Operation rejected — device is DISABLED
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "EDGE_DEVICE_DISABLED"
+
+paths:
+  /tenants/{tenantId}/edge-devices:
+    get:
+      summary: List edge devices for a tenant
+      operationId: listEdgeDevices
+      tags: [Edge Devices]
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Tenant subdomain identifier
+          example: acme
+      responses:
+        "200":
+          description: List of edge devices
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EdgeDevice'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      summary: Register a new edge device
+      operationId: createEdgeDevice
+      tags: [Edge Devices]
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: acme
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEdgeDeviceRequest'
+      responses:
+        "201":
+          description: Device registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/EdgeDevice'
+        "400":
+          description: Validation error — missing or invalid fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "409":
+          $ref: '#/components/responses/Conflict'
+
+  /tenants/{tenantId}/edge-devices/{deviceId}:
+    get:
+      summary: Get an edge device by ID
+      operationId: getEdgeDevice
+      tags: [Edge Devices]
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: acme
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: device-uuid-001
+      responses:
+        "200":
+          description: Edge device found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/EdgeDevice'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      summary: Update edge device configuration
+      operationId: updateEdgeDevice
+      tags: [Edge Devices]
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: acme
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: device-uuid-001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEdgeDeviceRequest'
+      responses:
+        "200":
+          description: Device updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/EdgeDevice'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /tenants/{tenantId}/edge-devices/{deviceId}/enable:
+    post:
+      summary: Enable an edge device (DISABLED → ACTIVE)
+      operationId: enableEdgeDevice
+      tags: [Edge Devices - Lifecycle]
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: acme
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: device-uuid-001
+      responses:
+        "200":
+          description: Device enabled (or already ACTIVE — idempotent)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/EdgeDevice'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /tenants/{tenantId}/edge-devices/{deviceId}/disable:
+    post:
+      summary: Disable an edge device (ACTIVE → DISABLED)
+      operationId: disableEdgeDevice
+      tags: [Edge Devices - Lifecycle]
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: acme
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: device-uuid-001
+      responses:
+        "200":
+          description: Device disabled (or already DISABLED — idempotent)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/EdgeDevice'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /tenants/{tenantId}/edge-devices/{deviceId}/status:
+    post:
+      summary: Perform an on-demand status check on an active device
+      operationId: statusCheckEdgeDevice
+      tags: [Edge Devices - Checks]
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: acme
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: device-uuid-001
+      responses:
+        "200":
+          description: Status check result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/CheckResult'
+                      - type: object
+                        properties:
+                          details:
+                            $ref: '#/components/schemas/StatusCheckDetails'
+        "400":
+          $ref: '#/components/responses/DeviceDisabled'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /tenants/{tenantId}/edge-devices/{deviceId}/health-check:
+    post:
+      summary: Perform a full hardware health check on an active device
+      operationId: healthCheckEdgeDevice
+      tags: [Edge Devices - Checks]
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: acme
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: device-uuid-001
+      responses:
+        "200":
+          description: Health check result with hardware metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/CheckResult'
+                      - type: object
+                        properties:
+                          details:
+                            $ref: '#/components/schemas/HealthCheckDetails'
+        "400":
+          $ref: '#/components/responses/DeviceDisabled'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /tenants/{tenantId}/edge-devices/{deviceId}/telemetry:
+    get:
+      summary: Get real-time telemetry snapshot from an active device
+      operationId: getEdgeDeviceTelemetry
+      tags: [Edge Devices - Monitoring]
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: acme
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: device-uuid-001
+      responses:
+        "200":
+          description: Latest telemetry snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TelemetrySnapshot'
+        "400":
+          $ref: '#/components/responses/DeviceDisabled'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /tenants/{tenantId}/edge-devices/{deviceId}/events:
+    get:
+      summary: Get event history for an edge device
+      operationId: listEdgeDeviceEvents
+      tags: [Edge Devices - Monitoring]
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: acme
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: device-uuid-001
+      responses:
+        "200":
+          description: List of check events (newest first)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeviceEvent'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+tags:
+  - name: Edge Devices
+    description: CRUD operations for edge device registry
+  - name: Edge Devices - Lifecycle
+    description: Enable and disable state transitions
+  - name: Edge Devices - Checks
+    description: On-demand status and health check operations
+  - name: Edge Devices - Monitoring
+    description: Real-time telemetry and event history

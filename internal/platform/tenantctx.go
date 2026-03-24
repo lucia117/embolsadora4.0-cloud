@@ -10,11 +10,15 @@ type tenantKeyType struct{}
 type userKeyType struct{}
 type supabaseSubKeyType struct{}
 type domainUserKeyType struct{}
+type userEmailKeyType struct{}
+type tenantUUIDKeyType struct{}
 
 var tenantKey = tenantKeyType{}
 var userKey = userKeyType{}
 var supabaseSubKey = supabaseSubKeyType{}
 var domainUserKey = domainUserKeyType{}
+var userEmailKey = userEmailKeyType{}
+var tenantUUIDKey = tenantUUIDKeyType{}
 
 // WithTenantID returns a new context carrying the given tenant ID.
 func WithTenantID(ctx context.Context, tenantID string) context.Context {
@@ -58,6 +62,21 @@ func SupabaseSub(ctx context.Context) string {
 	return ""
 }
 
+// WithUserEmail returns a new context carrying the authenticated user's email.
+func WithUserEmail(ctx context.Context, email string) context.Context {
+	return context.WithValue(ctx, userEmailKey, email)
+}
+
+// UserEmail extracts the authenticated user's email from context.
+// Returns empty string if no email is present.
+func UserEmail(ctx context.Context) string {
+	v := ctx.Value(userEmailKey)
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return ""
+}
+
 // DomainUserValue is a type alias used to store the provisioned domain user in context.
 // Using interface{} to avoid import cycles; callers cast to *domain.User.
 type DomainUserValue interface{}
@@ -70,4 +89,19 @@ func WithDomainUser(ctx context.Context, user DomainUserValue) context.Context {
 // DomainUser extracts the domain user from context.
 func DomainUser(ctx context.Context) DomainUserValue {
 	return ctx.Value(domainUserKey)
+}
+
+// WithTenantUUID returns a new context carrying the given tenant UUID.
+func WithTenantUUID(ctx context.Context, tenantID uuid.UUID) context.Context {
+	return context.WithValue(ctx, tenantUUIDKey, tenantID)
+}
+
+// TenantUUID extracts the tenant UUID from context.
+// Returns nil if no tenant UUID is present.
+func TenantUUID(ctx context.Context) *uuid.UUID {
+	v := ctx.Value(tenantUUIDKey)
+	if id, ok := v.(uuid.UUID); ok {
+		return &id
+	}
+	return nil
 }
