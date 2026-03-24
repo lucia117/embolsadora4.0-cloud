@@ -1,0 +1,487 @@
+{
+  "info": {
+    "_postman_id": "embolsadora-api-master-collection",
+    "name": "Embolsadora API - Complete Collection",
+    "description": "Master collection for Embolsadora 4.0 Cloud API\n\nConsolidated endpoints across all features:\n- Tenants management\n- Users CRUD\n- User Role Assignments\n- Edge Device Management (Complete US1-US9)\n\n**Base URLs:**\n- `{{baseUrl}}` = http://localhost:8080/api/v1 (tenants, users, roles)\n- `{{edgeDevicesBaseUrl}}` = http://localhost:8080/api (edge devices)\n\n**Authentication:** Bearer JWT Token\n**Multi-tenant:** `X-Tenant-ID: {{tenant_uuid}}` header (users/roles) or `{{tenant_id}}` slug in path (edge devices)\n\n**Edge Device Endpoints (All 9 User Stories Implemented):**\n- US1: List Devices - GET /edge-devices\n- US2: Create Device - POST /edge-devices\n- US3: Get Device - GET /edge-devices/:deviceId\n- US4: Update Device - PUT /edge-devices/:deviceId\n- US5: Enable/Disable - POST /edge-devices/:deviceId/enable, /disable\n- US6: Status Check - POST /edge-devices/:deviceId/status\n- US7: Health Check - POST /edge-devices/:deviceId/health-check\n- US8: Telemetry - GET /edge-devices/:deviceId/telemetry\n- US9: Events - GET /edge-devices/:deviceId/events",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Tenants",
+      "item": [
+        {
+          "name": "GET All Tenants",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tenants",
+              "host": ["{{baseUrl}}"],
+              "path": ["tenants"]
+            },
+            "description": "Retorna la lista de todos los tenants registrados en el sistema."
+          }
+        },
+        {
+          "name": "POST Create Tenant",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"mrg-equipamientos\",\n  \"companyName\": \"M.R.G. Equipamientos S.R.L.\",\n  \"subdomain\": \"mrg\",\n  \"description\": \"Empresa fabricante de embolsadoras industriales\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tenants",
+              "host": ["{{baseUrl}}"],
+              "path": ["tenants"]
+            }
+          }
+        },
+        {
+          "name": "GET Tenant by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tenants/{{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tenants", "{{tenantId}}"]
+            }
+          }
+        },
+        {
+          "name": "PATCH Update Tenant",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"mrg-equipamientos-v2\"}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tenants/{{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tenants", "{{tenantId}}"]
+            }
+          }
+        },
+        {
+          "name": "DELETE Tenant",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tenants/{{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tenants", "{{tenantId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"},
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users?limit=20&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"],
+              "query": [
+                {"key": "limit", "value": "20"},
+                {"key": "offset", "value": "0"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"},
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{user_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{user_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"},
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Carlos\",\n  \"lastName\": \"López\",\n  \"email\": \"carlos@example.com\",\n  \"role\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"]
+            }
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"},
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"firstName\": \"Carlos Eduardo\", \"role\": \"user\"}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/{{user_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{user_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"},
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{user_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{user_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "User Roles",
+      "item": [
+        {
+          "name": "POST Assign Role",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"tenantId\": \"{{tenantId}}\",\n  \"roleId\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-roles",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-roles"]
+            }
+          }
+        },
+        {
+          "name": "GET List Assignments",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}"}],
+            "url": {
+              "raw": "{{baseUrl}}/user-roles?tenantId={{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-roles"],
+              "query": [{"key": "tenantId", "value": "{{tenantId}}"}]
+            }
+          }
+        },
+        {
+          "name": "PUT Update Role",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"roleId\": \"operario\"}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-roles/{{utrId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-roles", "{{utrId}}"]
+            }
+          }
+        },
+        {
+          "name": "DELETE Revoke Role",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}"}],
+            "url": {
+              "raw": "{{baseUrl}}/user-roles/{{utrId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-roles", "{{utrId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Edge Devices",
+      "item": [
+        {
+          "name": "US1 - List Edge Devices",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "url": {
+              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices",
+              "host": ["{{edgeDevicesBaseUrl}}"],
+              "path": ["tenants", "{{tenant_id}}", "edge-devices"]
+            },
+            "description": "Retrieve all edge devices for a tenant"
+          }
+        },
+        {
+          "name": "US2 - Create Edge Device",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"RaspPi-02\",\n  \"machineId\": \"M-EQ-002\",\n  \"edgeType\": \"RASPBERRY_PLC\",\n  \"raspberryBaseUrl\": \"http://192.168.1.101:8080\",\n  \"description\": \"Secondary edge gateway\"\n}"
+            },
+            "url": {
+              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices",
+              "host": ["{{edgeDevicesBaseUrl}}"],
+              "path": ["tenants", "{{tenant_id}}", "edge-devices"]
+            },
+            "description": "Register a new edge device for a tenant"
+          }
+        },
+        {
+          "name": "US3 - Get Edge Device",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+            ],
+            "url": {
+              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}",
+              "host": ["{{edgeDevicesBaseUrl}}"],
+              "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}"]
+            },
+            "description": "Retrieve a specific edge device by ID"
+          }
+        },
+        {
+          "name": "US4 - Update Edge Device",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"RaspPi-Updated\",\n  \"description\": \"Updated description\"\n}"
+            },
+            "url": {
+              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}",
+              "host": ["{{edgeDevicesBaseUrl}}"],
+              "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}"]
+            },
+            "description": "Update edge device name and/or description"
+          }
+        },
+        {
+          "name": "US5 - Enable Device",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+            ],
+            "url": {
+              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/enable",
+              "host": ["{{edgeDevicesBaseUrl}}"],
+              "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}", "enable"]
+            },
+            "description": "Enable an edge device (set status to ACTIVE)"
+          }
+        },
+        {
+          "name": "US5 - Disable Device",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+            ],
+            "url": {
+              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/disable",
+              "host": ["{{edgeDevicesBaseUrl}}"],
+              "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}", "disable"]
+            },
+            "description": "Disable an edge device (set status to DISABLED)"
+          }
+        },
+        {
+          "name": "US6 - Status Check",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "url": {
+              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/status",
+              "host": ["{{edgeDevicesBaseUrl}}"],
+              "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}", "status"]
+            },
+            "description": "Perform connectivity + version check on an edge device"
+          }
+        },
+        {
+          "name": "US7 - Health Check",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+            ],
+            "url": {
+              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/health-check",
+              "host": ["{{edgeDevicesBaseUrl}}"],
+              "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}", "health-check"]
+            },
+            "description": "Perform full hardware diagnostic (CPU, RAM, disk, temperature, uptime)"
+          }
+        },
+        {
+          "name": "US8 - Get Telemetry",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+            ],
+            "url": {
+              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/telemetry",
+              "host": ["{{edgeDevicesBaseUrl}}"],
+              "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}", "telemetry"]
+            },
+            "description": "Retrieve live telemetry snapshot (CPU, RAM, disk, temperature, PLC status)"
+          }
+        },
+        {
+          "name": "US9 - List Events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+            ],
+            "url": {
+              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/events",
+              "host": ["{{edgeDevicesBaseUrl}}"],
+              "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}", "events"]
+            },
+            "description": "Retrieve historical log of all check events for an edge device"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api/v1",
+      "type": "string",
+      "description": "Base URL for the API (v1 endpoints: tenants, users, roles)"
+    },
+    {
+      "key": "edgeDevicesBaseUrl",
+      "value": "http://localhost:8080/api",
+      "type": "string",
+      "description": "Base URL for Edge Devices API (without /v1)"
+    },
+    {
+      "key": "tenant_id",
+      "value": "acme",
+      "type": "string",
+      "description": "Tenant subdomain slug — used in edge device path params (:tenantId)"
+    },
+    {
+      "key": "tenant_uuid",
+      "value": "550e8400-e29b-41d4-a716-446655440000",
+      "type": "string",
+      "description": "Tenant UUID — used in X-Tenant-ID header for users/roles endpoints"
+    },
+    {
+      "key": "tenantId",
+      "value": "550e8400-e29b-41d4-a716-446655440000",
+      "type": "string",
+      "description": "Tenant UUID"
+    },
+    {
+      "key": "jwt_token",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+      "type": "string",
+      "description": "JWT Bearer token"
+    },
+    {
+      "key": "user_id",
+      "value": "323e4567-e89b-12d3-a456-426614174002",
+      "type": "string",
+      "description": "User UUID"
+    },
+    {
+      "key": "userId",
+      "value": "00000000-0000-0000-0000-000000000001",
+      "type": "string",
+      "description": "User UUID for role assignment"
+    },
+    {
+      "key": "userId1",
+      "value": "00000000-0000-0000-0000-000000000001",
+      "type": "string",
+      "description": "User UUID 1 for bulk assign"
+    },
+    {
+      "key": "userId2",
+      "value": "00000000-0000-0000-0000-000000000002",
+      "type": "string",
+      "description": "User UUID 2 for bulk assign"
+    },
+    {
+      "key": "utrId",
+      "value": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "type": "string",
+      "description": "User-Tenant-Role UUID"
+    },
+    {
+      "key": "device_id",
+      "value": "550e8400-e29b-41d4-a716-446655440000",
+      "type": "string",
+      "description": "Edge device UUID"
+    }
+  ]
+}
