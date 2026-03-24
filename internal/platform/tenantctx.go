@@ -6,15 +6,17 @@ import (
 	"github.com/google/uuid"
 )
 
-// TODO: Define tenant context helpers and propagation.
-
 type tenantKeyType struct{}
 type userKeyType struct{}
+type supabaseSubKeyType struct{}
+type domainUserKeyType struct{}
 type userEmailKeyType struct{}
 type tenantUUIDKeyType struct{}
 
 var tenantKey = tenantKeyType{}
 var userKey = userKeyType{}
+var supabaseSubKey = supabaseSubKeyType{}
+var domainUserKey = domainUserKeyType{}
 var userEmailKey = userEmailKeyType{}
 var tenantUUIDKey = tenantUUIDKeyType{}
 
@@ -47,6 +49,19 @@ func UserID(ctx context.Context) *uuid.UUID {
 	return nil
 }
 
+// WithSupabaseSub stores the Supabase JWT subject (sub claim) in context.
+func WithSupabaseSub(ctx context.Context, sub string) context.Context {
+	return context.WithValue(ctx, supabaseSubKey, sub)
+}
+
+// SupabaseSub extracts the Supabase subject from context.
+func SupabaseSub(ctx context.Context) string {
+	if v, ok := ctx.Value(supabaseSubKey).(string); ok {
+		return v
+	}
+	return ""
+}
+
 // WithUserEmail returns a new context carrying the authenticated user's email.
 func WithUserEmail(ctx context.Context, email string) context.Context {
 	return context.WithValue(ctx, userEmailKey, email)
@@ -60,6 +75,20 @@ func UserEmail(ctx context.Context) string {
 		return s
 	}
 	return ""
+}
+
+// DomainUserValue is a type alias used to store the provisioned domain user in context.
+// Using interface{} to avoid import cycles; callers cast to *domain.User.
+type DomainUserValue interface{}
+
+// WithDomainUser stores the provisioned domain user in context.
+func WithDomainUser(ctx context.Context, user DomainUserValue) context.Context {
+	return context.WithValue(ctx, domainUserKey, user)
+}
+
+// DomainUser extracts the domain user from context.
+func DomainUser(ctx context.Context) DomainUserValue {
+	return ctx.Value(domainUserKey)
 }
 
 // WithTenantUUID returns a new context carrying the given tenant UUID.

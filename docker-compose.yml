@@ -51,15 +51,16 @@ services:
         condition: service_healthy
     environment:
       APP_ENV: development
-      DB_URL: postgres://embolsadora_user:embolsadora_password@db:5432/embolsadora_dev?sslmode=disable
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_USER: embolsadora_user
-      DB_PASSWORD: embolsadora_password
-      DB_NAME: embolsadora_dev
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: embolsadora_redis_pass
+      PORT: 8080
+      DATABASE_URL: postgres://embolsadora_user:embolsadora_password@db:5432/embolsadora_dev?sslmode=disable
+      REDIS_URL: redis://:embolsadora_redis_pass@redis:6379/0
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_JWKS_URL: ${SUPABASE_JWKS_URL}
+      SUPABASE_JWT_ISSUER: ${SUPABASE_JWT_ISSUER}
+      SUPABASE_JWT_AUDIENCE: ${SUPABASE_JWT_AUDIENCE:-authenticated}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+      INVITATION_RATE_LIMIT_PER_HOUR: ${INVITATION_RATE_LIMIT_PER_HOUR:-20}
     ports:
       - "8080:8080"
     restart: unless-stopped
