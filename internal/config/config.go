@@ -31,6 +31,7 @@ type SupabaseConfig struct {
 	JWTAudience         string
 	URL                 string
 	ServiceRoleKey      string
+	AnonKey             string
 	AppBaseURL          string
 	InviteRateLimitHour int
 }
@@ -78,6 +79,7 @@ func Load() (*Config, error) {
 			JWTAudience:         getEnv("SUPABASE_JWT_AUDIENCE", "authenticated"),
 			URL:                 require("SUPABASE_URL"),
 			ServiceRoleKey:      require("SUPABASE_SERVICE_ROLE_KEY"),
+			AnonKey:             getEnv("SUPABASE_ANON_KEY", ""),
 			AppBaseURL:          require("APP_BASE_URL"),
 			InviteRateLimitHour: getIntEnv("INVITATION_RATE_LIMIT_PER_HOUR", 20),
 		},

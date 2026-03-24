@@ -13,6 +13,7 @@ import (
 	api "github.com/tu-org/embolsadora-api/internal/api"
 	apimw "github.com/tu-org/embolsadora-api/internal/api/middleware"
 	handlerChangePassword "github.com/tu-org/embolsadora-api/internal/api/handler/auth/change_password"
+	handlerLogin "github.com/tu-org/embolsadora-api/internal/api/handler/auth/login"
 	handlerCreateInvitation "github.com/tu-org/embolsadora-api/internal/api/handler/invitations/create_invitation"
 	handlerListInvitations "github.com/tu-org/embolsadora-api/internal/api/handler/invitations/list_invitations"
 	handlerResendInvitation "github.com/tu-org/embolsadora-api/internal/api/handler/invitations/resend_invitation"
@@ -42,6 +43,10 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	r.GET("/ping", func(c *gin.Context) {
 		c.String(http.StatusOK, "pong")
 	})
+
+	// Public auth
+	loginHandler := handlerLogin.NewHandler(cfg.Supabase.URL, cfg.Supabase.AnonKey)
+	r.POST("/api/v1/auth/login", loginHandler.Handle)
 
 	// Prometheus metrics
 	telemetry.RegisterMetrics(r)
@@ -135,7 +140,7 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 		apimw.RequestID(),
 		apimw.Logger(),
 		apimw.CORS(),
-		apimw.JWTAuth(),
+		apimw.JWTAuth(verifier, authUC, invUC),
 		apimw.ResolveTenantFromPath(db),
 	)
 	edgeDevicesHandler.RegisterRoutes(tenantsGroup, edgeDeviceService)
