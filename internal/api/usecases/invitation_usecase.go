@@ -99,7 +99,7 @@ func (uc *InvitationUsecase) CreateInvitation(ctx context.Context, email, roleID
 
 	Log.Info("invitation created",
 		zap.String("tenant_id", tenantID),
-		zap.String("email", email),
+		zap.String("email_domain", emailDomain(email)),
 		zap.String("invitation_id", created.ID),
 	)
 	return created, nil
@@ -120,7 +120,7 @@ func (uc *InvitationUsecase) ResendInvitation(ctx context.Context, invID string)
 	if err := uc.supabaseClient.InviteUserByEmail(ctx, inv.Email, redirectTo); err != nil {
 		return err
 	}
-	Log.Info("invitation resent", zap.String("invitation_id", invID), zap.String("email", inv.Email))
+	Log.Info("invitation resent", zap.String("invitation_id", invID), zap.String("email_domain", emailDomain(inv.Email)))
 	return nil
 }
 
@@ -169,6 +169,16 @@ func (uc *InvitationUsecase) ActivateInvitation(ctx context.Context, email, tena
 	}
 
 	return nil
+}
+
+// emailDomain returns only the domain part of an email for safe logging (e.g. "user@example.com" → "@example.com").
+func emailDomain(email string) string {
+	for i, c := range email {
+		if c == '@' {
+			return email[i:]
+		}
+	}
+	return "[invalid]"
 }
 
 func (uc *InvitationUsecase) checkRateLimit(ctx context.Context, tenantID string) error {

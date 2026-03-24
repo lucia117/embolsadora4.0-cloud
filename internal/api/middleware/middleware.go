@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -174,13 +175,27 @@ func RBACCheck(perm string) gin.HandlerFunc {
 	}
 }
 
-// RequestID injects a unique request ID into every response.
+// requestIDKey is the context key for the request ID.
+type requestIDKey struct{}
+
+// RequestID injects a unique request ID into the response header and request context.
 func RequestID() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := uuid.New().String()
 		c.Header("X-Request-ID", id)
+		ctx := c.Request.Context()
+		ctx = context.WithValue(ctx, requestIDKey{}, id)
+		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
+}
+
+// RequestIDFromContext extracts the request ID from context.
+func RequestIDFromContext(ctx context.Context) string {
+	if v, ok := ctx.Value(requestIDKey{}).(string); ok {
+		return v
+	}
+	return ""
 }
 
 // Logger logs basic request info after the handler completes using Zap.

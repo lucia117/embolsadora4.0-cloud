@@ -69,5 +69,5 @@ func StubVerifier() Verifier {
 type stubVerifier struct{}
 
 func (stubVerifier) Verify(token string) (*jwt.Token, error) {
-	return nil, nil
+	return &jwt.Token{Claims: jwt.MapClaims{}}, nil
 }
