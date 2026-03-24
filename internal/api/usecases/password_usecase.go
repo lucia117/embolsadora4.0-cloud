@@ -58,7 +58,7 @@ func (uc *PasswordUsecase) ForcePasswordChange(ctx context.Context, targetUserID
 		return fmt.Errorf("send password reset email: %w", err)
 	}
 
-	zap.L().Info("force password change initiated",
+	Log.Info("force password change initiated",
 		zap.String("target_user_id", targetUserID),
 		zap.String("tenant_id", tenantID),
 	)
