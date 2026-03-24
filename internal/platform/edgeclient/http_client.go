@@ -43,7 +43,7 @@ func (c *HTTPClient) GetTelemetry(ctx context.Context, baseURL string) (*edge_de
 	if err != nil {
 		return &edge_devices.TelemetrySnapshot{
 			CapturedAt: time.Now(),
-			PLC:        &edge_devices.PLCSnapshot{Reachable: false},
+			PLC:        &edge_devices.PLCSnapshot{Reachable: false, LatencyMs: nil, LastHeartbeatAt: nil},
 		}, nil
 	}
 
@@ -51,7 +51,7 @@ func (c *HTTPClient) GetTelemetry(ctx context.Context, baseURL string) (*edge_de
 	if err != nil {
 		return &edge_devices.TelemetrySnapshot{
 			CapturedAt: time.Now(),
-			PLC:        &edge_devices.PLCSnapshot{Reachable: false},
+			PLC:        &edge_devices.PLCSnapshot{Reachable: false, LatencyMs: nil, LastHeartbeatAt: nil},
 		}, nil
 	}
 	defer resp.Body.Close()
@@ -60,14 +60,14 @@ func (c *HTTPClient) GetTelemetry(ctx context.Context, baseURL string) (*edge_de
 	if err != nil {
 		return &edge_devices.TelemetrySnapshot{
 			CapturedAt: time.Now(),
-			PLC:        &edge_devices.PLCSnapshot{Reachable: false},
+			PLC:        &edge_devices.PLCSnapshot{Reachable: false, LatencyMs: nil, LastHeartbeatAt: nil},
 		}, nil
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return &edge_devices.TelemetrySnapshot{
 			CapturedAt: time.Now(),
-			PLC:        &edge_devices.PLCSnapshot{Reachable: false},
+			PLC:        &edge_devices.PLCSnapshot{Reachable: false, LatencyMs: nil, LastHeartbeatAt: nil},
 		}, nil
 	}
 
@@ -75,7 +75,7 @@ func (c *HTTPClient) GetTelemetry(ctx context.Context, baseURL string) (*edge_de
 	if err := json.Unmarshal(body, &snapshot); err != nil {
 		return &edge_devices.TelemetrySnapshot{
 			CapturedAt: time.Now(),
-			PLC:        &edge_devices.PLCSnapshot{Reachable: false},
+			PLC:        &edge_devices.PLCSnapshot{Reachable: false, LatencyMs: nil, LastHeartbeatAt: nil},
 		}, nil
 	}
 

@@ -160,7 +160,7 @@ Use any JWT from jwt.io with claims like:
 #### Option 2: Use Actual Auth Endpoint
 If your API has login:
 ```bash
-POST http://localhost:8080/api/v1/login
+POST http://localhost:8080/api/auth/login
 Body: {"email": "admin@example.com", "password": "..."}
 # Copy "access_token" from response → {{jwt_token}}
 ```

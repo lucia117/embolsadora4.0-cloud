@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "embolsadora-api-master-collection",
     "name": "Embolsadora API - Complete Collection",
-    "description": "Master collection for Embolsadora 4.0 Cloud API\n\nConsolidated endpoints across all features:\n- Tenants management\n- Users CRUD\n- User Role Assignments\n- Edge Device Management (Complete US1-US9)\n\n**Base URL:** {{baseUrl}}/api/v1\n**Authentication:** Bearer JWT Token\n**Multi-tenant:** X-Tenant-ID header or :tenantId in path\n\n**Edge Device Endpoints (All 9 User Stories Implemented):**\n- US1: List Devices - GET /edge-devices\n- US2: Create Device - POST /edge-devices\n- US3: Get Device - GET /edge-devices/:deviceId\n- US4: Update Device - PUT /edge-devices/:deviceId\n- US5: Enable/Disable - POST /edge-devices/:deviceId/enable, /disable\n- US6: Status Check - POST /edge-devices/:deviceId/status\n- US7: Health Check - POST /edge-devices/:deviceId/health-check\n- US8: Telemetry - GET /edge-devices/:deviceId/telemetry\n- US9: Events - GET /edge-devices/:deviceId/events",
+    "description": "Master collection for Embolsadora 4.0 Cloud API\n\nConsolidated endpoints across all features:\n- Tenants management\n- Users CRUD\n- User Role Assignments\n- Edge Device Management (Complete US1-US9)\n\n**Base URLs:**\n- `{{baseUrl}}` = http://localhost:8080/api/v1 (tenants, users, roles)\n- `{{edgeDevicesBaseUrl}}` = http://localhost:8080/api (edge devices)\n\n**Authentication:** Bearer JWT Token\n**Multi-tenant:** `X-Tenant-ID: {{tenant_uuid}}` header (users/roles) or `{{tenant_id}}` slug in path (edge devices)\n\n**Edge Device Endpoints (All 9 User Stories Implemented):**\n- US1: List Devices - GET /edge-devices\n- US2: Create Device - POST /edge-devices\n- US3: Get Device - GET /edge-devices/:deviceId\n- US4: Update Device - PUT /edge-devices/:deviceId\n- US5: Enable/Disable - POST /edge-devices/:deviceId/enable, /disable\n- US6: Status Check - POST /edge-devices/:deviceId/status\n- US7: Health Check - POST /edge-devices/:deviceId/health-check\n- US8: Telemetry - GET /edge-devices/:deviceId/telemetry\n- US9: Events - GET /edge-devices/:deviceId/events",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -88,7 +88,7 @@
           "request": {
             "method": "GET",
             "header": [
-              {"key": "X-Tenant-ID", "value": "{{tenant_id}}"},
+              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"},
               {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
             ],
             "url": {
@@ -107,7 +107,7 @@
           "request": {
             "method": "GET",
             "header": [
-              {"key": "X-Tenant-ID", "value": "{{tenant_id}}"},
+              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"},
               {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
             ],
             "url": {
@@ -122,7 +122,7 @@
           "request": {
             "method": "POST",
             "header": [
-              {"key": "X-Tenant-ID", "value": "{{tenant_id}}"},
+              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"},
               {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
               {"key": "Content-Type", "value": "application/json"}
             ],
@@ -142,7 +142,7 @@
           "request": {
             "method": "PATCH",
             "header": [
-              {"key": "X-Tenant-ID", "value": "{{tenant_id}}"},
+              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"},
               {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
               {"key": "Content-Type", "value": "application/json"}
             ],
@@ -162,7 +162,7 @@
           "request": {
             "method": "DELETE",
             "header": [
-              {"key": "X-Tenant-ID", "value": "{{tenant_id}}"},
+              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"},
               {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
             ],
             "url": {
@@ -427,7 +427,13 @@
       "key": "tenant_id",
       "value": "acme",
       "type": "string",
-      "description": "Tenant subdomain slug for edge device endpoints"
+      "description": "Tenant subdomain slug — used in edge device path params (:tenantId)"
+    },
+    {
+      "key": "tenant_uuid",
+      "value": "550e8400-e29b-41d4-a716-446655440000",
+      "type": "string",
+      "description": "Tenant UUID — used in X-Tenant-ID header for users/roles endpoints"
     },
     {
       "key": "tenantId",

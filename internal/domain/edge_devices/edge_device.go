@@ -50,17 +50,37 @@ type CheckResult struct {
 
 // TelemetrySnapshot represents a live hardware + PLC snapshot.
 type TelemetrySnapshot struct {
-	CapturedAt        time.Time
-	CPU               *float64
-	RAM               *float64 // percentage
-	Disk              *float64 // percentage
+	CapturedAt         time.Time
+	CPU                *CPUTelemetry
+	RAM                *RAMTelemetry
+	Disk               *DiskTelemetry
 	TemperatureCelsius *float64
-	UptimeSeconds     *int64
-	PLC               *PLCSnapshot
+	UptimeSeconds      *int64
+	PLC                *PLCSnapshot
+}
+
+// CPUTelemetry holds CPU usage metrics.
+type CPUTelemetry struct {
+	UsagePercent *float64
+}
+
+// RAMTelemetry holds RAM usage metrics.
+type RAMTelemetry struct {
+	UsedPercent *float64
+	UsedMb      *int64
+	TotalMb     *int64
+}
+
+// DiskTelemetry holds disk usage metrics.
+type DiskTelemetry struct {
+	UsedPercent *float64
+	UsedGb      *float64
+	TotalGb     *int64
 }
 
 // PLCSnapshot represents PLC connectivity state.
 type PLCSnapshot struct {
-	Reachable bool
-	Address   *string
+	Reachable       bool
+	LatencyMs       *int64
+	LastHeartbeatAt *time.Time
 }

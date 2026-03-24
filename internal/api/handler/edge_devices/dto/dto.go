@@ -47,25 +47,45 @@ type CheckResultResponse struct {
 	CheckType     string                 `json:"checkType"`
 	CheckedAt     time.Time              `json:"checkedAt"`
 	OverallStatus string                 `json:"overallStatus"`
-	Summary       *string                `json:"summary"`
+	Summary       string                 `json:"summary"`
 	Details       map[string]interface{} `json:"details"`
 }
 
 // TelemetryResponse represents telemetry in JSON.
 type TelemetryResponse struct {
-	CapturedAt        time.Time          `json:"capturedAt"`
-	CPU               *float64           `json:"cpu"`
-	RAM               *float64           `json:"ram"`
-	Disk              *float64           `json:"disk"`
-	TemperatureCelsius *float64           `json:"temperatureCelsius"`
-	UptimeSeconds     *int64             `json:"uptimeSeconds"`
-	PLC               *PLCSnapshotResponse `json:"plc"`
+	CapturedAt         time.Time              `json:"capturedAt"`
+	CPU                *CPUTelemetryResponse  `json:"cpu"`
+	RAM                *RAMTelemetryResponse  `json:"ram"`
+	Disk               *DiskTelemetryResponse `json:"disk"`
+	TemperatureCelsius *float64               `json:"temperatureCelsius"`
+	UptimeSeconds      *int64                 `json:"uptimeSeconds"`
+	PLC                *PLCSnapshotResponse   `json:"plc"`
+}
+
+// CPUTelemetryResponse represents CPU telemetry in JSON.
+type CPUTelemetryResponse struct {
+	UsagePercent *float64 `json:"usagePercent"`
+}
+
+// RAMTelemetryResponse represents RAM telemetry in JSON.
+type RAMTelemetryResponse struct {
+	UsedPercent *float64 `json:"usedPercent"`
+	UsedMb      *int64   `json:"usedMb"`
+	TotalMb     *int64   `json:"totalMb"`
+}
+
+// DiskTelemetryResponse represents disk telemetry in JSON.
+type DiskTelemetryResponse struct {
+	UsedPercent *float64 `json:"usedPercent"`
+	UsedGb      *float64 `json:"usedGb"`
+	TotalGb     *int64   `json:"totalGb"`
 }
 
 // PLCSnapshotResponse represents PLC state in JSON.
 type PLCSnapshotResponse struct {
-	Reachable bool    `json:"reachable"`
-	Address   *string `json:"address"`
+	Reachable       bool       `json:"reachable"`
+	LatencyMs       *int64     `json:"latencyMs"`
+	LastHeartbeatAt *time.Time `json:"lastHeartbeatAt"`
 }
 
 // DeviceEventResponse represents a device event in JSON.
@@ -120,29 +140,58 @@ func EdgeDeviceToResponse(device *edge_devices.EdgeDevice) EdgeDeviceResponse {
 
 // CheckResultToResponse converts a domain CheckResult to a response DTO.
 func CheckResultToResponse(result *edge_devices.CheckResult) CheckResultResponse {
+	summary := ""
+	if result.Summary != nil {
+		summary = *result.Summary
+	}
 	return CheckResultResponse{
 		CheckType:     result.CheckType,
 		CheckedAt:     result.CheckedAt,
 		OverallStatus: result.OverallStatus,
-		Summary:       result.Summary,
+		Summary:       summary,
 		Details:       result.Details,
 	}
 }
 
 // TelemetryToResponse converts a domain TelemetrySnapshot to a response DTO.
 func TelemetryToResponse(snapshot *edge_devices.TelemetrySnapshot) TelemetryResponse {
+	var cpuResp *CPUTelemetryResponse
+	if snapshot.CPU != nil {
+		cpuResp = &CPUTelemetryResponse{UsagePercent: snapshot.CPU.UsagePercent}
+	}
+
+	var ramResp *RAMTelemetryResponse
+	if snapshot.RAM != nil {
+		ramResp = &RAMTelemetryResponse{
+			UsedPercent: snapshot.RAM.UsedPercent,
+			UsedMb:      snapshot.RAM.UsedMb,
+			TotalMb:     snapshot.RAM.TotalMb,
+		}
+	}
+
+	var diskResp *DiskTelemetryResponse
+	if snapshot.Disk != nil {
+		diskResp = &DiskTelemetryResponse{
+			UsedPercent: snapshot.Disk.UsedPercent,
+			UsedGb:      snapshot.Disk.UsedGb,
+			TotalGb:     snapshot.Disk.TotalGb,
+		}
+	}
+
 	var plcResp *PLCSnapshotResponse
 	if snapshot.PLC != nil {
 		plcResp = &PLCSnapshotResponse{
-			Reachable: snapshot.PLC.Reachable,
-			Address:   snapshot.PLC.Address,
+			Reachable:       snapshot.PLC.Reachable,
+			LatencyMs:       snapshot.PLC.LatencyMs,
+			LastHeartbeatAt: snapshot.PLC.LastHeartbeatAt,
 		}
 	}
+
 	return TelemetryResponse{
 		CapturedAt:         snapshot.CapturedAt,
-		CPU:                snapshot.CPU,
-		RAM:                snapshot.RAM,
-		Disk:               snapshot.Disk,
+		CPU:                cpuResp,
+		RAM:                ramResp,
+		Disk:               diskResp,
 		TemperatureCelsius: snapshot.TemperatureCelsius,
 		UptimeSeconds:      snapshot.UptimeSeconds,
 		PLC:                plcResp,
