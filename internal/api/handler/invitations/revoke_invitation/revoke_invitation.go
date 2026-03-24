@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/tu-org/embolsadora-api/internal/api/usecases"
 	"github.com/tu-org/embolsadora-api/internal/domain"
 )
@@ -31,6 +32,10 @@ type revokedResponse struct {
 
 func (h *Handler) Handle(c *gin.Context) {
 	id := c.Param("id")
+	if _, err := uuid.Parse(id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid invitation id"})
+		return
+	}
 
 	inv, err := h.uc.RevokeInvitation(c.Request.Context(), id)
 	if err != nil {

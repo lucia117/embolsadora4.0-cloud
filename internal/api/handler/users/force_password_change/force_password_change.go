@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/tu-org/embolsadora-api/internal/api/usecases"
 	"github.com/tu-org/embolsadora-api/internal/domain"
 )
@@ -19,6 +20,10 @@ func NewHandler(uc *usecases.PasswordUsecase) *Handler {
 
 func (h *Handler) Handle(c *gin.Context) {
 	targetUserID := c.Param("id")
+	if _, err := uuid.Parse(targetUserID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
 
 	if err := h.uc.ForcePasswordChange(c.Request.Context(), targetUserID); err != nil {
 		switch {
