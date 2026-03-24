@@ -6,8 +6,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/tu-org/embolsadora-api/internal/app/edge_devices"
 	"github.com/tu-org/embolsadora-api/internal/api/handler/edge_devices/dto"
+	"github.com/tu-org/embolsadora-api/internal/app/edge_devices"
 	edgeerrors "github.com/tu-org/embolsadora-api/internal/domain/edge_devices"
 	"github.com/tu-org/embolsadora-api/internal/platform"
 )
@@ -30,12 +30,20 @@ func StatusCheck(service *edge_devices.Service) gin.HandlerFunc {
 			return
 		}
 
-		// Extract user ID and email from JWT context (TODO: extract from actual JWT)
-		userID := uuid.New() // Placeholder
-		userEmail := "operator@example.com" // Placeholder
+		// Extract user ID and email from JWT context
+		userID := platform.UserID(c.Request.Context())
+		if userID == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "user ID not found in context"})
+			return
+		}
+		userEmail := platform.UserEmail(c.Request.Context())
+		if userEmail == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "user email not found in context"})
+			return
+		}
 
 		// Perform status check
-		result, err := service.StatusCheck(c.Request.Context(), *tenantID, deviceID, userID, userEmail)
+		result, err := service.StatusCheck(c.Request.Context(), *tenantID, deviceID, *userID, userEmail)
 		if err != nil {
 			// Handle domain errors
 			if errors.Is(err, edgeerrors.ErrDeviceNotFound) {

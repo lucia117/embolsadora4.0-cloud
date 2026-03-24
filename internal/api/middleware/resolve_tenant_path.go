@@ -1,10 +1,12 @@
 package middleware
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tu-org/embolsadora-api/internal/platform"
 )
@@ -16,7 +18,7 @@ func ResolveTenantFromPath(db *pgxpool.Pool) gin.HandlerFunc {
 		// Extract :tenantId from path
 		tenantSlug := c.Param("tenantId")
 		if tenantSlug == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "tenantId required"})
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "tenantId required"})
 			c.Abort()
 			return
 		}
@@ -27,7 +29,11 @@ func ResolveTenantFromPath(db *pgxpool.Pool) gin.HandlerFunc {
 		err := db.QueryRow(c.Request.Context(), query, tenantSlug).Scan(&tenantID)
 
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "tenant not found"})
+			if errors.Is(err, pgx.ErrNoRows) {
+				c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "tenant not found"})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "internal server error"})
+			}
 			c.Abort()
 			return
 		}

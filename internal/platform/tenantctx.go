@@ -10,10 +10,12 @@ import (
 
 type tenantKeyType struct{}
 type userKeyType struct{}
+type userEmailKeyType struct{}
 type tenantUUIDKeyType struct{}
 
 var tenantKey = tenantKeyType{}
 var userKey = userKeyType{}
+var userEmailKey = userEmailKeyType{}
 var tenantUUIDKey = tenantUUIDKeyType{}
 
 // WithTenantID returns a new context carrying the given tenant ID.
@@ -43,6 +45,21 @@ func UserID(ctx context.Context) *uuid.UUID {
 		return &id
 	}
 	return nil
+}
+
+// WithUserEmail returns a new context carrying the authenticated user's email.
+func WithUserEmail(ctx context.Context, email string) context.Context {
+	return context.WithValue(ctx, userEmailKey, email)
+}
+
+// UserEmail extracts the authenticated user's email from context.
+// Returns empty string if no email is present.
+func UserEmail(ctx context.Context) string {
+	v := ctx.Value(userEmailKey)
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return ""
 }
 
 // WithTenantUUID returns a new context carrying the given tenant UUID.

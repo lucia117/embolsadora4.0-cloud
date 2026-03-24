@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"github.com/tu-org/embolsadora-api/internal/domain/edge_devices"
@@ -44,7 +43,7 @@ func (s *Service) GetDevice(ctx context.Context, tenantID, deviceID uuid.UUID) (
 	device, err := s.repo.GetByID(ctx, tenantID, deviceID)
 	if err != nil {
 		// Only map to 404 if device truly not found
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, edge_devices.ErrDeviceNotFound) {
 			s.logger.Warn("device not found", zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()))
 			return nil, edge_devices.ErrDeviceNotFound
 		}
@@ -88,7 +87,7 @@ func (s *Service) UpdateDevice(ctx context.Context, tenantID, deviceID uuid.UUID
 	device, err := s.repo.GetByID(ctx, tenantID, deviceID)
 	if err != nil {
 		// Only map to 404 if device truly not found
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, edge_devices.ErrDeviceNotFound) {
 			s.logger.Warn("device not found", zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()))
 			return nil, edge_devices.ErrDeviceNotFound
 		}
@@ -120,7 +119,7 @@ func (s *Service) EnableDevice(ctx context.Context, tenantID, deviceID uuid.UUID
 	device, err := s.repo.SetStatus(ctx, tenantID, deviceID, "ACTIVE")
 	if err != nil {
 		// Only map to 404 if device truly not found
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, edge_devices.ErrDeviceNotFound) {
 			s.logger.Warn("device not found", zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()))
 			return nil, edge_devices.ErrDeviceNotFound
 		}
@@ -138,7 +137,7 @@ func (s *Service) DisableDevice(ctx context.Context, tenantID, deviceID uuid.UUI
 	device, err := s.repo.SetStatus(ctx, tenantID, deviceID, "DISABLED")
 	if err != nil {
 		// Only map to 404 if device truly not found
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, edge_devices.ErrDeviceNotFound) {
 			s.logger.Warn("device not found", zap.String("tenant_id", tenantID.String()), zap.String("device_id", deviceID.String()))
 			return nil, edge_devices.ErrDeviceNotFound
 		}
@@ -157,7 +156,7 @@ func (s *Service) StatusCheck(ctx context.Context, tenantID, deviceID, userID uu
 	device, err := s.repo.GetByID(ctx, tenantID, deviceID)
 	if err != nil {
 		// Only map to 404 if device truly not found
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, edge_devices.ErrDeviceNotFound) {
 			s.logger.Warn("device not found", zap.String("device_id", deviceID.String()))
 			return nil, edge_devices.ErrDeviceNotFound
 		}
@@ -197,16 +196,17 @@ func (s *Service) StatusCheck(ctx context.Context, tenantID, deviceID, userID uu
 	}
 
 	if err := s.repo.SaveEvent(ctx, event); err != nil {
-		s.logger.Error("failed to save event", zap.Error(err), zap.String("device_id", deviceID.String()))
+		s.logger.Error("failed to save audit event", zap.Error(err), zap.String("device_id", deviceID.String()))
+		return nil, err
 	}
 
-	// Update device health state
+	// Update device health state (derived/cached data — log on failure but don't fail the request)
 	summary := ""
 	if result.Summary != nil {
 		summary = *result.Summary
 	}
 	if err := s.repo.UpdateHealthState(ctx, tenantID, deviceID, result.OverallStatus, summary); err != nil {
-		s.logger.Error("failed to update health state", zap.Error(err), zap.String("device_id", deviceID.String()))
+		s.logger.Warn("failed to update health state", zap.Error(err), zap.String("device_id", deviceID.String()))
 	}
 
 	s.logger.Info("status check completed", zap.String("device_id", deviceID.String()), zap.String("check_type", "STATUS"), zap.String("overall_status", result.OverallStatus))
@@ -219,7 +219,7 @@ func (s *Service) HealthCheck(ctx context.Context, tenantID, deviceID, userID uu
 	device, err := s.repo.GetByID(ctx, tenantID, deviceID)
 	if err != nil {
 		// Only map to 404 if device truly not found
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, edge_devices.ErrDeviceNotFound) {
 			s.logger.Warn("device not found", zap.String("device_id", deviceID.String()))
 			return nil, edge_devices.ErrDeviceNotFound
 		}
@@ -259,16 +259,17 @@ func (s *Service) HealthCheck(ctx context.Context, tenantID, deviceID, userID uu
 	}
 
 	if err := s.repo.SaveEvent(ctx, event); err != nil {
-		s.logger.Error("failed to save event", zap.Error(err), zap.String("device_id", deviceID.String()))
+		s.logger.Error("failed to save audit event", zap.Error(err), zap.String("device_id", deviceID.String()))
+		return nil, err
 	}
 
-	// Update device health state
+	// Update device health state (derived/cached data — log on failure but don't fail the request)
 	summary := ""
 	if result.Summary != nil {
 		summary = *result.Summary
 	}
 	if err := s.repo.UpdateHealthState(ctx, tenantID, deviceID, result.OverallStatus, summary); err != nil {
-		s.logger.Error("failed to update health state", zap.Error(err), zap.String("device_id", deviceID.String()))
+		s.logger.Warn("failed to update health state", zap.Error(err), zap.String("device_id", deviceID.String()))
 	}
 
 	s.logger.Info("health check completed", zap.String("device_id", deviceID.String()), zap.String("check_type", "HEALTH_CHECK"), zap.String("overall_status", result.OverallStatus))
@@ -281,7 +282,7 @@ func (s *Service) GetTelemetry(ctx context.Context, tenantID, deviceID uuid.UUID
 	device, err := s.repo.GetByID(ctx, tenantID, deviceID)
 	if err != nil {
 		// Only map to 404 if device truly not found
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, edge_devices.ErrDeviceNotFound) {
 			s.logger.Warn("device not found", zap.String("device_id", deviceID.String()))
 			return nil, edge_devices.ErrDeviceNotFound
 		}
@@ -313,7 +314,7 @@ func (s *Service) ListEvents(ctx context.Context, tenantID, deviceID uuid.UUID) 
 	device, err := s.repo.GetByID(ctx, tenantID, deviceID)
 	if err != nil {
 		// Only map to 404 if device truly not found
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, edge_devices.ErrDeviceNotFound) {
 			s.logger.Warn("device not found", zap.String("device_id", deviceID.String()))
 			return nil, edge_devices.ErrDeviceNotFound
 		}
