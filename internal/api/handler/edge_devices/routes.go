@@ -1,0 +1,37 @@
+package edge_devices
+
+import (
+	"github.com/gin-gonic/gin"
+	"github.com/tu-org/embolsadora-api/internal/app/edge_devices"
+)
+
+// RegisterRoutes registers all edge device endpoints on the given Gin group.
+func RegisterRoutes(g *gin.RouterGroup, service *edge_devices.Service) {
+	// US1 – List
+	g.GET("/edge-devices", ListDevices(service))
+
+	// US2 – Create
+	g.POST("/edge-devices", CreateDevice(service))
+
+	// US3 – Get
+	g.GET("/edge-devices/:deviceId", GetDevice(service))
+
+	// US4 – Update
+	g.PUT("/edge-devices/:deviceId", UpdateDevice(service))
+
+	// US5 – Enable/Disable
+	g.POST("/edge-devices/:deviceId/enable", EnableDevice(service))
+	g.POST("/edge-devices/:deviceId/disable", DisableDevice(service))
+
+	// US6 – Status Check
+	g.POST("/edge-devices/:deviceId/status", StatusCheck(service))
+
+	// US7 – Health Check
+	g.POST("/edge-devices/:deviceId/health-check", HealthCheck(service))
+
+	// US8 – Telemetry
+	g.GET("/edge-devices/:deviceId/telemetry", GetTelemetry(service))
+
+	// US9 – Events
+	g.GET("/edge-devices/:deviceId/events", ListEvents(service))
+}
