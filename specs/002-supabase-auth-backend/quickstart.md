@@ -315,7 +315,7 @@ X-Tenant-ID: 11111111-1111-1111-1111-111111111111
 | POST | `/api/v1/auth/change-password` | No | — |
 | GET | `/api/v1/invitations` | Sí | — |
 | POST | `/api/v1/invitations` | Sí | `invitations:write` |
-| POST | `/api/v1/invitations/:id/resend` | Sí | — |
+| POST | `/api/v1/invitations/:id/resend` | Sí | `invitations:write` |
 | DELETE | `/api/v1/invitations/:id` | Sí | `invitations:write` |
 | POST | `/api/v1/users/:id/force-password-change` | Sí | `users:write` |
 
