@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "embolsadora-api-master-collection",
     "name": "Embolsadora API - Complete Collection",
-    "description": "Master collection for Embolsadora 4.0 Cloud API\n\nConsolidated endpoints across all features:\n- Tenants management\n- Users CRUD\n- User Role Assignments\n- Edge Device Management (Complete US1-US9)\n\n**Base URLs:**\n- `{{baseUrl}}` = http://localhost:8080/api/v1 (tenants, users, roles)\n- `{{edgeDevicesBaseUrl}}` = http://localhost:8080/api (edge devices)\n\n**Authentication:** Bearer JWT Token\n**Multi-tenant:** `X-Tenant-ID: {{tenant_uuid}}` header (users/roles) or `{{tenant_id}}` slug in path (edge devices)\n\n**Edge Device Endpoints (All 9 User Stories Implemented):**\n- US1: List Devices - GET /edge-devices\n- US2: Create Device - POST /edge-devices\n- US3: Get Device - GET /edge-devices/:deviceId\n- US4: Update Device - PUT /edge-devices/:deviceId\n- US5: Enable/Disable - POST /edge-devices/:deviceId/enable, /disable\n- US6: Status Check - POST /edge-devices/:deviceId/status\n- US7: Health Check - POST /edge-devices/:deviceId/health-check\n- US8: Telemetry - GET /edge-devices/:deviceId/telemetry\n- US9: Events - GET /edge-devices/:deviceId/events",
+    "description": "Master collection for Embolsadora 4.0 Cloud API\n\nConsolidated endpoints across all features:\n- Auth (Supabase JWT)\n- Invitations CRUD\n- Tenants management\n- Users CRUD\n- User Role Assignments\n- Edge Device Management (Complete US1-US9)\n\n**Base URL:** `{{baseUrl}}` = http://localhost:8080\n\n**Authentication:** Bearer JWT Token (usar POST Login para obtenerlo)\n**Multi-tenant:** `X-Tenant-ID: {{tenant_uuid}}` header requerido en la mayoría de endpoints\n\n**Auth Endpoints (002-supabase-auth-backend):**\n- POST /api/v1/auth/login\n- GET /api/v1/me\n- POST /api/v1/auth/change-password\n\n**Invitation Endpoints:**\n- GET /api/v1/invitations\n- POST /api/v1/invitations\n- POST /api/v1/invitations/:id/resend\n- DELETE /api/v1/invitations/:id\n\n**Edge Device Endpoints (All 9 User Stories Implemented):**\n- US1: List Devices - GET /api/tenants/:tenantId/edge-devices\n- US2: Create Device - POST /api/tenants/:tenantId/edge-devices\n- US3: Get Device - GET /api/tenants/:tenantId/edge-devices/:deviceId\n- US4: Update Device - PUT /api/tenants/:tenantId/edge-devices/:deviceId\n- US5: Enable/Disable - POST /api/tenants/:tenantId/edge-devices/:deviceId/enable, /disable\n- US6: Status Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/status\n- US7: Health Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/health-check\n- US8: Telemetry - GET /api/tenants/:tenantId/edge-devices/:deviceId/telemetry\n- US9: Events - GET /api/tenants/:tenantId/edge-devices/:deviceId/events",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -31,7 +31,7 @@
             "header": [{"key": "Content-Type", "value": "application/json"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@test.com\",\n  \"password\": \"Test1234\"\n}"
+              "raw": "{\n  \"email\": \"admin@test.com\",\n  \"password\": \"Test1234!\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/auth/login",
@@ -53,7 +53,149 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "me"]
             },
-            "description": "Retorna el perfil del usuario autenticado (user, tenant, role, permissions)."
+            "description": "Retorna el perfil del usuario autenticado (user, tenant, role, permissions). No requiere X-Tenant-ID."
+          }
+        },
+        {
+          "name": "GET Me (con tenant)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{token}}"},
+              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "me"]
+            },
+            "description": "Retorna el perfil completo incluyendo tenant, rol y permisos."
+          }
+        },
+        {
+          "name": "POST Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{token}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/change-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "change-password"]
+            },
+            "description": "Limpia el flag password_change_required. Llamar desde el frontend después de que el usuario completó el cambio de contraseña en Supabase. No requiere X-Tenant-ID."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Invitations",
+      "item": [
+        {
+          "name": "GET List Invitations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{token}}"},
+              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invitations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "invitations"]
+            },
+            "description": "Lista todas las invitaciones del tenant. Filtrar por status: ?status=pending|accepted|revoked|expired"
+          }
+        },
+        {
+          "name": "GET List Invitations (filtro pending)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{token}}"},
+              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invitations?status=pending",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "invitations"],
+              "query": [{"key": "status", "value": "pending"}]
+            }
+          }
+        },
+        {
+          "name": "POST Create Invitation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{token}}"},
+              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"nuevo@test.com\",\n  \"role_id\": \"operario\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invitations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "invitations"]
+            },
+            "description": "Crea una invitación y envía el email via Supabase. Requiere permiso invitations:write (rol admin o cliente_admin). Responde 409 si ya hay una invitación pendiente para ese email."
+          }
+        },
+        {
+          "name": "POST Resend Invitation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{token}}"},
+              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invitations/{{invitation_id}}/resend",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "invitations", "{{invitation_id}}", "resend"]
+            },
+            "description": "Reenvía el email de invitación. La invitación debe estar en estado pending. Requiere permiso invitations:write."
+          }
+        },
+        {
+          "name": "DELETE Revoke Invitation",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{token}}"},
+              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invitations/{{invitation_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "invitations", "{{invitation_id}}"]
+            },
+            "description": "Revoca una invitación (cambia estado a revoked). Requiere permiso invitations:write."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users (Auth)",
+      "item": [
+        {
+          "name": "POST Force Password Change",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{token}}"},
+              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{user_id}}/force-password-change",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "{{user_id}}", "force-password-change"]
+            },
+            "description": "Fuerza el cambio de contraseña de un usuario: activa el flag password_change_required y envía email de reset via Supabase. El usuario target debe pertenecer al tenant activo. Requiere permiso users:write."
           }
         }
       ]
@@ -65,11 +207,11 @@
           "name": "GET All Tenants",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
             "url": {
-              "raw": "{{baseUrl}}/tenants",
+              "raw": "{{baseUrl}}/api/v1/tenants",
               "host": ["{{baseUrl}}"],
-              "path": ["tenants"]
+              "path": ["api", "v1", "tenants"]
             },
             "description": "Retorna la lista de todos los tenants registrados en el sistema."
           }
@@ -78,15 +220,18 @@
           "name": "POST Create Tenant",
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{token}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"mrg-equipamientos\",\n  \"companyName\": \"M.R.G. Equipamientos S.R.L.\",\n  \"subdomain\": \"mrg\",\n  \"description\": \"Empresa fabricante de embolsadoras industriales\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/tenants",
+              "raw": "{{baseUrl}}/api/v1/tenants",
               "host": ["{{baseUrl}}"],
-              "path": ["tenants"]
+              "path": ["api", "v1", "tenants"]
             }
           }
         },
@@ -94,11 +239,11 @@
           "name": "GET Tenant by ID",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
             "url": {
-              "raw": "{{baseUrl}}/tenants/{{tenantId}}",
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}",
               "host": ["{{baseUrl}}"],
-              "path": ["tenants", "{{tenantId}}"]
+              "path": ["api", "v1", "tenants", "{{tenantId}}"]
             }
           }
         },
@@ -106,15 +251,18 @@
           "name": "PATCH Update Tenant",
           "request": {
             "method": "PATCH",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{token}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\"name\": \"mrg-equipamientos-v2\"}"
             },
             "url": {
-              "raw": "{{baseUrl}}/tenants/{{tenantId}}",
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}",
               "host": ["{{baseUrl}}"],
-              "path": ["tenants", "{{tenantId}}"]
+              "path": ["api", "v1", "tenants", "{{tenantId}}"]
             }
           }
         },
@@ -122,11 +270,11 @@
           "name": "DELETE Tenant",
           "request": {
             "method": "DELETE",
-            "header": [],
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
             "url": {
-              "raw": "{{baseUrl}}/tenants/{{tenantId}}",
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}",
               "host": ["{{baseUrl}}"],
-              "path": ["tenants", "{{tenantId}}"]
+              "path": ["api", "v1", "tenants", "{{tenantId}}"]
             }
           }
         }
@@ -141,12 +289,12 @@
             "method": "GET",
             "header": [
               {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"},
-              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+              {"key": "Authorization", "value": "Bearer {{token}}"}
             ],
             "url": {
-              "raw": "{{baseUrl}}/users?limit=20&offset=0",
+              "raw": "{{baseUrl}}/api/v1/users?limit=20&offset=0",
               "host": ["{{baseUrl}}"],
-              "path": ["users"],
+              "path": ["api", "v1", "users"],
               "query": [
                 {"key": "limit", "value": "20"},
                 {"key": "offset", "value": "0"}
@@ -160,12 +308,12 @@
             "method": "GET",
             "header": [
               {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"},
-              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+              {"key": "Authorization", "value": "Bearer {{token}}"}
             ],
             "url": {
-              "raw": "{{baseUrl}}/users/{{user_id}}",
+              "raw": "{{baseUrl}}/api/v1/users/{{user_id}}",
               "host": ["{{baseUrl}}"],
-              "path": ["users", "{{user_id}}"]
+              "path": ["api", "v1", "users", "{{user_id}}"]
             }
           }
         },
@@ -175,7 +323,7 @@
             "method": "POST",
             "header": [
               {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"},
-              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
+              {"key": "Authorization", "value": "Bearer {{token}}"},
               {"key": "Content-Type", "value": "application/json"}
             ],
             "body": {
@@ -183,9 +331,9 @@
               "raw": "{\n  \"firstName\": \"Carlos\",\n  \"lastName\": \"López\",\n  \"email\": \"carlos@example.com\",\n  \"role\": \"admin\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/users",
+              "raw": "{{baseUrl}}/api/v1/users",
               "host": ["{{baseUrl}}"],
-              "path": ["users"]
+              "path": ["api", "v1", "users"]
             }
           }
         },
@@ -195,7 +343,7 @@
             "method": "PATCH",
             "header": [
               {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"},
-              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
+              {"key": "Authorization", "value": "Bearer {{token}}"},
               {"key": "Content-Type", "value": "application/json"}
             ],
             "body": {
@@ -203,9 +351,9 @@
               "raw": "{\"firstName\": \"Carlos Eduardo\", \"role\": \"user\"}"
             },
             "url": {
-              "raw": "{{baseUrl}}/users/{{user_id}}",
+              "raw": "{{baseUrl}}/api/v1/users/{{user_id}}",
               "host": ["{{baseUrl}}"],
-              "path": ["users", "{{user_id}}"]
+              "path": ["api", "v1", "users", "{{user_id}}"]
             }
           }
         },
@@ -215,12 +363,12 @@
             "method": "DELETE",
             "header": [
               {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"},
-              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+              {"key": "Authorization", "value": "Bearer {{token}}"}
             ],
             "url": {
-              "raw": "{{baseUrl}}/users/{{user_id}}",
+              "raw": "{{baseUrl}}/api/v1/users/{{user_id}}",
               "host": ["{{baseUrl}}"],
-              "path": ["users", "{{user_id}}"]
+              "path": ["api", "v1", "users", "{{user_id}}"]
             }
           }
         }
@@ -235,16 +383,16 @@
             "method": "POST",
             "header": [
               {"key": "Content-Type", "value": "application/json"},
-              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+              {"key": "Authorization", "value": "Bearer {{token}}"}
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"tenantId\": \"{{tenantId}}\",\n  \"roleId\": \"admin\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/user-roles",
+              "raw": "{{baseUrl}}/api/v1/user-roles",
               "host": ["{{baseUrl}}"],
-              "path": ["user-roles"]
+              "path": ["api", "v1", "user-roles"]
             }
           }
         },
@@ -252,11 +400,11 @@
           "name": "GET List Assignments",
           "request": {
             "method": "GET",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}"}],
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
             "url": {
-              "raw": "{{baseUrl}}/user-roles?tenantId={{tenantId}}",
+              "raw": "{{baseUrl}}/api/v1/user-roles?tenantId={{tenantId}}",
               "host": ["{{baseUrl}}"],
-              "path": ["user-roles"],
+              "path": ["api", "v1", "user-roles"],
               "query": [{"key": "tenantId", "value": "{{tenantId}}"}]
             }
           }
@@ -267,16 +415,16 @@
             "method": "PUT",
             "header": [
               {"key": "Content-Type", "value": "application/json"},
-              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+              {"key": "Authorization", "value": "Bearer {{token}}"}
             ],
             "body": {
               "mode": "raw",
               "raw": "{\"roleId\": \"operario\"}"
             },
             "url": {
-              "raw": "{{baseUrl}}/user-roles/{{utrId}}",
+              "raw": "{{baseUrl}}/api/v1/user-roles/{{utrId}}",
               "host": ["{{baseUrl}}"],
-              "path": ["user-roles", "{{utrId}}"]
+              "path": ["api", "v1", "user-roles", "{{utrId}}"]
             }
           }
         },
@@ -284,11 +432,11 @@
           "name": "DELETE Revoke Role",
           "request": {
             "method": "DELETE",
-            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}"}],
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
             "url": {
-              "raw": "{{baseUrl}}/user-roles/{{utrId}}",
+              "raw": "{{baseUrl}}/api/v1/user-roles/{{utrId}}",
               "host": ["{{baseUrl}}"],
-              "path": ["user-roles", "{{utrId}}"]
+              "path": ["api", "v1", "user-roles", "{{utrId}}"]
             }
           }
         }
@@ -465,9 +613,9 @@
   "variable": [
     {
       "key": "baseUrl",
-      "value": "http://localhost:8080/api/v1",
+      "value": "http://localhost:8080",
       "type": "string",
-      "description": "Base URL for the API (v1 endpoints: tenants, users, roles)"
+      "description": "Base URL for the API (without path prefix)"
     },
     {
       "key": "edgeDevicesBaseUrl",
@@ -534,6 +682,12 @@
       "value": "550e8400-e29b-41d4-a716-446655440000",
       "type": "string",
       "description": "Edge device UUID"
+    },
+    {
+      "key": "invitation_id",
+      "value": "00000000-0000-0000-0000-000000000000",
+      "type": "string",
+      "description": "Invitation UUID — reemplazar con el id devuelto por POST Create Invitation"
     }
   ]
 }
