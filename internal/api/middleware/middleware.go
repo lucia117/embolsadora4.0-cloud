@@ -199,6 +199,9 @@ func Logger() gin.HandlerFunc {
 }
 
 // CORS sets permissive CORS headers for the API.
+// TODO(deuda-tecnica): reemplazar "*" por una whitelist de orígenes leída desde config
+// (CORS_ALLOWED_ORIGINS env var, separada por comas). El "*" es aceptable en desarrollo
+// pero debe restringirse antes de ir a producción para prevenir CSRF.
 func CORS() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
