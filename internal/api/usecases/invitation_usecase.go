@@ -88,7 +88,12 @@ func (uc *InvitationUsecase) CreateInvitation(ctx context.Context, email, roleID
 	redirectTo := fmt.Sprintf("%s/s/%s/auth/callback", uc.appBaseURL, tenantID)
 	if err := uc.supabaseClient.InviteUserByEmail(ctx, email, redirectTo); err != nil {
 		// Rollback: mark invitation as revoked since Supabase failed
-		_ = uc.invRepo.UpdateStatus(ctx, created.ID, domain.InvitationStatusRevoked)
+		if rbErr := uc.invRepo.UpdateStatus(ctx, created.ID, domain.InvitationStatusRevoked); rbErr != nil {
+			Log.Error("failed to rollback invitation after supabase error",
+				zap.String("invitation_id", created.ID),
+				zap.Error(rbErr),
+			)
+		}
 		return nil, fmt.Errorf("supabase invite failed: %w", err)
 	}
 
