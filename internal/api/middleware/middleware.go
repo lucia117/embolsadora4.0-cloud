@@ -28,7 +28,7 @@ func JWTAuth(verifier security.Verifier, authUC *usecases.AuthUsecase, activator
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing token"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"success": false, "error": "No autorizado"})
 			return
 		}
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
@@ -41,13 +41,13 @@ func JWTAuth(verifier security.Verifier, authUC *usecases.AuthUsecase, activator
 				return
 			}
 			Log.Warn("invalid JWT token", zap.String("endpoint", c.Request.URL.Path), zap.Error(err))
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"success": false, "error": "No autorizado"})
 			return
 		}
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token claims"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"success": false, "error": "No autorizado"})
 			return
 		}
 
@@ -55,7 +55,7 @@ func JWTAuth(verifier security.Verifier, authUC *usecases.AuthUsecase, activator
 		email, _ := claims["email"].(string)
 
 		if sub == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token: missing sub"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"success": false, "error": "No autorizado"})
 			return
 		}
 
