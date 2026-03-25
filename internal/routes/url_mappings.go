@@ -27,8 +27,11 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/platform/supabase"
 	invitationsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/invitations"
 	edgeDevicesApp "github.com/tu-org/embolsadora-api/internal/app/edge_devices"
+	dashboardLayoutsApp "github.com/tu-org/embolsadora-api/internal/app/dashboard_layouts"
 	edgeDevicesHandler "github.com/tu-org/embolsadora-api/internal/api/handler/edge_devices"
+	dashboardLayoutsHandler "github.com/tu-org/embolsadora-api/internal/api/handler/dashboard_layouts"
 	edgeDevicesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/edge_devices"
+	dashboardLayoutsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/dashboard_layouts"
 	"github.com/tu-org/embolsadora-api/internal/platform/edgeclient"
 	tenantsRepository "github.com/tu-org/embolsadora-api/internal/repo/pg/tenants"
 	userRolesRepository "github.com/tu-org/embolsadora-api/internal/repo/pg/user_roles"
@@ -144,4 +147,9 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 		apimw.ResolveTenantFromPath(db),
 	)
 	edgeDevicesHandler.RegisterRoutes(tenantsGroup, edgeDeviceService)
+
+	// Dashboard Layouts surface (/api/tenants/{tenantId}/dashboard-layouts)
+	dlRepo := dashboardLayoutsRepo.NewPostgresRepository(db)
+	dlService := dashboardLayoutsApp.NewService(dlRepo, logger)
+	dashboardLayoutsHandler.RegisterRoutes(tenantsGroup, dlService)
 }
