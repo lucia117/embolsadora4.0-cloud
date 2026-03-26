@@ -95,28 +95,45 @@ func (r *PostgresRepository) ExistsByName(ctx context.Context, tenantID uuid.UUI
 }
 
 // Create persists a new layout and populates server-assigned fields.
+// The limit check and insert are executed within a single transaction so that
+// concurrent requests cannot both pass the count check and exceed the per-tenant limit.
 func (r *PostgresRepository) Create(ctx context.Context, layout *domain.DashboardLayout) error {
 	widgetsJSON, err := json.Marshal(layout.Widgets)
 	if err != nil {
 		return err
 	}
 
-	err = r.pool.QueryRow(ctx, `
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	var count int
+	if err := tx.QueryRow(ctx,
+		`SELECT COUNT(*) FROM dashboard_layouts WHERE tenant_id = $1 AND deleted_at IS NULL`,
+		layout.TenantID,
+	).Scan(&count); err != nil {
+		return err
+	}
+	if count >= domain.MaxLayoutsPerTenant {
+		return domain.ErrLimitReached
+	}
+
+	if err := tx.QueryRow(ctx, `
 		INSERT INTO dashboard_layouts (id, tenant_id, name, widgets)
 		VALUES ($1, $2, $3, $4)
 		RETURNING created_at, updated_at
-	`,
-		layout.ID, layout.TenantID, layout.Name, widgetsJSON,
-	).Scan(&layout.CreatedAt, &layout.UpdatedAt)
-
-	if err != nil {
+	`, layout.ID, layout.TenantID, layout.Name, widgetsJSON,
+	).Scan(&layout.CreatedAt, &layout.UpdatedAt); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			return domain.ErrDuplicateName
 		}
 		return err
 	}
-	return nil
+
+	return tx.Commit(ctx)
 }
 
 // Update replaces name and widgets of an existing layout.
@@ -126,44 +143,79 @@ func (r *PostgresRepository) Update(ctx context.Context, layout *domain.Dashboar
 		return err
 	}
 
-	tag, err := r.pool.Exec(ctx, `
+	err = r.pool.QueryRow(ctx, `
 		UPDATE dashboard_layouts
 		SET name = $1, widgets = $2
 		WHERE id = $3 AND tenant_id = $4 AND deleted_at IS NULL
-	`, layout.Name, widgetsJSON, layout.ID, layout.TenantID)
+		RETURNING updated_at
+	`, layout.Name, widgetsJSON, layout.ID, layout.TenantID).Scan(&layout.UpdatedAt)
 
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.ErrLayoutNotFound
+		}
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			return domain.ErrDuplicateName
 		}
 		return err
 	}
-	if tag.RowsAffected() == 0 {
-		return domain.ErrLayoutNotFound
-	}
-
-	// Refresh updated_at from DB
-	return r.pool.QueryRow(ctx,
-		`SELECT updated_at FROM dashboard_layouts WHERE id = $1`,
-		layout.ID,
-	).Scan(&layout.UpdatedAt)
+	return nil
 }
 
 // SoftDelete sets deleted_at on the layout.
+// The existence check, count check, and delete are executed within a single transaction
+// using SELECT FOR UPDATE to prevent concurrent deletes from leaving a tenant with zero layouts.
 func (r *PostgresRepository) SoftDelete(ctx context.Context, tenantID, layoutID uuid.UUID) error {
-	tag, err := r.pool.Exec(ctx, `
-		UPDATE dashboard_layouts
-		SET deleted_at = CURRENT_TIMESTAMP
-		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
-	`, layoutID, tenantID)
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	if tag.RowsAffected() == 0 {
+	defer tx.Rollback(ctx)
+
+	// Lock all active layouts for this tenant to serialize concurrent deletes.
+	rows, err := tx.Query(ctx,
+		`SELECT id FROM dashboard_layouts WHERE tenant_id = $1 AND deleted_at IS NULL FOR UPDATE`,
+		tenantID,
+	)
+	if err != nil {
+		return err
+	}
+
+	var count int
+	var found bool
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return err
+		}
+		count++
+		if id == layoutID {
+			found = true
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	if !found {
 		return domain.ErrLayoutNotFound
 	}
-	return nil
+	if count <= 1 {
+		return domain.ErrCannotDeleteLastLayout
+	}
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE dashboard_layouts
+		SET deleted_at = CURRENT_TIMESTAMP
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+	`, layoutID, tenantID); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
 // scanLayout reads a layout row from either pgx.Rows or pgx.Row.

@@ -9,8 +9,6 @@ import (
 	domain "github.com/tu-org/embolsadora-api/internal/domain/dashboard_layouts"
 )
 
-const maxLayoutsPerTenant = 3
-
 // Service implements application business logic for dashboard layouts.
 type Service struct {
 	repo   domain.Repository
@@ -70,45 +68,8 @@ func (s *Service) GetLayout(ctx context.Context, tenantID, layoutID uuid.UUID) (
 }
 
 // CreateLayout creates a new dashboard layout for the tenant.
-// Enforces: max 3 layouts per tenant, unique name per tenant.
+// Limit enforcement and uniqueness are handled atomically in the repository.
 func (s *Service) CreateLayout(ctx context.Context, tenantID uuid.UUID, cmd domain.CreateLayoutCommand) (*domain.DashboardLayout, error) {
-	count, err := s.repo.CountByTenant(ctx, tenantID)
-	if err != nil {
-		s.logger.Error("failed to count layouts",
-			zap.Error(err),
-			zap.String("tenant_id", tenantID.String()),
-			zap.String("operation", "create_layout"),
-		)
-		return nil, err
-	}
-	if count >= maxLayoutsPerTenant {
-		s.logger.Warn("layout limit reached",
-			zap.String("tenant_id", tenantID.String()),
-			zap.Int("count", count),
-			zap.String("operation", "create_layout"),
-		)
-		return nil, domain.ErrLimitReached
-	}
-
-	exists, err := s.repo.ExistsByName(ctx, tenantID, cmd.Name, nil)
-	if err != nil {
-		s.logger.Error("failed to check name uniqueness",
-			zap.Error(err),
-			zap.String("tenant_id", tenantID.String()),
-			zap.String("name", cmd.Name),
-			zap.String("operation", "create_layout"),
-		)
-		return nil, err
-	}
-	if exists {
-		s.logger.Warn("duplicate layout name",
-			zap.String("tenant_id", tenantID.String()),
-			zap.String("name", cmd.Name),
-			zap.String("operation", "create_layout"),
-		)
-		return nil, domain.ErrDuplicateName
-	}
-
 	widgets := cmd.Widgets
 	if widgets == nil {
 		widgets = []domain.Widget{}
@@ -122,15 +83,14 @@ func (s *Service) CreateLayout(ctx context.Context, tenantID uuid.UUID, cmd doma
 	}
 
 	if err := s.repo.Create(ctx, layout); err != nil {
-		if errors.Is(err, domain.ErrDuplicateName) {
-			return nil, domain.ErrDuplicateName
+		if !errors.Is(err, domain.ErrLimitReached) && !errors.Is(err, domain.ErrDuplicateName) {
+			s.logger.Error("failed to create layout",
+				zap.Error(err),
+				zap.String("tenant_id", tenantID.String()),
+				zap.String("name", cmd.Name),
+				zap.String("operation", "create_layout"),
+			)
 		}
-		s.logger.Error("failed to create layout",
-			zap.Error(err),
-			zap.String("tenant_id", tenantID.String()),
-			zap.String("name", cmd.Name),
-			zap.String("operation", "create_layout"),
-		)
 		return nil, err
 	}
 
@@ -206,45 +166,17 @@ func (s *Service) UpdateLayout(ctx context.Context, tenantID, layoutID uuid.UUID
 }
 
 // DeleteLayout soft-deletes a layout. Rejects deletion of the last remaining layout.
+// Existence and count checks are handled atomically in the repository.
 func (s *Service) DeleteLayout(ctx context.Context, tenantID, layoutID uuid.UUID) error {
-	if _, err := s.repo.GetByID(ctx, tenantID, layoutID); err != nil {
-		if errors.Is(err, domain.ErrLayoutNotFound) {
-			return domain.ErrLayoutNotFound
-		}
-		s.logger.Error("failed to get layout for delete",
-			zap.Error(err),
-			zap.String("tenant_id", tenantID.String()),
-			zap.String("layout_id", layoutID.String()),
-			zap.String("operation", "delete_layout"),
-		)
-		return err
-	}
-
-	count, err := s.repo.CountByTenant(ctx, tenantID)
-	if err != nil {
-		s.logger.Error("failed to count layouts for delete",
-			zap.Error(err),
-			zap.String("tenant_id", tenantID.String()),
-			zap.String("operation", "delete_layout"),
-		)
-		return err
-	}
-	if count <= 1 {
-		s.logger.Warn("cannot delete last layout",
-			zap.String("tenant_id", tenantID.String()),
-			zap.String("layout_id", layoutID.String()),
-			zap.String("operation", "delete_layout"),
-		)
-		return domain.ErrCannotDeleteLastLayout
-	}
-
 	if err := s.repo.SoftDelete(ctx, tenantID, layoutID); err != nil {
-		s.logger.Error("failed to soft-delete layout",
-			zap.Error(err),
-			zap.String("tenant_id", tenantID.String()),
-			zap.String("layout_id", layoutID.String()),
-			zap.String("operation", "delete_layout"),
-		)
+		if !errors.Is(err, domain.ErrLayoutNotFound) && !errors.Is(err, domain.ErrCannotDeleteLastLayout) {
+			s.logger.Error("failed to soft-delete layout",
+				zap.Error(err),
+				zap.String("tenant_id", tenantID.String()),
+				zap.String("layout_id", layoutID.String()),
+				zap.String("operation", "delete_layout"),
+			)
+		}
 		return err
 	}
 

@@ -38,10 +38,9 @@ CREATE UNIQUE INDEX idx_dashboard_layouts_tenant_name_active
 
 ```sql
 -- Auto-update updated_at on row modification
-CREATE TRIGGER set_dashboard_layouts_updated_at
+CREATE TRIGGER trg_dashboard_layouts_updated_at
   BEFORE UPDATE ON dashboard_layouts
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
--- (reuses the existing trigger function from the project)
+  FOR EACH ROW EXECUTE FUNCTION update_dashboard_layouts_updated_at();
 ```
 
 ---

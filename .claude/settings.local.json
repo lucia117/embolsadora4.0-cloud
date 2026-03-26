@@ -13,7 +13,10 @@
       "Bash(docker exec embolsadora_db psql -U embolsadora_user -d embolsadora_dev -c \"\\\\dt users\")",
       "Bash(pkill -f \"go run ./cmd/api\")",
       "Bash(go mod:*)",
-      "Bash(go build:*)"
+      "Bash(go build:*)",
+      "Bash(find C:UsersLuciaDocumentsDesarrolloproyecto-finalembolsadora-frontendpacts -type f -name *.json)",
+      "Bash(find /c/Users/Lucia/Documents/Desarrollo/proyecto-final/embolsadora-frontend -type f -name *.json)",
+      "Bash(powershell.exe -File \".specify/scripts/powershell/check-prerequisites.ps1\" -Json -RequireTasks -IncludeTasks -FeatureDir \"specs/004-dashboard-layouts\")"
     ]
   }
 }

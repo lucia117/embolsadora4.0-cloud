@@ -29,7 +29,7 @@
 
 ⚠️ **CRITICAL**: No user story work can begin until this phase is complete.
 
-- [x] T002 Create migration `migrations/0006_create_dashboard_layouts_table.up.sql` — table `dashboard_layouts` with columns: `id UUID PK`, `tenant_id UUID FK`, `name VARCHAR(255)`, `widgets JSONB DEFAULT '[]'`, `created_at TIMESTAMPTZ`, `updated_at TIMESTAMPTZ`, `deleted_at TIMESTAMPTZ`; partial unique index `(tenant_id, name) WHERE deleted_at IS NULL`; list index `(tenant_id) WHERE deleted_at IS NULL`; trigger `set_dashboard_layouts_updated_at`
+- [x] T002 Create migration `migrations/0006_create_dashboard_layouts_table.up.sql` — table `dashboard_layouts` with columns: `id UUID PK`, `tenant_id UUID FK`, `name VARCHAR(255)`, `widgets JSONB DEFAULT '[]'`, `created_at TIMESTAMPTZ`, `updated_at TIMESTAMPTZ`, `deleted_at TIMESTAMPTZ`; partial unique index `(tenant_id, name) WHERE deleted_at IS NULL`; list index `(tenant_id) WHERE deleted_at IS NULL`; trigger `trg_dashboard_layouts_updated_at` using function `update_dashboard_layouts_updated_at()`
 - [x] T003 [P] Create migration `migrations/0006_create_dashboard_layouts_table.down.sql` — `DROP TABLE IF EXISTS dashboard_layouts;`
 - [x] T004 [P] Create domain aggregate in `internal/domain/dashboard_layouts/dashboard_layout.go` — `DashboardLayout` struct (ID, TenantID, Name, Widgets, CreatedAt, UpdatedAt, DeletedAt) and `Widget` struct (ID, Type, Name, Title, Description, Category, Icon, Position{X,Y,W,H,I})
 - [x] T005 [P] Create domain commands in `internal/domain/dashboard_layouts/commands.go` — `CreateLayoutCommand{Name string; Widgets []Widget}` and `UpdateLayoutCommand{Name string; Widgets []Widget}`
