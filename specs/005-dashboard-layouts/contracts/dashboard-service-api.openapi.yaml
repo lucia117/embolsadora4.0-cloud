@@ -2,9 +2,11 @@ openapi: "3.0.3"
 info:
   title: Dashboard Layouts API
   description: |
-    Manages dashboard layout configurations per tenant.
-    Consumer-driven contract derived from embolsadora-frontend pact file.
-  version: "1.0.0"
+    Manages dashboard layout configurations per (tenant, user).
+    Layouts are scoped to the authenticated user within the active tenant.
+    tenant_id is resolved from the X-Tenant-ID header (UUID).
+    user_id is resolved from the JWT Bearer token.
+  version: "2.0.0"
 
 servers:
   - url: http://localhost:8080
@@ -14,17 +16,12 @@ security:
   - bearerAuth: []
 
 paths:
-  /api/tenants/{tenantId}/dashboard-layouts:
+  /api/v1/dashboard-layouts:
     get:
-      summary: List dashboard layouts for a tenant
+      summary: List dashboard layouts for the authenticated user in the active tenant
       operationId: listDashboardLayouts
       parameters:
-        - name: tenantId
-          in: path
-          required: true
-          schema:
-            type: string
-          example: acme
+        - $ref: "#/components/parameters/TenantIDHeader"
       responses:
         "200":
           description: List of layouts
@@ -41,17 +38,21 @@ paths:
               example:
                 success: false
                 error: "No autorizado"
+        "403":
+          description: Tenant access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: "tenant access denied"
 
     post:
       summary: Create a new dashboard layout
       operationId: createDashboardLayout
       parameters:
-        - name: tenantId
-          in: path
-          required: true
-          schema:
-            type: string
-          example: acme
+        - $ref: "#/components/parameters/TenantIDHeader"
       requestBody:
         required: true
         content:
@@ -66,7 +67,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/SingleLayoutResponse"
         "403":
-          description: Tenant layout limit reached
+          description: Layout limit reached for this (tenant, user)
           content:
             application/json:
               schema:
@@ -75,7 +76,7 @@ paths:
                 success: false
                 error: "LIMIT_REACHED"
         "409":
-          description: Layout name already exists in this tenant
+          description: Layout name already exists for this (tenant, user)
           content:
             application/json:
               schema:
@@ -90,21 +91,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/tenants/{tenantId}/dashboard-layouts/{layoutId}:
+  /api/v1/dashboard-layouts/{layoutId}:
     get:
       summary: Get a specific dashboard layout
       operationId: getDashboardLayout
       parameters:
-        - name: tenantId
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: "#/components/parameters/TenantIDHeader"
         - name: layoutId
           in: path
           required: true
           schema:
             type: string
+            format: uuid
       responses:
         "200":
           description: Layout found
@@ -132,16 +130,13 @@ paths:
       summary: Update a dashboard layout
       operationId: updateDashboardLayout
       parameters:
-        - name: tenantId
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: "#/components/parameters/TenantIDHeader"
         - name: layoutId
           in: path
           required: true
           schema:
             type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -165,7 +160,7 @@ paths:
                 success: false
                 error: "NOT_FOUND"
         "409":
-          description: Name already used by another layout in this tenant
+          description: Name already used by another layout for this (tenant, user)
           content:
             application/json:
               schema:
@@ -184,16 +179,13 @@ paths:
       summary: Delete a dashboard layout
       operationId: deleteDashboardLayout
       parameters:
-        - name: tenantId
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: "#/components/parameters/TenantIDHeader"
         - name: layoutId
           in: path
           required: true
           schema:
             type: string
+            format: uuid
       responses:
         "200":
           description: Layout deleted
@@ -236,6 +228,17 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+
+  parameters:
+    TenantIDHeader:
+      name: X-Tenant-ID
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: UUID of the active tenant
+      example: "550e8400-e29b-41d4-a716-446655440001"
 
   schemas:
     Widget:
@@ -289,6 +292,7 @@ components:
       properties:
         id:
           type: string
+          format: uuid
           example: "550e8400-e29b-41d4-a716-446655440000"
         name:
           type: string

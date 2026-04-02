@@ -12,12 +12,18 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/platform"
 )
 
-// GetLayout returns a single dashboard layout by ID for the tenant.
+// GetLayout returns a single dashboard layout by ID for the (tenant, user).
 func GetLayout(service *app.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tenantID := platform.TenantUUID(c.Request.Context())
-		if tenantID == nil {
-			c.JSON(http.StatusBadRequest, dto.ErrorResponse{Success: false, Error: "tenant ID not found"})
+		tenantID, err := uuid.Parse(platform.TenantID(c.Request.Context()))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, dto.ErrorResponse{Success: false, Error: "missing or invalid X-Tenant-ID header"})
+			return
+		}
+
+		userID := platform.UserID(c.Request.Context())
+		if userID == nil {
+			c.JSON(http.StatusUnauthorized, dto.ErrorResponse{Success: false, Error: "user not authenticated"})
 			return
 		}
 
@@ -27,7 +33,7 @@ func GetLayout(service *app.Service) gin.HandlerFunc {
 			return
 		}
 
-		layout, err := service.GetLayout(c.Request.Context(), *tenantID, layoutID)
+		layout, err := service.GetLayout(c.Request.Context(), tenantID, *userID, layoutID)
 		if err != nil {
 			if errors.Is(err, domain.ErrLayoutNotFound) {
 				c.JSON(http.StatusNotFound, dto.ErrorResponse{Success: false, Error: "Layout no encontrado"})

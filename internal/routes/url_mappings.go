@@ -148,8 +148,9 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	)
 	edgeDevicesHandler.RegisterRoutes(tenantsGroup, edgeDeviceService)
 
-	// Dashboard Layouts surface (/api/tenants/{tenantId}/dashboard-layouts)
+	// Dashboard Layouts surface (/api/v1/dashboard-layouts)
+	// tenant_id comes from X-Tenant-ID header, user_id from JWT context
 	dlRepo := dashboardLayoutsRepo.NewPostgresRepository(db)
 	dlService := dashboardLayoutsApp.NewService(dlRepo, logger)
-	dashboardLayoutsHandler.RegisterRoutes(tenantsGroup, dlService)
+	dashboardLayoutsHandler.RegisterRoutes(v1, dlService)
 }

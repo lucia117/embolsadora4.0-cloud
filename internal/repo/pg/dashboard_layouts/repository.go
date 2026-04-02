@@ -22,15 +22,15 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{pool: pool}
 }
 
-// List returns all active layouts for the tenant, ordered by creation date ascending.
-func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID) ([]*domain.DashboardLayout, error) {
+// List returns all active layouts for the (tenant, user), ordered by creation date ascending.
+func (r *PostgresRepository) List(ctx context.Context, tenantID, userID uuid.UUID) ([]*domain.DashboardLayout, error) {
 	query := `
-		SELECT id, tenant_id, name, widgets, created_at, updated_at
+		SELECT id, tenant_id, user_id, name, widgets, created_at, updated_at
 		FROM dashboard_layouts
-		WHERE tenant_id = $1 AND deleted_at IS NULL
+		WHERE tenant_id = $1 AND user_id = $2 AND deleted_at IS NULL
 		ORDER BY created_at ASC
 	`
-	rows, err := r.pool.Query(ctx, query, tenantID)
+	rows, err := r.pool.Query(ctx, query, tenantID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -50,14 +50,14 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID) ([]*d
 	return layouts, nil
 }
 
-// GetByID returns a single active layout by ID within the tenant.
-func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, layoutID uuid.UUID) (*domain.DashboardLayout, error) {
+// GetByID returns a single active layout by ID within the (tenant, user) scope.
+func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, userID, layoutID uuid.UUID) (*domain.DashboardLayout, error) {
 	query := `
-		SELECT id, tenant_id, name, widgets, created_at, updated_at
+		SELECT id, tenant_id, user_id, name, widgets, created_at, updated_at
 		FROM dashboard_layouts
-		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+		WHERE id = $1 AND tenant_id = $2 AND user_id = $3 AND deleted_at IS NULL
 	`
-	row := r.pool.QueryRow(ctx, query, layoutID, tenantID)
+	row := r.pool.QueryRow(ctx, query, layoutID, tenantID, userID)
 	layout, err := scanLayout(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -68,35 +68,19 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, layoutID uui
 	return layout, nil
 }
 
-// CountByTenant returns the number of active layouts for the tenant.
-func (r *PostgresRepository) CountByTenant(ctx context.Context, tenantID uuid.UUID) (int, error) {
+// CountByTenantUser returns the number of active layouts for the (tenant, user) pair.
+func (r *PostgresRepository) CountByTenantUser(ctx context.Context, tenantID, userID uuid.UUID) (int, error) {
 	var count int
 	err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM dashboard_layouts WHERE tenant_id = $1 AND deleted_at IS NULL`,
-		tenantID,
+		`SELECT COUNT(*) FROM dashboard_layouts WHERE tenant_id = $1 AND user_id = $2 AND deleted_at IS NULL`,
+		tenantID, userID,
 	).Scan(&count)
 	return count, err
 }
 
-// ExistsByName returns true if an active layout with the given name exists in the tenant.
-// When excludeID is non-nil, that layout is excluded from the check.
-func (r *PostgresRepository) ExistsByName(ctx context.Context, tenantID uuid.UUID, name string, excludeID *uuid.UUID) (bool, error) {
-	var exists bool
-	err := r.pool.QueryRow(ctx, `
-		SELECT EXISTS(
-			SELECT 1 FROM dashboard_layouts
-			WHERE tenant_id = $1
-			  AND name = $2
-			  AND deleted_at IS NULL
-			  AND ($3::uuid IS NULL OR id != $3)
-		)
-	`, tenantID, name, excludeID).Scan(&exists)
-	return exists, err
-}
-
 // Create persists a new layout and populates server-assigned fields.
 // The limit check and insert are executed within a single transaction so that
-// concurrent requests cannot both pass the count check and exceed the per-tenant limit.
+// concurrent requests cannot both pass the count check and exceed the per-(tenant,user) limit.
 func (r *PostgresRepository) Create(ctx context.Context, layout *domain.DashboardLayout) error {
 	widgetsJSON, err := json.Marshal(layout.Widgets)
 	if err != nil {
@@ -111,8 +95,8 @@ func (r *PostgresRepository) Create(ctx context.Context, layout *domain.Dashboar
 
 	var count int
 	if err := tx.QueryRow(ctx,
-		`SELECT COUNT(*) FROM dashboard_layouts WHERE tenant_id = $1 AND deleted_at IS NULL`,
-		layout.TenantID,
+		`SELECT COUNT(*) FROM dashboard_layouts WHERE tenant_id = $1 AND user_id = $2 AND deleted_at IS NULL`,
+		layout.TenantID, layout.UserID,
 	).Scan(&count); err != nil {
 		return err
 	}
@@ -121,10 +105,10 @@ func (r *PostgresRepository) Create(ctx context.Context, layout *domain.Dashboar
 	}
 
 	if err := tx.QueryRow(ctx, `
-		INSERT INTO dashboard_layouts (id, tenant_id, name, widgets)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO dashboard_layouts (id, tenant_id, user_id, name, widgets)
+		VALUES ($1, $2, $3, $4, $5)
 		RETURNING created_at, updated_at
-	`, layout.ID, layout.TenantID, layout.Name, widgetsJSON,
+	`, layout.ID, layout.TenantID, layout.UserID, layout.Name, widgetsJSON,
 	).Scan(&layout.CreatedAt, &layout.UpdatedAt); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -146,9 +130,9 @@ func (r *PostgresRepository) Update(ctx context.Context, layout *domain.Dashboar
 	err = r.pool.QueryRow(ctx, `
 		UPDATE dashboard_layouts
 		SET name = $1, widgets = $2
-		WHERE id = $3 AND tenant_id = $4 AND deleted_at IS NULL
+		WHERE id = $3 AND tenant_id = $4 AND user_id = $5 AND deleted_at IS NULL
 		RETURNING updated_at
-	`, layout.Name, widgetsJSON, layout.ID, layout.TenantID).Scan(&layout.UpdatedAt)
+	`, layout.Name, widgetsJSON, layout.ID, layout.TenantID, layout.UserID).Scan(&layout.UpdatedAt)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -165,18 +149,18 @@ func (r *PostgresRepository) Update(ctx context.Context, layout *domain.Dashboar
 
 // SoftDelete sets deleted_at on the layout.
 // The existence check, count check, and delete are executed within a single transaction
-// using SELECT FOR UPDATE to prevent concurrent deletes from leaving a tenant with zero layouts.
-func (r *PostgresRepository) SoftDelete(ctx context.Context, tenantID, layoutID uuid.UUID) error {
+// using SELECT FOR UPDATE to prevent concurrent deletes from leaving a user with zero layouts.
+func (r *PostgresRepository) SoftDelete(ctx context.Context, tenantID, userID, layoutID uuid.UUID) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
 
-	// Lock all active layouts for this tenant to serialize concurrent deletes.
+	// Lock all active layouts for this (tenant, user) to serialize concurrent deletes.
 	rows, err := tx.Query(ctx,
-		`SELECT id FROM dashboard_layouts WHERE tenant_id = $1 AND deleted_at IS NULL FOR UPDATE`,
-		tenantID,
+		`SELECT id FROM dashboard_layouts WHERE tenant_id = $1 AND user_id = $2 AND deleted_at IS NULL FOR UPDATE`,
+		tenantID, userID,
 	)
 	if err != nil {
 		return err
@@ -210,8 +194,8 @@ func (r *PostgresRepository) SoftDelete(ctx context.Context, tenantID, layoutID 
 	if _, err := tx.Exec(ctx, `
 		UPDATE dashboard_layouts
 		SET deleted_at = CURRENT_TIMESTAMP
-		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
-	`, layoutID, tenantID); err != nil {
+		WHERE id = $1 AND tenant_id = $2 AND user_id = $3 AND deleted_at IS NULL
+	`, layoutID, tenantID, userID); err != nil {
 		return err
 	}
 
@@ -228,6 +212,7 @@ func scanLayout(row interface {
 	err := row.Scan(
 		&layout.ID,
 		&layout.TenantID,
+		&layout.UserID,
 		&layout.Name,
 		&widgetsJSON,
 		&layout.CreatedAt,
