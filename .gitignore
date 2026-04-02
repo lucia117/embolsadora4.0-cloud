@@ -12,3 +12,11 @@ postman/export-*.json
 
 # MacOS
 .DS_Store
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Local docs and specs (not for tracking)
+docs/nosql-aas-research.md
+specs/004-aas-server/
+specs/005-plc-events/
