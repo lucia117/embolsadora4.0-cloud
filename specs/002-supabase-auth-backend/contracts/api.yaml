@@ -1,0 +1,396 @@
+openapi: "3.1.0"
+info:
+  title: Embolsadora API — Auth Endpoints (002-supabase-auth-backend)
+  version: "2.0.0"
+  description: |
+    Nuevos y modificados endpoints de la feature 002-supabase-auth-backend.
+    Todos los endpoints bajo /api/v1/* requieren:
+      - Authorization: Bearer <supabase_access_token>
+      - X-Tenant-ID: <tenant_id>  (excepto GET /api/v1/me y POST /api/v1/auth/change-password)
+
+servers:
+  - url: https://api.tudominio.com
+    description: Producción (Koyeb)
+  - url: http://localhost:8080
+    description: Local
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT emitido por Supabase Auth
+
+  parameters:
+    XTenantID:
+      name: X-Tenant-ID
+      in: header
+      required: true
+      schema:
+        type: string
+      description: ID del tenant activo. Debe coincidir con un user_tenant_role activo del usuario.
+
+  schemas:
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          nullable: true
+        name:
+          type: string
+          nullable: true
+        password_change_required:
+          type: boolean
+
+    TenantInfo:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        subdomain:
+          type: string
+
+    RoleInfo:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    MeResponse:
+      type: object
+      required: [user, tenant, role, permissions]
+      properties:
+        user:
+          $ref: '#/components/schemas/UserProfile'
+        tenant:
+          $ref: '#/components/schemas/TenantInfo'
+        role:
+          $ref: '#/components/schemas/RoleInfo'
+        permissions:
+          type: array
+          items:
+            type: string
+          example: ["users:read", "invitations:write"]
+
+    Invitation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+        email:
+          type: string
+          format: email
+        role_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, accepted, revoked, expired]
+        invited_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+security:
+  - BearerAuth: []
+
+paths:
+  /api/v1/me:
+    get:
+      summary: Obtener perfil del usuario autenticado
+      description: |
+        Devuelve la identidad del usuario, su tenant, rol y permisos.
+        No requiere X-Tenant-ID. Cada usuario regular pertenece exactamente a un tenant;
+        `tenant` es null si aún no tiene ningún tenant asignado (usuario recién provisionado sin
+        invitación aceptada). El superadmin global (acceso a múltiples tenants) queda fuera del
+        scope de esta feature. Triggera auto-provisioning si el supabase_user_id no existe en la DB.
+      operationId: getMe
+      tags: [Identity]
+      responses:
+        "200":
+          description: Perfil del usuario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+              examples:
+                with_tenant:
+                  value:
+                    user:
+                      id: "550e8400-e29b-41d4-a716-446655440000"
+                      email: "user@example.com"
+                      name: "Juan Pérez"
+                      password_change_required: false
+                    tenant:
+                      id: "demo"
+                      name: "Demo Corp"
+                      subdomain: "demo"
+                    role:
+                      id: "role-uuid"
+                      name: "admin"
+                    permissions: ["users:read", "users:write", "invitations:write"]
+                no_tenant:
+                  value:
+                    user:
+                      id: "550e8400-e29b-41d4-a716-446655440000"
+                      email: "user@example.com"
+                      name: null
+                      password_change_required: false
+                    tenant: null
+                    role: null
+                    permissions: []
+        "401":
+          description: Token inválido o expirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Cuenta suspendida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                suspended:
+                  value:
+                    error: "account suspended"
+
+  /api/v1/invitations:
+    get:
+      summary: Listar invitaciones del tenant
+      operationId: listInvitations
+      tags: [Invitations]
+      parameters:
+        - $ref: '#/components/parameters/XTenantID'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, accepted, revoked, expired]
+          required: false
+      responses:
+        "200":
+          description: Lista de invitaciones del tenant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invitations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Invitation'
+        "401":
+          $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      summary: Crear invitación (requiere permiso invitations:write)
+      operationId: createInvitation
+      tags: [Invitations]
+      parameters:
+        - $ref: '#/components/parameters/XTenantID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, role_id]
+              properties:
+                email:
+                  type: string
+                  format: email
+                role_id:
+                  type: string
+                  format: uuid
+      responses:
+        "201":
+          description: Invitación creada y email enviado via Supabase
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invitation'
+        "400":
+          description: Request inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Sin permiso o tenant inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "409":
+          description: Invitación pendiente ya existe para este email en el tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "invitation already pending for this email"
+        "429":
+          description: Rate limit de invitaciones excedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "invitation rate limit exceeded"
+
+  /api/v1/invitations/{id}/resend:
+    post:
+      summary: Reenviar email de invitación
+      operationId: resendInvitation
+      tags: [Invitations]
+      parameters:
+        - $ref: '#/components/parameters/XTenantID'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Email reenviado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        "404":
+          description: Invitación no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "409":
+          description: Invitación no está en estado pending
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/invitations/{id}:
+    delete:
+      summary: Revocar invitación (soft delete → status revoked)
+      operationId: revokeInvitation
+      tags: [Invitations]
+      parameters:
+        - $ref: '#/components/parameters/XTenantID'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Invitación revocada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invitation'
+        "404":
+          description: Invitación no encontrada en este tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/users/{id}/force-password-change:
+    post:
+      summary: Forzar cambio de contraseña (solo admin)
+      operationId: forcePasswordChange
+      tags: [Users]
+      parameters:
+        - $ref: '#/components/parameters/XTenantID'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID del usuario de negocio (no el supabase_user_id)
+      responses:
+        "200":
+          description: Flag seteado y email de reset enviado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "password reset email sent"
+        "403":
+          description: Sin permiso o usuario de otro tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/change-password:
+    post:
+      summary: Limpiar flag password_change_required post-reset
+      description: |
+        Llamado por el frontend desde el callback de Supabase después de que el usuario
+        completó el cambio de contraseña via el link de email. No requiere X-Tenant-ID.
+        Requiere token JWT válido (el nuevo token post-reset).
+      operationId: clearPasswordChangeRequired
+      tags: [Auth]
+      responses:
+        "200":
+          description: Flag limpiado correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "password_change_required cleared"
+        "401":
+          $ref: '#/components/schemas/ErrorResponse'
