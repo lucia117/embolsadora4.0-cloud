@@ -28,10 +28,13 @@ import (
 	invitationsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/invitations"
 	edgeDevicesApp "github.com/tu-org/embolsadora-api/internal/app/edge_devices"
 	dashboardLayoutsApp "github.com/tu-org/embolsadora-api/internal/app/dashboard_layouts"
+	rolesApp "github.com/tu-org/embolsadora-api/internal/app/roles"
 	edgeDevicesHandler "github.com/tu-org/embolsadora-api/internal/api/handler/edge_devices"
 	dashboardLayoutsHandler "github.com/tu-org/embolsadora-api/internal/api/handler/dashboard_layouts"
+	rolesHandler "github.com/tu-org/embolsadora-api/internal/api/handler/roles"
 	edgeDevicesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/edge_devices"
 	dashboardLayoutsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/dashboard_layouts"
+	rolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/roles"
 	"github.com/tu-org/embolsadora-api/internal/platform/edgeclient"
 	tenantsRepository "github.com/tu-org/embolsadora-api/internal/repo/pg/tenants"
 	userRolesRepository "github.com/tu-org/embolsadora-api/internal/repo/pg/user_roles"
@@ -153,4 +156,10 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	dlRepo := dashboardLayoutsRepo.NewPostgresRepository(db)
 	dlService := dashboardLayoutsApp.NewService(dlRepo, logger)
 	dashboardLayoutsHandler.RegisterRoutes(v1, dlService)
+
+	// Roles surface (/api/v1/roles)
+	// tenant_id comes from X-Tenant-ID header (via TenantFromHeader middleware)
+	rRepo := rolesRepo.NewPostgresRepository(db)
+	rService := rolesApp.NewService(rRepo, logger)
+	rolesHandler.RegisterRoutes(v1, rService)
 }
