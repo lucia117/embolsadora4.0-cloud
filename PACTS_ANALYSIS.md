@@ -139,21 +139,21 @@ Consumer: `embolsadora-frontend` → Provider: `auth-service`
 
 ---
 
-#### `role-service-api` — 0/7 interacciones (CRUD de roles)
+#### `role-service-api` — 7/7 interacciones (CRUD de roles)
 
 Consumer: `embolsadora-frontend-bff` → Provider: `role-service-api`
 
-| Método | Path Pact | Estado | Observación |
-|---|---|---|---|
-| GET | `/api/v1/roles?tenantId=` | ❌ | No existe el endpoint de roles |
-| GET | `/api/v1/roles/{id}` | ❌ | No existe |
-| POST | `/api/v1/roles` | ❌ | No existe |
-| PUT | `/api/v1/roles/{id}` | ❌ | No existe |
-| DELETE | `/api/v1/roles/{id}` → 200 | ❌ | No existe |
-| DELETE | `/api/v1/roles/{id}` → 409 | ❌ | No existe |
-| DELETE | `/api/v1/roles/{id}` → 403 | ❌ | No existe |
+| Método | Path Pact | Path Backend | Estado | Observación |
+|---|---|---|---|---|
+| GET | `/api/v1/roles?tenantId=` | `/api/v1/roles` | ✅ | tenant_id via X-Tenant-ID header (migration 000012) |
+| GET | `/api/v1/roles/{id}` | `/api/v1/roles/:id` | ✅ | 404 si no existe |
+| POST | `/api/v1/roles` | `/api/v1/roles` | ✅ | 201, límite 3 custom por tenant |
+| PUT | `/api/v1/roles/{id}` | `/api/v1/roles/:id` | ✅ | 403 si es rol del sistema |
+| DELETE | `/api/v1/roles/{id}` → 200 | `/api/v1/roles/:id` | ✅ | Solo roles custom sin asignaciones |
+| DELETE | `/api/v1/roles/{id}` → 409 | `/api/v1/roles/:id` | ✅ | `usersAffected` count en response body |
+| DELETE | `/api/v1/roles/{id}` → 403 | `/api/v1/roles/:id` | ✅ | Rol del sistema no eliminable |
 
-> El RBAC estático existe en `security/rbac.go` pero no hay API REST para gestionar roles dinámicamente.
+> Implementado en `006-roles-management`: migration 000012 extiende tabla `roles` con `is_system_role`, `tenant_id`, `permissions` (JSONB), `deleted_at`.
 
 ---
 

@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "embolsadora-api-master-collection",
     "name": "Embolsadora API - Complete Collection",
-    "description": "Master collection for Embolsadora 4.0 Cloud API\n\nConsolidated endpoints across all features:\n- Auth (Supabase JWT)\n- Invitations CRUD\n- Tenants management\n- Users CRUD\n- User Role Assignments\n- Edge Device Management (Complete US1-US9)\n- Dashboard Layouts (Complete US1-US5)\n\n**Base URL:** `{{baseUrl}}` = http://localhost:8080\n\n**Authentication:** Bearer JWT Token (usar POST Login para obtenerlo)\n**Multi-tenant:** `X-Tenant-ID: {{tenant_uuid}}` header requerido en la mayoría de endpoints\n\n**Dashboard Layout Endpoints (005-dashboard-layouts):**\n- US1: List Layouts - GET /api/v1/dashboard-layouts\n- US2: Create Layout - POST /api/v1/dashboard-layouts\n- US3: Get Layout - GET /api/v1/dashboard-layouts/:layoutId\n- US4: Update Layout - PUT /api/v1/dashboard-layouts/:layoutId\n- US5: Delete Layout - DELETE /api/v1/dashboard-layouts/:layoutId\n- Headers: Authorization + X-Tenant-ID (UUID) requeridos\n\n**Edge Device Endpoints (All 9 User Stories Implemented):**\n- US1: List Devices - GET /api/tenants/:tenantId/edge-devices\n- US2: Create Device - POST /api/tenants/:tenantId/edge-devices\n- US3: Get Device - GET /api/tenants/:tenantId/edge-devices/:deviceId\n- US4: Update Device - PUT /api/tenants/:tenantId/edge-devices/:deviceId\n- US5: Enable/Disable - POST /api/tenants/:tenantId/edge-devices/:deviceId/enable, /disable\n- US6: Status Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/status\n- US7: Health Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/health-check\n- US8: Telemetry - GET /api/tenants/:tenantId/edge-devices/:deviceId/telemetry\n- US9: Events - GET /api/tenants/:tenantId/edge-devices/:deviceId/events",
+    "description": "Master collection for Embolsadora 4.0 Cloud API\n\nConsolidated endpoints across all features:\n- Auth (Supabase JWT)\n- Invitations CRUD\n- Tenants management\n- Users CRUD\n- User Role Assignments\n- Edge Device Management (Complete US1-US9)\n- Dashboard Layouts (Complete US1-US5)\n- Roles Management (7 Pact interactions)\n\n**Base URL:** `{{baseUrl}}` = http://localhost:8080\n\n**Authentication:** Bearer JWT Token (usar POST Login para obtenerlo)\n**Multi-tenant:** `X-Tenant-ID: {{tenant_uuid}}` header requerido en la mayoría de endpoints\n\n**Dashboard Layout Endpoints (005-dashboard-layouts):**\n- US1: List Layouts - GET /api/v1/dashboard-layouts\n- US2: Create Layout - POST /api/v1/dashboard-layouts\n- US3: Get Layout - GET /api/v1/dashboard-layouts/:layoutId\n- US4: Update Layout - PUT /api/v1/dashboard-layouts/:layoutId\n- US5: Delete Layout - DELETE /api/v1/dashboard-layouts/:layoutId\n- Headers: Authorization + X-Tenant-ID (UUID) requeridos\n\n**Edge Device Endpoints (All 9 User Stories Implemented):**\n- US1: List Devices - GET /api/tenants/:tenantId/edge-devices\n- US2: Create Device - POST /api/tenants/:tenantId/edge-devices\n- US3: Get Device - GET /api/tenants/:tenantId/edge-devices/:deviceId\n- US4: Update Device - PUT /api/tenants/:tenantId/edge-devices/:deviceId\n- US5: Enable/Disable - POST /api/tenants/:tenantId/edge-devices/:deviceId/enable, /disable\n- US6: Status Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/status\n- US7: Health Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/health-check\n- US8: Telemetry - GET /api/tenants/:tenantId/edge-devices/:deviceId/telemetry\n- US9: Events - GET /api/tenants/:tenantId/edge-devices/:deviceId/events",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -28,15 +28,27 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"admin@test.com\",\n  \"password\": \"Test1234!\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/auth/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "login"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
             },
             "description": "Login con email y contraseña. Guarda automáticamente el access_token en la variable de entorno `token`."
           }
@@ -46,12 +58,21 @@
           "request": {
             "method": "GET",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{token}}"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/me",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "me"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "me"
+              ]
             },
             "description": "Retorna el perfil del usuario autenticado (user, tenant, role, permissions). No requiere X-Tenant-ID."
           }
@@ -61,13 +82,25 @@
           "request": {
             "method": "GET",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{token}}"},
-              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/me",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "me"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "me"
+              ]
             },
             "description": "Retorna el perfil completo incluyendo tenant, rol y permisos."
           }
@@ -77,12 +110,22 @@
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{token}}"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/auth/change-password",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "change-password"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "change-password"
+              ]
             },
             "description": "Limpia el flag password_change_required. Llamar desde el frontend después de que el usuario completó el cambio de contraseña en Supabase. No requiere X-Tenant-ID."
           }
@@ -97,13 +140,25 @@
           "request": {
             "method": "GET",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{token}}"},
-              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/invitations",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "invitations"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invitations"
+              ]
             },
             "description": "Lista todas las invitaciones del tenant. Filtrar por status: ?status=pending|accepted|revoked|expired"
           }
@@ -113,14 +168,31 @@
           "request": {
             "method": "GET",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{token}}"},
-              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/invitations?status=pending",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "invitations"],
-              "query": [{"key": "status", "value": "pending"}]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invitations"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "pending"
+                }
+              ]
             }
           }
         },
@@ -129,9 +201,18 @@
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{token}}"},
-              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"},
-              {"key": "Content-Type", "value": "application/json"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -139,8 +220,14 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/invitations",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "invitations"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invitations"
+              ]
             },
             "description": "Crea una invitación y envía el email via Supabase. Requiere permiso invitations:write (rol admin o cliente_admin). Responde 409 si ya hay una invitación pendiente para ese email."
           }
@@ -150,13 +237,27 @@
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{token}}"},
-              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/invitations/{{invitation_id}}/resend",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "invitations", "{{invitation_id}}", "resend"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invitations",
+                "{{invitation_id}}",
+                "resend"
+              ]
             },
             "description": "Reenvía el email de invitación. La invitación debe estar en estado pending. Requiere permiso invitations:write."
           }
@@ -166,13 +267,26 @@
           "request": {
             "method": "DELETE",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{token}}"},
-              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/invitations/{{invitation_id}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "invitations", "{{invitation_id}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invitations",
+                "{{invitation_id}}"
+              ]
             },
             "description": "Revoca una invitación (cambia estado a revoked). Requiere permiso invitations:write."
           }
@@ -187,13 +301,27 @@
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{token}}"},
-              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/users/{{user_id}}/force-password-change",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "users", "{{user_id}}", "force-password-change"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{user_id}}",
+                "force-password-change"
+              ]
             },
             "description": "Fuerza el cambio de contraseña de un usuario: activa el flag password_change_required y envía email de reset via Supabase. El usuario target debe pertenecer al tenant activo. Requiere permiso users:write."
           }
@@ -207,11 +335,22 @@
           "name": "GET All Tenants",
           "request": {
             "method": "GET",
-            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/tenants",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "tenants"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tenants"
+              ]
             },
             "description": "Retorna la lista de todos los tenants registrados en el sistema."
           }
@@ -221,8 +360,14 @@
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{token}}"},
-              {"key": "Content-Type", "value": "application/json"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -230,8 +375,14 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/tenants",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "tenants"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tenants"
+              ]
             }
           }
         },
@@ -239,11 +390,23 @@
           "name": "GET Tenant by ID",
           "request": {
             "method": "GET",
-            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "tenants", "{{tenantId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tenants",
+                "{{tenantId}}"
+              ]
             }
           }
         },
@@ -252,8 +415,14 @@
           "request": {
             "method": "PATCH",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{token}}"},
-              {"key": "Content-Type", "value": "application/json"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -261,8 +430,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "tenants", "{{tenantId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tenants",
+                "{{tenantId}}"
+              ]
             }
           }
         },
@@ -270,11 +446,23 @@
           "name": "DELETE Tenant",
           "request": {
             "method": "DELETE",
-            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "tenants", "{{tenantId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tenants",
+                "{{tenantId}}"
+              ]
             }
           }
         }
@@ -288,16 +476,34 @@
           "request": {
             "method": "GET",
             "header": [
-              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"},
-              {"key": "Authorization", "value": "Bearer {{token}}"}
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/users?limit=20&offset=0",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "users"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users"
+              ],
               "query": [
-                {"key": "limit", "value": "20"},
-                {"key": "offset", "value": "0"}
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
               ]
             }
           }
@@ -307,13 +513,26 @@
           "request": {
             "method": "GET",
             "header": [
-              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"},
-              {"key": "Authorization", "value": "Bearer {{token}}"}
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/users/{{user_id}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "users", "{{user_id}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{user_id}}"
+              ]
             }
           }
         },
@@ -322,9 +541,18 @@
           "request": {
             "method": "POST",
             "header": [
-              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"},
-              {"key": "Authorization", "value": "Bearer {{token}}"},
-              {"key": "Content-Type", "value": "application/json"}
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -332,8 +560,14 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/users",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "users"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users"
+              ]
             }
           }
         },
@@ -342,9 +576,18 @@
           "request": {
             "method": "PATCH",
             "header": [
-              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"},
-              {"key": "Authorization", "value": "Bearer {{token}}"},
-              {"key": "Content-Type", "value": "application/json"}
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -352,8 +595,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/users/{{user_id}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "users", "{{user_id}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{user_id}}"
+              ]
             }
           }
         },
@@ -362,13 +612,26 @@
           "request": {
             "method": "DELETE",
             "header": [
-              {"key": "X-Tenant-ID", "value": "{{tenant_uuid}}"},
-              {"key": "Authorization", "value": "Bearer {{token}}"}
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/users/{{user_id}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "users", "{{user_id}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{user_id}}"
+              ]
             }
           }
         }
@@ -382,8 +645,14 @@
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Content-Type", "value": "application/json"},
-              {"key": "Authorization", "value": "Bearer {{token}}"}
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -391,8 +660,14 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/user-roles",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "user-roles"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "user-roles"
+              ]
             }
           }
         },
@@ -400,12 +675,28 @@
           "name": "GET List Assignments",
           "request": {
             "method": "GET",
-            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/user-roles?tenantId={{tenantId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "user-roles"],
-              "query": [{"key": "tenantId", "value": "{{tenantId}}"}]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "user-roles"
+              ],
+              "query": [
+                {
+                  "key": "tenantId",
+                  "value": "{{tenantId}}"
+                }
+              ]
             }
           }
         },
@@ -414,8 +705,14 @@
           "request": {
             "method": "PUT",
             "header": [
-              {"key": "Content-Type", "value": "application/json"},
-              {"key": "Authorization", "value": "Bearer {{token}}"}
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -423,8 +720,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/user-roles/{{utrId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "user-roles", "{{utrId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "user-roles",
+                "{{utrId}}"
+              ]
             }
           }
         },
@@ -432,11 +736,23 @@
           "name": "DELETE Revoke Role",
           "request": {
             "method": "DELETE",
-            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/user-roles/{{utrId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "user-roles", "{{utrId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "user-roles",
+                "{{utrId}}"
+              ]
             }
           }
         }
@@ -450,13 +766,25 @@
           "request": {
             "method": "GET",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
-              {"key": "X-Tenant-ID", "value": "{{tenant_id}}"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/dashboard-layouts",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "dashboard-layouts"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dashboard-layouts"
+              ]
             },
             "description": "Lista todos los layouts activos del usuario en el tenant.\n\nRespuesta 200: `{success, data: [...], meta: {total, limit: 3}}`\nRespuesta 401: sin Authorization header.\nRespuesta 403: tenant access denied."
           }
@@ -466,9 +794,18 @@
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
-              {"key": "X-Tenant-ID", "value": "{{tenant_id}}"},
-              {"key": "Content-Type", "value": "application/json"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -476,8 +813,14 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/dashboard-layouts",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "dashboard-layouts"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dashboard-layouts"
+              ]
             },
             "description": "Crea un nuevo layout para el (tenant, user).\n\nRespuesta 200: `{success, data: {...}}`\nRespuesta 403: límite de 3 layouts alcanzado → `{error: \"LIMIT_REACHED\"}`\nRespuesta 409: nombre duplicado → `{error: \"DUPLICATE_NAME\"}`"
           }
@@ -487,9 +830,18 @@
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
-              {"key": "X-Tenant-ID", "value": "{{tenant_id}}"},
-              {"key": "Content-Type", "value": "application/json"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -497,8 +849,14 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/dashboard-layouts",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "dashboard-layouts"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dashboard-layouts"
+              ]
             },
             "description": "Crea un layout sin widgets iniciales (widgets default = [])."
           }
@@ -508,13 +866,26 @@
           "request": {
             "method": "GET",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
-              {"key": "X-Tenant-ID", "value": "{{tenant_id}}"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/dashboard-layouts/{{layout_id}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "dashboard-layouts", "{{layout_id}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dashboard-layouts",
+                "{{layout_id}}"
+              ]
             },
             "description": "Obtiene un layout por ID.\n\nRespuesta 200: `{success, data: {...}}`\nRespuesta 404: `{error: \"Layout no encontrado\"}`"
           }
@@ -524,9 +895,18 @@
           "request": {
             "method": "PUT",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
-              {"key": "X-Tenant-ID", "value": "{{tenant_id}}"},
-              {"key": "Content-Type", "value": "application/json"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -534,8 +914,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/dashboard-layouts/{{layout_id}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "dashboard-layouts", "{{layout_id}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dashboard-layouts",
+                "{{layout_id}}"
+              ]
             },
             "description": "Reemplaza nombre y widgets de un layout existente.\n\nRespuesta 200: `{success, data: {...}}` con `updatedAt` refreshed\nRespuesta 404: `{error: \"NOT_FOUND\"}`\nRespuesta 409: `{error: \"DUPLICATE_NAME\"}`"
           }
@@ -545,13 +932,26 @@
           "request": {
             "method": "DELETE",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
-              {"key": "X-Tenant-ID", "value": "{{tenant_id}}"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/dashboard-layouts/{{layout_id}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "dashboard-layouts", "{{layout_id}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dashboard-layouts",
+                "{{layout_id}}"
+              ]
             },
             "description": "Soft-delete de un layout.\n\nRespuesta 200: `{success: true, message: \"Layout eliminado correctamente\"}`\nRespuesta 400: último layout → `{error: \"No se puede eliminar el único layout\"}`\nRespuesta 404: `{error: \"Layout no encontrado\"}`"
           }
@@ -566,13 +966,25 @@
           "request": {
             "method": "GET",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
-              {"key": "Content-Type", "value": "application/json"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "url": {
               "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices",
-              "host": ["{{edgeDevicesBaseUrl}}"],
-              "path": ["tenants", "{{tenant_id}}", "edge-devices"]
+              "host": [
+                "{{edgeDevicesBaseUrl}}"
+              ],
+              "path": [
+                "tenants",
+                "{{tenant_id}}",
+                "edge-devices"
+              ]
             },
             "description": "Retrieve all edge devices for a tenant"
           }
@@ -582,8 +994,14 @@
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
-              {"key": "Content-Type", "value": "application/json"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -591,8 +1009,14 @@
             },
             "url": {
               "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices",
-              "host": ["{{edgeDevicesBaseUrl}}"],
-              "path": ["tenants", "{{tenant_id}}", "edge-devices"]
+              "host": [
+                "{{edgeDevicesBaseUrl}}"
+              ],
+              "path": [
+                "tenants",
+                "{{tenant_id}}",
+                "edge-devices"
+              ]
             },
             "description": "Register a new edge device for a tenant"
           }
@@ -602,12 +1026,22 @@
           "request": {
             "method": "GET",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
             ],
             "url": {
               "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}",
-              "host": ["{{edgeDevicesBaseUrl}}"],
-              "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}"]
+              "host": [
+                "{{edgeDevicesBaseUrl}}"
+              ],
+              "path": [
+                "tenants",
+                "{{tenant_id}}",
+                "edge-devices",
+                "{{device_id}}"
+              ]
             },
             "description": "Retrieve a specific edge device by ID"
           }
@@ -617,8 +1051,14 @@
           "request": {
             "method": "PUT",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
-              {"key": "Content-Type", "value": "application/json"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -626,8 +1066,15 @@
             },
             "url": {
               "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}",
-              "host": ["{{edgeDevicesBaseUrl}}"],
-              "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}"]
+              "host": [
+                "{{edgeDevicesBaseUrl}}"
+              ],
+              "path": [
+                "tenants",
+                "{{tenant_id}}",
+                "edge-devices",
+                "{{device_id}}"
+              ]
             },
             "description": "Update edge device name and/or description"
           }
@@ -637,12 +1084,23 @@
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
             ],
             "url": {
               "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/enable",
-              "host": ["{{edgeDevicesBaseUrl}}"],
-              "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}", "enable"]
+              "host": [
+                "{{edgeDevicesBaseUrl}}"
+              ],
+              "path": [
+                "tenants",
+                "{{tenant_id}}",
+                "edge-devices",
+                "{{device_id}}",
+                "enable"
+              ]
             },
             "description": "Enable an edge device (set status to ACTIVE)"
           }
@@ -652,12 +1110,23 @@
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
             ],
             "url": {
               "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/disable",
-              "host": ["{{edgeDevicesBaseUrl}}"],
-              "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}", "disable"]
+              "host": [
+                "{{edgeDevicesBaseUrl}}"
+              ],
+              "path": [
+                "tenants",
+                "{{tenant_id}}",
+                "edge-devices",
+                "{{device_id}}",
+                "disable"
+              ]
             },
             "description": "Disable an edge device (set status to DISABLED)"
           }
@@ -667,13 +1136,27 @@
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
-              {"key": "Content-Type", "value": "application/json"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "url": {
               "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/status",
-              "host": ["{{edgeDevicesBaseUrl}}"],
-              "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}", "status"]
+              "host": [
+                "{{edgeDevicesBaseUrl}}"
+              ],
+              "path": [
+                "tenants",
+                "{{tenant_id}}",
+                "edge-devices",
+                "{{device_id}}",
+                "status"
+              ]
             },
             "description": "Perform connectivity + version check on an edge device"
           }
@@ -683,12 +1166,23 @@
           "request": {
             "method": "POST",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
             ],
             "url": {
               "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/health-check",
-              "host": ["{{edgeDevicesBaseUrl}}"],
-              "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}", "health-check"]
+              "host": [
+                "{{edgeDevicesBaseUrl}}"
+              ],
+              "path": [
+                "tenants",
+                "{{tenant_id}}",
+                "edge-devices",
+                "{{device_id}}",
+                "health-check"
+              ]
             },
             "description": "Perform full hardware diagnostic (CPU, RAM, disk, temperature, uptime)"
           }
@@ -698,12 +1192,23 @@
           "request": {
             "method": "GET",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
             ],
             "url": {
               "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/telemetry",
-              "host": ["{{edgeDevicesBaseUrl}}"],
-              "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}", "telemetry"]
+              "host": [
+                "{{edgeDevicesBaseUrl}}"
+              ],
+              "path": [
+                "tenants",
+                "{{tenant_id}}",
+                "edge-devices",
+                "{{device_id}}",
+                "telemetry"
+              ]
             },
             "description": "Retrieve live telemetry snapshot (CPU, RAM, disk, temperature, PLC status)"
           }
@@ -713,14 +1218,348 @@
           "request": {
             "method": "GET",
             "header": [
-              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
             ],
             "url": {
               "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/events",
-              "host": ["{{edgeDevicesBaseUrl}}"],
-              "path": ["tenants", "{{tenant_id}}", "edge-devices", "{{device_id}}", "events"]
+              "host": [
+                "{{edgeDevicesBaseUrl}}"
+              ],
+              "path": [
+                "tenants",
+                "{{tenant_id}}",
+                "edge-devices",
+                "{{device_id}}",
+                "events"
+              ]
             },
             "description": "Retrieve historical log of all check events for an edge device"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Roles",
+      "item": [
+        {
+          "name": "Pact 1 - List Roles (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "roles"
+              ]
+            },
+            "description": "Lista todos los roles disponibles para el tenant (4 del sistema + custom propios).\n\nRespuesta 200:\n{success: true, data: [{id, name, description, permissions, isSystemRole, isGlobal, tenantId, createdAt, updatedAt}]}\n\nLos roles del sistema (admin, operario, cliente_admin, cliente_operario) tienen isSystemRole=true, tenantId=null."
+          }
+        },
+        {
+          "name": "Pact 2 - Get Role by ID (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/roles/{{role_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "roles",
+                "{{role_id}}"
+              ]
+            },
+            "description": "Obtiene el detalle de un rol por su ID.\n\nRespuesta 200: {success: true, data: {id, name, description, permissions, isSystemRole, isGlobal, tenantId, createdAt, updatedAt}}\nRespuesta 404: {success: false, error: \"rol no encontrado\"}\n\nIDs de roles del sistema: admin | operario | cliente_admin | cliente_operario\nIDs de roles custom: custom_XXXXXX (6 hex chars)"
+          }
+        },
+        {
+          "name": "Pact 2b - Get Role by ID - No Encontrado (404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/roles/custom_000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "roles",
+                "custom_000000"
+              ]
+            },
+            "description": "Solicita un rol con ID inexistente.\n\nRespuesta 404: {success: false, error: \"rol no encontrado\"}"
+          }
+        },
+        {
+          "name": "Pact 3 - Create Role (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Supervisor\",\n  \"description\": \"Rol de supervisor de producción\",\n  \"permissions\": [\"machines:read\", \"machines:write\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "roles"
+              ]
+            },
+            "description": "Crea un nuevo rol personalizado para el tenant. Máximo 3 roles custom por tenant.\n\nRespuesta 201: {success: true, data: {id: \"custom_XXXXXX\", name, description, permissions, isSystemRole: false, isGlobal: false, tenantId, createdAt, updatedAt}}\n\nEl ID se genera automáticamente como custom_<6 hex chars>.\nLos permisos se deduplicán y ordenan alfabéticamente."
+          }
+        },
+        {
+          "name": "Pact 3b - Create Role - Nombre Duplicado (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Supervisor\",\n  \"description\": \"Mismo nombre que un rol existente\",\n  \"permissions\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "roles"
+              ]
+            },
+            "description": "Intenta crear un rol con nombre ya existente en el tenant.\n\nRespuesta 409: {success: false, error: \"ya existe un rol con ese nombre en este tenant\"}\n\nLa unicidad de nombre es por tenant, no global. Dos tenants distintos pueden tener un rol llamado 'Supervisor'."
+          }
+        },
+        {
+          "name": "Pact 3c - Create Role - Límite Alcanzado (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Cuarto Rol Custom\",\n  \"description\": \"Supera el límite de 3\",\n  \"permissions\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "roles"
+              ]
+            },
+            "description": "Intenta crear un 4° rol custom cuando el tenant ya tiene 3.\n\nRespuesta 403: {success: false, error: \"se alcanzó el máximo de roles personalizados por tenant\"}\n\nPrerequisito: el tenant debe tener 3 roles custom activos (MaxCustomRolesPerTenant = 3)."
+          }
+        },
+        {
+          "name": "Pact 4 - Update Role (200)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Supervisor Senior\",\n  \"description\": \"Descripción actualizada\",\n  \"permissions\": [\"machines:read\", \"machines:write\", \"users:read\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/roles/{{role_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "roles",
+                "{{role_id}}"
+              ]
+            },
+            "description": "Actualiza nombre, descripción y permisos de un rol personalizado.\n\nRespuesta 200: {success: true, data: {...rol actualizado con updatedAt nuevo}}\nRespuesta 403: intento de modificar rol del sistema\nRespuesta 404: rol no encontrado\nRespuesta 409: nombre duplicado en el tenant\n\nSolo roles custom pueden actualizarse. Los roles del sistema (isSystemRole=true) devuelven 403."
+          }
+        },
+        {
+          "name": "Pact 5 - Delete Role - Éxito (200)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/roles/{{role_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "roles",
+                "{{role_id}}"
+              ]
+            },
+            "description": "Elimina (soft delete) un rol personalizado sin asignaciones activas.\n\nRespuesta 200: {success: true, data: {id: \"custom_XXXXXX\"}}\n\nEl rol no se borra físicamente — se establece deleted_at. Si el rol tiene usuarios asignados activamente en user_tenant_roles, devuelve 409."
+          }
+        },
+        {
+          "name": "Pact 6 - Delete Role - Usuarios Asignados (409)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/roles/{{role_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "roles",
+                "{{role_id}}"
+              ]
+            },
+            "description": "Intenta eliminar un rol que tiene usuarios asignados activamente en user_tenant_roles.\n\nRespuesta 409: {success: false, error: \"el rol tiene usuarios asignados activos\", usersAffected: N}\n\nEl campo usersAffected indica cuántos usuarios deben reasignarse antes de poder eliminar el rol.\n\nPrerequisito: el rol debe tener al menos 1 entrada activa en user_tenant_roles."
+          }
+        },
+        {
+          "name": "Pact 7 - Delete Role - Rol del Sistema (403)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/roles/admin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "roles",
+                "admin"
+              ]
+            },
+            "description": "Intenta eliminar un rol del sistema.\n\nRespuesta 403: {success: false, error: \"los roles del sistema no pueden modificarse ni eliminarse\"}\n\nIDs de roles del sistema: admin | operario | cliente_admin | cliente_operario\nEstos roles tienen isSystemRole=true y no pueden eliminarse bajo ninguna circunstancia."
           }
         }
       ]
