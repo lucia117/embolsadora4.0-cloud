@@ -37,7 +37,7 @@ func JWTAuth(verifier security.Verifier, authUC *usecases.AuthUsecase, activator
 		if err != nil {
 			if errors.Is(err, security.ErrJWKSUnavailable) {
 				Log.Error("JWKS endpoint unavailable", zap.String("endpoint", c.Request.URL.Path), zap.Error(err))
-				c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"error": "auth service unavailable"})
+				c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"success": false, "error": "auth service unavailable"})
 				return
 			}
 			Log.Warn("invalid JWT token", zap.String("endpoint", c.Request.URL.Path), zap.Error(err))
@@ -65,7 +65,7 @@ func JWTAuth(verifier security.Verifier, authUC *usecases.AuthUsecase, activator
 		// Auto-provision user (idempotent upsert)
 		user, err := authUC.ProvisionUser(ctx, sub, email)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "provisioning failed"})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"success": false, "error": "provisioning failed"})
 			return
 		}
 
@@ -76,7 +76,7 @@ func JWTAuth(verifier security.Verifier, authUC *usecases.AuthUsecase, activator
 				zap.String("status", string(user.Status)),
 				zap.String("endpoint", c.Request.URL.Path),
 			)
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "account suspended"})
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"success": false, "error": "account suspended"})
 			return
 		}
 
@@ -110,14 +110,14 @@ func TenantFromHeader(db *pgxpool.Pool) gin.HandlerFunc {
 
 		tenantID := c.GetHeader("X-Tenant-ID")
 		if tenantID == "" {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing X-Tenant-ID header"})
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"success": false, "error": "missing X-Tenant-ID header"})
 			return
 		}
 
 		// Validate user has an active role in this tenant
 		user, ok := platform.DomainUser(c.Request.Context()).(*domain.User)
 		if !ok || user == nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthenticated"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"success": false, "error": "unauthenticated"})
 			return
 		}
 
@@ -135,7 +135,7 @@ func TenantFromHeader(db *pgxpool.Pool) gin.HandlerFunc {
 				zap.String("endpoint", c.Request.URL.Path),
 				zap.Error(err),
 			)
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "tenant access denied"})
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"success": false, "error": "tenant access denied"})
 			return
 		}
 
@@ -157,7 +157,7 @@ func PasswordChangeGuard() gin.HandlerFunc {
 
 		user, ok := platform.DomainUser(c.Request.Context()).(*domain.User)
 		if ok && user != nil && user.PasswordChangeRequired {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "password_change_required"})
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"success": false, "error": "password_change_required"})
 			return
 		}
 		c.Next()
@@ -168,7 +168,7 @@ func PasswordChangeGuard() gin.HandlerFunc {
 func RBACCheck(perm string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if err := security.Can(c.Request.Context(), perm); err != nil {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"success": false, "error": "forbidden"})
 			return
 		}
 		c.Next()

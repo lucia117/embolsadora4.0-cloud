@@ -79,8 +79,8 @@ func (r *PostgresRepository) CountByTenantUser(ctx context.Context, tenantID, us
 }
 
 // Create persists a new layout and populates server-assigned fields.
-// The limit check and insert are executed within a single transaction so that
-// concurrent requests cannot both pass the count check and exceed the per-(tenant,user) limit.
+// The limit check and insert are executed within a single transaction using SELECT FOR UPDATE
+// so that concurrent requests cannot both pass the count check and exceed the per-(tenant,user) limit.
 func (r *PostgresRepository) Create(ctx context.Context, layout *domain.DashboardLayout) error {
 	widgetsJSON, err := json.Marshal(layout.Widgets)
 	if err != nil {
@@ -93,14 +93,28 @@ func (r *PostgresRepository) Create(ctx context.Context, layout *domain.Dashboar
 	}
 	defer tx.Rollback(ctx)
 
-	var count int
-	if err := tx.QueryRow(ctx,
-		`SELECT COUNT(*) FROM dashboard_layouts WHERE tenant_id = $1 AND user_id = $2 AND deleted_at IS NULL`,
+	// Lock all active layouts for this (tenant, user) to serialize concurrent creates.
+	lockRows, err := tx.Query(ctx,
+		`SELECT id FROM dashboard_layouts WHERE tenant_id = $1 AND user_id = $2 AND deleted_at IS NULL FOR UPDATE`,
 		layout.TenantID, layout.UserID,
-	).Scan(&count); err != nil {
+	)
+	if err != nil {
 		return err
 	}
-	if count >= domain.MaxLayoutsPerTenant {
+	var count int
+	for lockRows.Next() {
+		var id uuid.UUID
+		if err := lockRows.Scan(&id); err != nil {
+			lockRows.Close()
+			return err
+		}
+		count++
+	}
+	lockRows.Close()
+	if err := lockRows.Err(); err != nil {
+		return err
+	}
+	if count >= domain.MaxLayoutsPerUser {
 		return domain.ErrLimitReached
 	}
 

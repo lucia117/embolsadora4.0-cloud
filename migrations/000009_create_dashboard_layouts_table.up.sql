@@ -1,5 +1,5 @@
 -- Create dashboard_layouts table
-CREATE TABLE dashboard_layouts (
+CREATE TABLE IF NOT EXISTS dashboard_layouts (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name       VARCHAR(255) NOT NULL,
@@ -10,12 +10,12 @@ CREATE TABLE dashboard_layouts (
 );
 
 -- Index for tenant-scoped list queries (main access pattern)
-CREATE INDEX idx_dashboard_layouts_tenant_id
+CREATE INDEX IF NOT EXISTS idx_dashboard_layouts_tenant_id
     ON dashboard_layouts (tenant_id)
     WHERE deleted_at IS NULL;
 
 -- Unique name per tenant (excludes soft-deleted rows)
-CREATE UNIQUE INDEX idx_dashboard_layouts_tenant_name_active
+CREATE UNIQUE INDEX IF NOT EXISTS idx_dashboard_layouts_tenant_name_active
     ON dashboard_layouts (tenant_id, name)
     WHERE deleted_at IS NULL;
 

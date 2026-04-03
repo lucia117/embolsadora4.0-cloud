@@ -6,8 +6,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// MaxLayoutsPerTenant is the maximum number of active layouts allowed per tenant.
-const MaxLayoutsPerTenant = 3
+// MaxLayoutsPerUser is the maximum number of active layouts allowed per (tenant, user) pair.
+const MaxLayoutsPerUser = 3
 
 // DashboardLayout represents a named dashboard configuration for a (tenant, user) pair.
 type DashboardLayout struct {

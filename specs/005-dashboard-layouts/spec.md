@@ -100,7 +100,7 @@ A tenant administrator removes an unused layout to keep the layout list clean an
 ### Functional Requirements
 
 - **FR-001**: The system MUST require a valid Bearer JWT token in the Authorization header for every endpoint; requests without a valid token MUST return 401 with `{ success: false, error: "No autorizado" }`.
-- **FR-002**: The system MUST scope all layout operations to the tenant identified by the `tenantId` path parameter, enforcing strict data isolation between tenants.
+- **FR-002**: The system MUST scope all layout operations to the tenant identified by the `X-Tenant-ID` request header (UUID), enforcing strict data isolation between tenants.
 - **FR-003**: The system MUST allow authenticated users to retrieve the list of all dashboard layouts for their tenant, returning each layout's id, name, widget list, createdAt, updatedAt, and a meta object with total and limit.
 - **FR-004**: The system MUST allow authenticated users to create a new dashboard layout providing a name and an optional widgets array.
 - **FR-005**: The system MUST enforce a maximum of 3 layouts per tenant; creation attempts when the limit is reached MUST return 403 with error code `LIMIT_REACHED`.
@@ -117,7 +117,7 @@ A tenant administrator removes an unused layout to keep the layout list clean an
 
 - **DashboardLayout**: A named configuration of widgets saved by a tenant for their monitoring view. Key attributes:
   - Unique ID (server-generated)
-  - Tenant affiliation (scoped by `tenantId` path parameter, immutable after creation)
+  - Tenant affiliation (scoped by `X-Tenant-ID` header UUID, immutable after creation)
   - Name (mutable, unique per tenant)
   - Widgets array (mutable, replaced in full on each update)
   - Creation timestamp (immutable)
@@ -129,7 +129,7 @@ A tenant administrator removes an unused layout to keep the layout list clean an
   - Display fields: name, title, description, category, icon
   - Position: grid coordinates (x, y) and dimensions (w, h) plus grid key (i)
 
-- **Tenant**: Organizational unit that scopes all layout operations. Identified by the `tenantId` path parameter.
+- **Tenant**: Organizational unit that scopes all layout operations. Identified by the `X-Tenant-ID` request header (UUID).
 
 ## Success Criteria *(mandatory)*
 
@@ -151,6 +151,6 @@ A tenant administrator removes an unused layout to keep the layout list clean an
 - Widget IDs are client-generated and stored as-is; the server does not validate widget ID uniqueness within a layout.
 - The widgets array is a full replacement on update — partial widget patching is not supported.
 - Authentication is handled by Supabase JWT (consistent with existing API surface).
-- The `tenantId` path parameter is a string identifier (not necessarily a UUID) as shown in Pact examples (e.g., `"acme"`).
+- The tenant is identified via the `X-Tenant-ID` request header (UUID). The user is identified from the JWT Bearer token.
 - No pagination is required for the list endpoint given the hard limit of 3 layouts per tenant.
 - All authenticated users within a tenant can perform all layout operations (no sub-role restrictions beyond JWT auth).

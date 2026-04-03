@@ -79,22 +79,23 @@ Consumer: `embolsadora-frontend-bff` → Provider: `user-role-service-api`
 
 Consumer: `embolsadora-frontend` → Provider: `dashboard-service-api`
 
-| Método | Path | Estado |
-|---|---|---|
-| GET | `/api/tenants/{tenantId}/dashboard-layouts` | ✅ |
-| POST | `/api/tenants/{tenantId}/dashboard-layouts` | ✅ |
-| POST | `/api/tenants/{tenantId}/dashboard-layouts` → 403 | ✅ |
-| POST | `/api/tenants/{tenantId}/dashboard-layouts` → 409 | ✅ |
-| GET | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` | ✅ |
-| GET | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` → 404 | ✅ |
-| PUT | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` | ✅ |
-| PUT | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` → 409 | ✅ |
-| PUT | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` → 404 | ✅ |
-| DELETE | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` | ✅ |
-| DELETE | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` → 400 | ✅ |
-| GET | `/api/tenants/{tenantId}/dashboard-layouts` → 401 | ✅ |
+| Método | Path Pact | Path Backend | Estado |
+|---|---|---|---|
+| GET | `/api/tenants/{tenantId}/dashboard-layouts` | `/api/v1/dashboard-layouts` | ✅ |
+| POST | `/api/tenants/{tenantId}/dashboard-layouts` | `/api/v1/dashboard-layouts` | ✅ |
+| POST | `/api/tenants/{tenantId}/dashboard-layouts` → 403 | `/api/v1/dashboard-layouts` | ✅ |
+| POST | `/api/tenants/{tenantId}/dashboard-layouts` → 409 | `/api/v1/dashboard-layouts` | ✅ |
+| GET | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` | `/api/v1/dashboard-layouts/:layoutId` | ✅ |
+| GET | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` → 404 | `/api/v1/dashboard-layouts/:layoutId` | ✅ |
+| PUT | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` | `/api/v1/dashboard-layouts/:layoutId` | ✅ |
+| PUT | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` → 409 | `/api/v1/dashboard-layouts/:layoutId` | ✅ |
+| PUT | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` → 404 | `/api/v1/dashboard-layouts/:layoutId` | ✅ |
+| DELETE | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` | `/api/v1/dashboard-layouts/:layoutId` | ✅ |
+| DELETE | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` → 400 | `/api/v1/dashboard-layouts/:layoutId` | ✅ |
+| GET | `/api/tenants/{tenantId}/dashboard-layouts` → 401 | `/api/v1/dashboard-layouts` | ✅ |
 
 > Implementado en `specs/005-dashboard-layouts/`. Rama `005-dashboard-layouts`.
+> **Nota**: El backend usa `/api/v1/dashboard-layouts` con tenant resuelto desde `X-Tenant-ID` header (UUID) y user_id desde el JWT, en lugar del path param `{tenantId}` del Pact.
 
 ---
 

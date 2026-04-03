@@ -3,6 +3,9 @@
 -- to multiple tenants and needs independent layouts in each one.
 -- The max-3 limit now applies per (tenant, user) pair.
 
+-- Safe to use NOT NULL without backfill: this migration runs after 000009 which creates
+-- the table, and no production data exists at this point. In a fresh DB migrations run
+-- sequentially, so the table is always empty when this column is added.
 ALTER TABLE dashboard_layouts
   ADD COLUMN user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE;
 

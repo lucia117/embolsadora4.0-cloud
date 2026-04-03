@@ -89,8 +89,10 @@ internal/
             └── repository.go                 # PostgreSQL implementation
 
 migrations/
-├── 0006_create_dashboard_layouts_table.up.sql
-└── 0006_create_dashboard_layouts_table.down.sql
+├── 000009_create_dashboard_layouts_table.up.sql
+├── 000009_create_dashboard_layouts_table.down.sql
+├── 000011_add_user_id_to_dashboard_layouts.up.sql
+└── 000011_add_user_id_to_dashboard_layouts.down.sql
 ```
 
 **Structure Decision**: Single-project Go monolith following existing hexagonal pattern. Reuses the existing `/api/tenants/:tenantId` Gin group with `ResolveTenantFromPath` middleware. No new platform clients or external integrations needed.
@@ -147,8 +149,10 @@ dashboardLayoutsHandler.RegisterRoutes(tenantsGroup, dashboardLayoutsService)
 **Goal**: Create `dashboard_layouts` table with JSONB widgets and business-rule indexes.
 
 **Files**:
-- `migrations/0006_create_dashboard_layouts_table.up.sql`
-- `migrations/0006_create_dashboard_layouts_table.down.sql`
+- `migrations/000009_create_dashboard_layouts_table.up.sql`
+- `migrations/000009_create_dashboard_layouts_table.down.sql`
+- `migrations/000011_add_user_id_to_dashboard_layouts.up.sql`
+- `migrations/000011_add_user_id_to_dashboard_layouts.down.sql`
 
 **Key elements**:
 - UUID PK with `gen_random_uuid()`
