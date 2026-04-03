@@ -158,8 +158,10 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	dashboardLayoutsHandler.RegisterRoutes(v1, dlService)
 
 	// Roles surface (/api/v1/roles)
-	// tenant_id comes from X-Tenant-ID header (via TenantFromHeader middleware)
+	// GET endpoints: sin RBAC adicional (cualquier usuario autenticado puede listar/ver roles)
+	// POST/PUT/DELETE: requieren permiso users:write (solo administradores)
 	rRepo := rolesRepo.NewPostgresRepository(db)
 	rService := rolesApp.NewService(rRepo, logger)
-	rolesHandler.RegisterRoutes(v1, rService)
+	rolesWriteGroup := v1.Group("", apimw.RBACCheck("users:write"))
+	rolesHandler.RegisterRoutes(v1, rolesWriteGroup, rService)
 }

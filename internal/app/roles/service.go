@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"sort"
+	"strings"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -159,7 +160,7 @@ func deduplicatePermissions(permissions []string) []string {
 	seen := make(map[string]struct{}, len(permissions))
 	result := make([]string, 0, len(permissions))
 	for _, p := range permissions {
-		if p == "" {
+		if strings.TrimSpace(p) == "" {
 			continue
 		}
 		if _, exists := seen[p]; !exists {

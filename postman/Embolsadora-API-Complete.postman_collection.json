@@ -1403,7 +1403,7 @@
           }
         },
         {
-          "name": "Pact 3c - Create Role - Límite Alcanzado (409)",
+          "name": "Pact 3c - Create Role - Límite Alcanzado (403)",
           "request": {
             "method": "POST",
             "header": [
@@ -1435,7 +1435,7 @@
                 "roles"
               ]
             },
-            "description": "Intenta crear un 4° rol custom cuando el tenant ya tiene 3.\n\nRespuesta 409: {success: false, error: \"se alcanzó el máximo de roles personalizados por tenant\"}\n\nPrerequisito: el tenant debe tener 3 roles custom activos (MaxCustomRolesPerTenant = 3)."
+            "description": "Intenta crear un 4° rol custom cuando el tenant ya tiene 3.\n\nRespuesta 403: {success: false, error: \"se alcanzó el máximo de roles personalizados por tenant\"}\n\nPrerequisito: el tenant debe tener 3 roles custom activos (MaxCustomRolesPerTenant = 3)."
           }
         },
         {

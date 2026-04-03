@@ -18,27 +18,27 @@ func CreateRole(service *appRoles.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tenantID, err := uuid.Parse(platform.TenantID(c.Request.Context()))
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "X-Tenant-ID inválido o ausente"})
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "INVALID_TENANT", "message": "X-Tenant-ID inválido o ausente"})
 			return
 		}
 
 		var req dto.CreateRoleRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "cuerpo de la petición inválido: " + err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "INVALID_REQUEST", "message": err.Error()})
 			return
 		}
 
 		role, err := service.CreateRole(c.Request.Context(), tenantID, req.Name, req.Description, req.Permissions)
 		if err != nil {
 			if errors.Is(err, domain.ErrRoleLimitReached) {
-				c.JSON(http.StatusConflict, gin.H{"success": false, "error": err.Error()})
+				c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "LIMIT_REACHED", "message": err.Error()})
 				return
 			}
 			if errors.Is(err, domain.ErrRoleDuplicateName) {
-				c.JSON(http.StatusConflict, gin.H{"success": false, "error": err.Error()})
+				c.JSON(http.StatusConflict, gin.H{"success": false, "error": "DUPLICATE_NAME", "message": err.Error()})
 				return
 			}
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "error interno del servidor"})
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "INTERNAL_SERVER_ERROR", "message": "error interno del servidor"})
 			return
 		}
 

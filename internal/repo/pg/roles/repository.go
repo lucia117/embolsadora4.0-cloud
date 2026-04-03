@@ -177,11 +177,12 @@ func scanRole(row interface {
 	var role domain.Role
 	var permJSON []byte
 	var tenantID *uuid.UUID
+	var description *string // nullable en la tabla (migration 000003 define TEXT sin NOT NULL)
 
 	err := row.Scan(
 		&role.ID,
 		&role.Name,
-		&role.Description,
+		&description,
 		&role.IsSystemRole,
 		&role.IsGlobal,
 		&tenantID,
@@ -193,6 +194,9 @@ func scanRole(row interface {
 		return nil, err
 	}
 
+	if description != nil {
+		role.Description = *description
+	}
 	role.TenantID = tenantID
 
 	if err := json.Unmarshal(permJSON, &role.Permissions); err != nil {

@@ -19,10 +19,10 @@ func GetRole(service *appRoles.Service) gin.HandlerFunc {
 		role, err := service.GetRole(c.Request.Context(), id)
 		if err != nil {
 			if errors.Is(err, domain.ErrRoleNotFound) {
-				c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "rol no encontrado"})
+				c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "NOT_FOUND", "message": "rol no encontrado"})
 				return
 			}
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "error interno del servidor"})
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "INTERNAL_SERVER_ERROR", "message": "error interno del servidor"})
 			return
 		}
 
