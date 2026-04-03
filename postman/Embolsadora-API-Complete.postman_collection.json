@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "embolsadora-api-master-collection",
     "name": "Embolsadora API - Complete Collection",
-    "description": "Master collection for Embolsadora 4.0 Cloud API\n\nConsolidated endpoints across all features:\n- Auth (Supabase JWT)\n- Invitations CRUD\n- Tenants management\n- Users CRUD\n- User Role Assignments\n- Edge Device Management (Complete US1-US9)\n\n**Base URL:** `{{baseUrl}}` = http://localhost:8080\n\n**Authentication:** Bearer JWT Token (usar POST Login para obtenerlo)\n**Multi-tenant:** `X-Tenant-ID: {{tenant_uuid}}` header requerido en la mayoría de endpoints\n\n**Auth Endpoints (002-supabase-auth-backend):**\n- POST /api/v1/auth/login\n- GET /api/v1/me\n- POST /api/v1/auth/change-password\n\n**Invitation Endpoints:**\n- GET /api/v1/invitations\n- POST /api/v1/invitations\n- POST /api/v1/invitations/:id/resend\n- DELETE /api/v1/invitations/:id\n\n**Edge Device Endpoints (All 9 User Stories Implemented):**\n- US1: List Devices - GET /api/tenants/:tenantId/edge-devices\n- US2: Create Device - POST /api/tenants/:tenantId/edge-devices\n- US3: Get Device - GET /api/tenants/:tenantId/edge-devices/:deviceId\n- US4: Update Device - PUT /api/tenants/:tenantId/edge-devices/:deviceId\n- US5: Enable/Disable - POST /api/tenants/:tenantId/edge-devices/:deviceId/enable, /disable\n- US6: Status Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/status\n- US7: Health Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/health-check\n- US8: Telemetry - GET /api/tenants/:tenantId/edge-devices/:deviceId/telemetry\n- US9: Events - GET /api/tenants/:tenantId/edge-devices/:deviceId/events",
+    "description": "Master collection for Embolsadora 4.0 Cloud API\n\nConsolidated endpoints across all features:\n- Auth (Supabase JWT)\n- Invitations CRUD\n- Tenants management\n- Users CRUD\n- User Role Assignments\n- Edge Device Management (Complete US1-US9)\n- Dashboard Layouts (Complete US1-US5)\n\n**Base URL:** `{{baseUrl}}` = http://localhost:8080\n\n**Authentication:** Bearer JWT Token (usar POST Login para obtenerlo)\n**Multi-tenant:** `X-Tenant-ID: {{tenant_uuid}}` header requerido en la mayoría de endpoints\n\n**Dashboard Layout Endpoints (005-dashboard-layouts):**\n- US1: List Layouts - GET /api/v1/dashboard-layouts\n- US2: Create Layout - POST /api/v1/dashboard-layouts\n- US3: Get Layout - GET /api/v1/dashboard-layouts/:layoutId\n- US4: Update Layout - PUT /api/v1/dashboard-layouts/:layoutId\n- US5: Delete Layout - DELETE /api/v1/dashboard-layouts/:layoutId\n- Headers: Authorization + X-Tenant-ID (UUID) requeridos\n\n**Edge Device Endpoints (All 9 User Stories Implemented):**\n- US1: List Devices - GET /api/tenants/:tenantId/edge-devices\n- US2: Create Device - POST /api/tenants/:tenantId/edge-devices\n- US3: Get Device - GET /api/tenants/:tenantId/edge-devices/:deviceId\n- US4: Update Device - PUT /api/tenants/:tenantId/edge-devices/:deviceId\n- US5: Enable/Disable - POST /api/tenants/:tenantId/edge-devices/:deviceId/enable, /disable\n- US6: Status Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/status\n- US7: Health Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/health-check\n- US8: Telemetry - GET /api/tenants/:tenantId/edge-devices/:deviceId/telemetry\n- US9: Events - GET /api/tenants/:tenantId/edge-devices/:deviceId/events",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -443,6 +443,122 @@
       ]
     },
     {
+      "name": "Dashboard Layouts",
+      "item": [
+        {
+          "name": "US1 - List Layouts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
+              {"key": "X-Tenant-ID", "value": "{{tenant_id}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dashboard-layouts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "dashboard-layouts"]
+            },
+            "description": "Lista todos los layouts activos del usuario en el tenant.\n\nRespuesta 200: `{success, data: [...], meta: {total, limit: 3}}`\nRespuesta 401: sin Authorization header.\nRespuesta 403: tenant access denied."
+          }
+        },
+        {
+          "name": "US2 - Create Layout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
+              {"key": "X-Tenant-ID", "value": "{{tenant_id}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"Layout Produccion\", \"widgets\": [{\"id\": \"bag-counter-1\", \"type\": \"bag-counter\", \"name\": \"Contador\", \"title\": \"Contador\", \"description\": \"\", \"category\": \"production\", \"icon\": \"Package\", \"position\": {\"x\": 0, \"y\": 0, \"w\": 4, \"h\": 2, \"i\": \"bag-counter-1\"}}]}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dashboard-layouts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "dashboard-layouts"]
+            },
+            "description": "Crea un nuevo layout para el (tenant, user).\n\nRespuesta 200: `{success, data: {...}}`\nRespuesta 403: límite de 3 layouts alcanzado → `{error: \"LIMIT_REACHED\"}`\nRespuesta 409: nombre duplicado → `{error: \"DUPLICATE_NAME\"}`"
+          }
+        },
+        {
+          "name": "US2 - Create Layout (sin widgets)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
+              {"key": "X-Tenant-ID", "value": "{{tenant_id}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"Dashboard Secundario\"}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dashboard-layouts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "dashboard-layouts"]
+            },
+            "description": "Crea un layout sin widgets iniciales (widgets default = [])."
+          }
+        },
+        {
+          "name": "US3 - Get Layout",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
+              {"key": "X-Tenant-ID", "value": "{{tenant_id}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dashboard-layouts/{{layout_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "dashboard-layouts", "{{layout_id}}"]
+            },
+            "description": "Obtiene un layout por ID.\n\nRespuesta 200: `{success, data: {...}}`\nRespuesta 404: `{error: \"Layout no encontrado\"}`"
+          }
+        },
+        {
+          "name": "US4 - Update Layout",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
+              {"key": "X-Tenant-ID", "value": "{{tenant_id}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"Dashboard Principal v2\", \"widgets\": []}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dashboard-layouts/{{layout_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "dashboard-layouts", "{{layout_id}}"]
+            },
+            "description": "Reemplaza nombre y widgets de un layout existente.\n\nRespuesta 200: `{success, data: {...}}` con `updatedAt` refreshed\nRespuesta 404: `{error: \"NOT_FOUND\"}`\nRespuesta 409: `{error: \"DUPLICATE_NAME\"}`"
+          }
+        },
+        {
+          "name": "US5 - Delete Layout",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"},
+              {"key": "X-Tenant-ID", "value": "{{tenant_id}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dashboard-layouts/{{layout_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "dashboard-layouts", "{{layout_id}}"]
+            },
+            "description": "Soft-delete de un layout.\n\nRespuesta 200: `{success: true, message: \"Layout eliminado correctamente\"}`\nRespuesta 400: último layout → `{error: \"No se puede eliminar el único layout\"}`\nRespuesta 404: `{error: \"Layout no encontrado\"}`"
+          }
+        }
+      ]
+    },
+    {
       "name": "Edge Devices",
       "item": [
         {
@@ -625,9 +741,9 @@
     },
     {
       "key": "tenant_id",
-      "value": "acme",
+      "value": "550e8400-e29b-41d4-a716-446655440001",
       "type": "string",
-      "description": "Tenant subdomain slug — used in edge device path params (:tenantId)"
+      "description": "Tenant UUID — usado en X-Tenant-ID header (dashboard layouts, users, etc.) y en path params de edge devices"
     },
     {
       "key": "tenant_uuid",
@@ -688,6 +804,12 @@
       "value": "00000000-0000-0000-0000-000000000000",
       "type": "string",
       "description": "Invitation UUID — reemplazar con el id devuelto por POST Create Invitation"
+    },
+    {
+      "key": "layout_id",
+      "value": "00000000-0000-0000-0000-000000000000",
+      "type": "string",
+      "description": "Dashboard Layout UUID — reemplazar con el id devuelto por POST Create Layout"
     }
   ]
 }

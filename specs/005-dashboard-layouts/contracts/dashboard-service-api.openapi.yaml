@@ -1,0 +1,380 @@
+openapi: "3.0.3"
+info:
+  title: Dashboard Layouts API
+  description: |
+    Manages dashboard layout configurations per (tenant, user).
+    Layouts are scoped to the authenticated user within the active tenant.
+    tenant_id is resolved from the X-Tenant-ID header (UUID).
+    user_id is resolved from the JWT Bearer token.
+  version: "2.0.0"
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/v1/dashboard-layouts:
+    get:
+      summary: List dashboard layouts for the authenticated user in the active tenant
+      operationId: listDashboardLayouts
+      parameters:
+        - $ref: "#/components/parameters/TenantIDHeader"
+      responses:
+        "200":
+          description: List of layouts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListLayoutsResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: "No autorizado"
+        "403":
+          description: Tenant access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: "tenant access denied"
+
+    post:
+      summary: Create a new dashboard layout
+      operationId: createDashboardLayout
+      parameters:
+        - $ref: "#/components/parameters/TenantIDHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLayoutRequest"
+      responses:
+        "200":
+          description: Layout created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleLayoutResponse"
+        "403":
+          description: Layout limit reached for this (tenant, user)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: "LIMIT_REACHED"
+        "409":
+          description: Layout name already exists for this (tenant, user)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: "DUPLICATE_NAME"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/dashboard-layouts/{layoutId}:
+    get:
+      summary: Get a specific dashboard layout
+      operationId: getDashboardLayout
+      parameters:
+        - $ref: "#/components/parameters/TenantIDHeader"
+        - name: layoutId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Layout found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleLayoutResponse"
+        "404":
+          description: Layout not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: "Layout no encontrado"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    put:
+      summary: Update a dashboard layout
+      operationId: updateDashboardLayout
+      parameters:
+        - $ref: "#/components/parameters/TenantIDHeader"
+        - name: layoutId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLayoutRequest"
+      responses:
+        "200":
+          description: Layout updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleLayoutResponse"
+        "404":
+          description: Layout not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: "NOT_FOUND"
+        "409":
+          description: Name already used by another layout for this (tenant, user)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: "DUPLICATE_NAME"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      summary: Delete a dashboard layout
+      operationId: deleteDashboardLayout
+      parameters:
+        - $ref: "#/components/parameters/TenantIDHeader"
+        - name: layoutId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Layout deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Layout eliminado correctamente"
+        "400":
+          description: Cannot delete the only remaining layout
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: "No se puede eliminar el único layout"
+        "404":
+          description: Layout not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    TenantIDHeader:
+      name: X-Tenant-ID
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: UUID of the active tenant
+      example: "550e8400-e29b-41d4-a716-446655440001"
+
+  schemas:
+    Widget:
+      type: object
+      required: [id, type, name, title, description, category, icon, position]
+      properties:
+        id:
+          type: string
+          example: "machine-status-1708000000001"
+        type:
+          type: string
+          example: "machine-status"
+        name:
+          type: string
+          example: "Estado de Máquinas"
+        title:
+          type: string
+          example: "Estado de Máquinas"
+        description:
+          type: string
+          example: "Muestra el estado general de las máquinas"
+        category:
+          type: string
+          example: "overview"
+        icon:
+          type: string
+          example: "Activity"
+        position:
+          type: object
+          required: [x, y, w, h, i]
+          properties:
+            x:
+              type: integer
+              example: 0
+            y:
+              type: integer
+              example: 0
+            w:
+              type: integer
+              example: 6
+            h:
+              type: integer
+              example: 3
+            i:
+              type: string
+              example: "machine-status-1708000000001"
+
+    DashboardLayout:
+      type: object
+      required: [id, name, widgets, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        name:
+          type: string
+          example: "Dashboard Principal"
+        widgets:
+          type: array
+          items:
+            $ref: "#/components/schemas/Widget"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-01-15T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-01-20T14:30:00Z"
+
+    ListLayoutsResponse:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardLayout"
+        meta:
+          type: object
+          required: [total, limit]
+          properties:
+            total:
+              type: integer
+              example: 2
+            limit:
+              type: integer
+              example: 3
+
+    SingleLayoutResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/DashboardLayout"
+
+    CreateLayoutRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: "Layout Produccion"
+        widgets:
+          type: array
+          items:
+            $ref: "#/components/schemas/Widget"
+          default: []
+
+    UpdateLayoutRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: "Dashboard Principal v2"
+        widgets:
+          type: array
+          items:
+            $ref: "#/components/schemas/Widget"
+          default: []
+
+    ErrorResponse:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "NOT_FOUND"

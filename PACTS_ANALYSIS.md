@@ -13,10 +13,10 @@
 |---|---|
 | Archivos Pact | 13 |
 | Interacciones totales | 149 |
-| Servicios completamente implementados | 4 |
+| Servicios completamente implementados | 5 |
 | Servicios parcialmente implementados | 3 |
-| Servicios no implementados | 6 |
-| Cobertura estimada | ~27% |
+| Servicios no implementados | 5 |
+| Cobertura estimada | ~35% |
 
 ---
 
@@ -72,6 +72,30 @@ Consumer: `embolsadora-frontend-bff` → Provider: `user-role-service-api`
 | DELETE | `/api/v1/user-roles/{id}` | `/api/v1/user-roles/:id` | ✅ |
 | POST | `/api/v1/user-roles/bulk` | `/api/v1/user-roles/bulk` | ✅ |
 | GET | `/api/v1/users/{userId}/roles` | `/api/v1/users/:id/roles` | ✅ |
+
+---
+
+#### `dashboard-service-api` — 12/12 interacciones
+
+Consumer: `embolsadora-frontend` → Provider: `dashboard-service-api`
+
+| Método | Path Pact | Path Backend | Estado |
+|---|---|---|---|
+| GET | `/api/tenants/{tenantId}/dashboard-layouts` | `/api/v1/dashboard-layouts` | ✅ |
+| POST | `/api/tenants/{tenantId}/dashboard-layouts` | `/api/v1/dashboard-layouts` | ✅ |
+| POST | `/api/tenants/{tenantId}/dashboard-layouts` → 403 | `/api/v1/dashboard-layouts` | ✅ |
+| POST | `/api/tenants/{tenantId}/dashboard-layouts` → 409 | `/api/v1/dashboard-layouts` | ✅ |
+| GET | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` | `/api/v1/dashboard-layouts/:layoutId` | ✅ |
+| GET | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` → 404 | `/api/v1/dashboard-layouts/:layoutId` | ✅ |
+| PUT | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` | `/api/v1/dashboard-layouts/:layoutId` | ✅ |
+| PUT | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` → 409 | `/api/v1/dashboard-layouts/:layoutId` | ✅ |
+| PUT | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` → 404 | `/api/v1/dashboard-layouts/:layoutId` | ✅ |
+| DELETE | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` | `/api/v1/dashboard-layouts/:layoutId` | ✅ |
+| DELETE | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` → 400 | `/api/v1/dashboard-layouts/:layoutId` | ✅ |
+| GET | `/api/tenants/{tenantId}/dashboard-layouts` → 401 | `/api/v1/dashboard-layouts` | ✅ |
+
+> Implementado en `specs/005-dashboard-layouts/`. Rama `005-dashboard-layouts`.
+> **Nota**: El backend usa `/api/v1/dashboard-layouts` con tenant resuelto desde `X-Tenant-ID` header (UUID) y user_id desde el JWT, en lugar del path param `{tenantId}` del Pact.
 
 ---
 
@@ -150,26 +174,6 @@ Consumer: `embolsadora-frontend-bff` → Provider: `user-service-api`
 
 ### ❌ No Implementados
 
-#### `dashboard-service-api` — 0/12 interacciones
-
-Consumer: `embolsadora-frontend` → Provider: `dashboard-service-api`
-
-| Método | Path | Descripción |
-|---|---|---|
-| GET | `/api/tenants/{tenantId}/dashboard-layouts` | Listar layouts (con paginación) |
-| POST | `/api/tenants/{tenantId}/dashboard-layouts` | Crear layout |
-| POST | `/api/tenants/{tenantId}/dashboard-layouts` → 403 | Límite de layouts alcanzado |
-| POST | `/api/tenants/{tenantId}/dashboard-layouts` → 409 | Nombre duplicado |
-| GET | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` | Obtener layout |
-| GET | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` → 404 | Layout no encontrado |
-| PUT | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` | Actualizar layout |
-| PUT | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` → 409 | Nombre duplicado en update |
-| PUT | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` → 404 | No encontrado en update |
-| DELETE | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` | Eliminar layout |
-| DELETE | `/api/tenants/{tenantId}/dashboard-layouts/{layoutId}` → 400 | No se puede eliminar el último |
-| GET | `/api/tenants/{tenantId}/dashboard-layouts` → 401 | Auth requerida |
-
-> Spec generada en `specs/004-dashboard-layouts/`. Pendiente de implementación.
 
 ---
 
@@ -276,8 +280,7 @@ Consumer: `embolsadora-frontend` → Provider: `reports-service-api`
 
 | # | Servicio | Interacciones | Prioridad | Justificación |
 |---|---|---|---|---|
-| 1 | `dashboard-service-api` | 12 | 🔴 Alta | Spec lista en `specs/004-dashboard-layouts/`, alta visibilidad en UI |
-| 2 | `role-service-api` | 7 | 🔴 Alta | Dependencia directa del ABM de usuarios/permisos |
+| 1 | `role-service-api` | 7 | 🔴 Alta | Dependencia directa del ABM de usuarios/permisos |
 | 3 | `auth-service-api` (completar) | 4 | 🔴 Alta | Forgot/reset password, session — flujos críticos de auth |
 | 4 | `alarm-rules-service-api` | 10 | 🟡 Media | Core del sistema de monitoreo industrial |
 | 5 | `notification-service-api` | 6 | 🟡 Media | Depende de alarm-rules |
@@ -286,7 +289,7 @@ Consumer: `embolsadora-frontend` → Provider: `reports-service-api`
 | 8 | `user-service-api-roles-extension` (completar) | 4 | 🟠 Media-baja | Completar registro y status de usuarios |
 | 9 | `reports-service-api` | 16 | 🔵 Baja | Generación async compleja, mayor esfuerzo |
 
-**Total interacciones pendientes**: ~83 de 149
+**Total interacciones pendientes**: ~71 de 149
 
 ---
 
@@ -313,10 +316,6 @@ El Pact espera resolución de tenant por subdominio. Actualmente el backend requ
 
 `POST /auth/forgot-password` y `POST /auth/reset-password` pueden ser manejados directamente por Supabase desde el frontend (sin pasar por este backend). Confirmar con el equipo frontend si esperan proxy en este backend o integración directa con Supabase.
 
-### Dashboard Layouts
-
-La spec `specs/004-dashboard-layouts/` está generada. El siguiente paso es ejecutar `/speckit.implement` para esa feature.
-
 ---
 
-*Reporte generado con Claude Code — rama `develop` — 2026-03-24*
+*Reporte generado con Claude Code — rama `develop` — última actualización 2026-03-26*
