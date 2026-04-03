@@ -123,8 +123,6 @@ Consumer: `embolsadora-frontend` → Provider: `edge-device-service-api`
 
 ---
 
-### ✅ Completamente Implementados (backend)
-
 #### `auth-service-api` — 3/3 interacciones backend (+ 3 N/A Supabase)
 
 Consumer: `embolsadora-frontend` → Provider: `auth-service`
@@ -160,7 +158,7 @@ Consumer: `embolsadora-frontend-bff` → Provider: `role-service-api`
 
 ---
 
-### ⚠️ Parcialmente Implementados
+### ⚠️ Parcialmente Implementados (endpoint existe, funcionalidad incompleta)
 
 #### `user-service-api-roles-extension` — 0/4 interacciones backend (+ 2 N/A Supabase)
 

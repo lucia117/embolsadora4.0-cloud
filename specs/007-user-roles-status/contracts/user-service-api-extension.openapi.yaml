@@ -1,0 +1,390 @@
+openapi: 3.0.3
+info:
+  title: User Service API — Extensión de Roles y Estado
+  description: |
+    Extensión de la API de gestión de usuarios para incluir:
+    - GET /users/:id?include=roles — detalle de usuario con rol asignado
+    - PATCH /users/:id/status — cambiar estado de un usuario en el tenant
+    - GET /users/pending — listar usuarios pendientes de activación
+
+    Satisface los contratos Pact de `user-service-api-roles-extension`.
+  version: 1.1.0
+  contact:
+    name: Embolsadora API Team
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+
+security:
+  - BearerAuth: []
+
+paths:
+  /users/{id}:
+    get:
+      summary: Obtener usuario con roles opcionales
+      description: |
+        Retorna el detalle de un usuario. Con `?include=roles`, incluye el rol activo
+        del usuario en el tenant actual. Sin el parámetro, el response es idéntico al
+        comportamiento previo (backward-compatible).
+      operationId: getUserById
+      tags:
+        - Users
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: UUID del usuario
+        - name: include
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [roles]
+          description: Si se especifica "roles", el response incluirá el campo `roles`
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: UUID del tenant
+      responses:
+        "200":
+          description: Usuario encontrado
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/UserResponse'
+                  - $ref: '#/components/schemas/UserWithRolesResponse'
+              examples:
+                sin_include:
+                  summary: Response sin include=roles (comportamiento existente)
+                  value:
+                    id: "550e8400-e29b-41d4-a716-446655440001"
+                    firstName: "Juan"
+                    lastName: "Pérez"
+                    email: "juan@ejemplo.com"
+                    role: "admin"
+                    tenantId: "550e8400-e29b-41d4-a716-446655440000"
+                    image: null
+                    createdAt: "2026-01-15T10:00:00Z"
+                    updatedAt: "2026-01-15T10:00:00Z"
+                    deletedAt: null
+                con_include_roles:
+                  summary: Response con include=roles
+                  value:
+                    id: "550e8400-e29b-41d4-a716-446655440001"
+                    firstName: "Juan"
+                    lastName: "Pérez"
+                    email: "juan@ejemplo.com"
+                    role: "admin"
+                    tenantId: "550e8400-e29b-41d4-a716-446655440000"
+                    image: null
+                    createdAt: "2026-01-15T10:00:00Z"
+                    updatedAt: "2026-01-15T10:00:00Z"
+                    deletedAt: null
+                    roles:
+                      - id: "admin"
+                        name: "Administrador"
+                        permissions: ["users:read", "users:write", "tenants:read"]
+                sin_rol_asignado:
+                  summary: Usuario sin rol asignado en el tenant
+                  value:
+                    id: "550e8400-e29b-41d4-a716-446655440002"
+                    firstName: "María"
+                    lastName: "García"
+                    email: "maria@ejemplo.com"
+                    role: "user"
+                    tenantId: "550e8400-e29b-41d4-a716-446655440000"
+                    image: null
+                    createdAt: "2026-01-20T10:00:00Z"
+                    updatedAt: "2026-01-20T10:00:00Z"
+                    deletedAt: null
+                    roles: []
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /users/pending:
+    get:
+      summary: Listar usuarios pendientes de activación
+      description: |
+        Retorna la lista de usuarios que fueron invitados al tenant pero todavía
+        no completaron su activación. Un usuario está "pendiente" cuando tiene una
+        entrada en `user_tenant_roles` con `status = 'pending'` para este tenant.
+
+        Solo accesible por administradores del tenant.
+      operationId: listPendingUsers
+      tags:
+        - Users
+      parameters:
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Lista de usuarios pendientes (puede ser vacía)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingUsersResponse'
+              examples:
+                con_pendientes:
+                  summary: Tenant con usuarios pendientes
+                  value:
+                    data:
+                      - id: "550e8400-e29b-41d4-a716-446655440003"
+                        firstName: "Carlos"
+                        lastName: "López"
+                        email: "carlos@ejemplo.com"
+                        role: "user"
+                        tenantId: "550e8400-e29b-41d4-a716-446655440000"
+                        image: null
+                        createdAt: "2026-03-01T10:00:00Z"
+                        updatedAt: "2026-03-01T10:00:00Z"
+                        deletedAt: null
+                    total: 1
+                sin_pendientes:
+                  summary: Tenant sin usuarios pendientes
+                  value:
+                    data: []
+                    total: 0
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+
+  /users/{id}/status:
+    patch:
+      summary: Cambiar estado de un usuario en el tenant
+      description: |
+        Cambia el estado de participación de un usuario en el tenant actual.
+
+        - `active`: El usuario puede operar normalmente
+        - `inactive`: El usuario fue desactivado (puede reactivarse)
+        - `suspended`: El usuario fue suspendido temporalmente
+
+        **Restricciones**:
+        - Solo admins pueden cambiar el estado de otros usuarios
+        - Un admin no puede cambiar su propio estado (RF-006)
+        - El usuario debe pertenecer al tenant del admin
+      operationId: updateUserStatus
+      tags:
+        - Users
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: UUID del usuario a modificar
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserStatusRequest'
+            examples:
+              desactivar:
+                value:
+                  status: "inactive"
+              reactivar:
+                value:
+                  status: "active"
+              suspender:
+                value:
+                  status: "suspended"
+      responses:
+        "200":
+          description: Estado actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+              example:
+                id: "550e8400-e29b-41d4-a716-446655440001"
+                firstName: "Juan"
+                lastName: "Pérez"
+                email: "juan@ejemplo.com"
+                role: "admin"
+                tenantId: "550e8400-e29b-41d4-a716-446655440000"
+                image: null
+                createdAt: "2026-01-15T10:00:00Z"
+                updatedAt: "2026-04-03T12:00:00Z"
+                deletedAt: null
+        "400":
+          description: Estado inválido o admin intentando desactivarse a sí mismo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                estado_invalido:
+                  value:
+                    success: false
+                    error: "INVALID_STATUS"
+                    message: "el estado debe ser active, inactive o suspended"
+                auto_desactivacion:
+                  value:
+                    success: false
+                    error: "CANNOT_DEACTIVATE_SELF"
+                    message: "un administrador no puede desactivarse a sí mismo"
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [admin, user]
+        tenantId:
+          type: string
+          format: uuid
+        image:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    RoleInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID del rol (ej. "admin", "operario", "custom_3a9f12")
+        name:
+          type: string
+          description: Nombre legible del rol
+        permissions:
+          type: array
+          items:
+            type: string
+          description: Lista de permisos del rol
+
+    UserWithRolesResponse:
+      allOf:
+        - $ref: '#/components/schemas/UserResponse'
+        - type: object
+          properties:
+            roles:
+              type: array
+              items:
+                $ref: '#/components/schemas/RoleInfo'
+              description: Rol activo del usuario en el tenant. Array vacío si no tiene rol.
+
+    PendingUsersResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserResponse'
+        total:
+          type: integer
+          description: Total de usuarios pendientes
+
+    UpdateUserStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [active, inactive, suspended]
+          description: Nuevo estado del usuario en el tenant
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          description: Código de error estable (ej. NOT_FOUND, INVALID_STATUS)
+        message:
+          type: string
+          description: Mensaje descriptivo en español
+
+  responses:
+    Unauthorized:
+      description: Token JWT faltante o inválido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "UNAUTHORIZED"
+            message: "token de autenticación requerido"
+
+    Forbidden:
+      description: Sin permisos suficientes
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "FORBIDDEN"
+            message: "se requiere permiso de administrador"
+
+    NotFound:
+      description: Usuario no encontrado o no pertenece al tenant
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "NOT_FOUND"
+            message: "usuario no encontrado"
