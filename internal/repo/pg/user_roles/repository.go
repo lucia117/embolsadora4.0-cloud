@@ -26,6 +26,8 @@ type UserRoleRepository interface {
 	Revoke(ctx context.Context, id uuid.UUID) (*domain.UserTenantRole, error)
 	BulkCreate(ctx context.Context, utrs []domain.UserTenantRole) ([]domain.UserTenantRole, error)
 	FindByUser(ctx context.Context, userID uuid.UUID) ([]domain.UserRoleWithContext, error)
+	// UpdateStatus changes the status of a user's UTR within a tenant (excludes pending assignments).
+	UpdateStatus(ctx context.Context, userID, tenantID uuid.UUID, status domain.UserRoleStatus) (*domain.UserTenantRole, error)
 }
 
 type userRoleRepository struct {
@@ -213,6 +215,30 @@ func scanUTRFromRow(rows pgx.Rows) (*domain.UserTenantRole, error) {
 		&assignedBy, &utr.AssignedAt, &utr.CreatedAt, &utr.UpdatedAt,
 	)
 	if err != nil {
+		return nil, err
+	}
+	utr.RoleID = roleID
+	utr.AssignedBy = assignedBy
+	return &utr, nil
+}
+
+// UpdateStatus changes the status of a user's UTR within a tenant.
+// Only affects non-pending assignments (pending → active is handled by invitation flow).
+// Returns an error wrapping domain ErrNoActiveAssignment if no row was updated.
+func (r *userRoleRepository) UpdateStatus(ctx context.Context, userID, tenantID uuid.UUID, status domain.UserRoleStatus) (*domain.UserTenantRole, error) {
+	row := r.db.QueryRow(ctx, UpdateStatusQuery, string(status), userID, tenantID)
+
+	var utr domain.UserTenantRole
+	var roleID *string
+	var assignedBy *uuid.UUID
+	err := row.Scan(
+		&utr.ID, &utr.UserID, &utr.TenantID, &roleID, &utr.Status,
+		&assignedBy, &utr.AssignedAt, &utr.CreatedAt, &utr.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrNoActiveAssignment
+		}
 		return nil, err
 	}
 	utr.RoleID = roleID

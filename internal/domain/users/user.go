@@ -108,3 +108,17 @@ func (u *User) ValidateRole() error {
 func (u *User) IsAdmin() bool {
 	return u.Role == RoleAdmin
 }
+
+// UserWithRoles is a User augmented with the role assigned in the tenant.
+// Only populated when include=roles is requested.
+type UserWithRoles struct {
+	User
+	Roles []AssignedRole
+}
+
+// AssignedRole holds the summary of a role assigned to a user in the tenant.
+type AssignedRole struct {
+	ID          string
+	Name        string
+	Permissions []string
+}

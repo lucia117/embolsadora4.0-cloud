@@ -2,6 +2,7 @@ package users
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/tu-org/embolsadora-api/internal/domain/users"
 )
+
 
 // PostgresRepository implements Repository using PostgreSQL
 type PostgresRepository struct {
@@ -156,6 +158,106 @@ func (r *PostgresRepository) Delete(ctx context.Context, tenantID, userID string
 	}
 
 	return nil
+}
+
+// GetByIDWithRoles retrieves a user with their active role assignment in the tenant.
+// Uses LEFT JOINs so users without an active UTR still return with Roles: [].
+func (r *PostgresRepository) GetByIDWithRoles(ctx context.Context, tenantID, userID string) (*users.UserWithRoles, error) {
+	query := `
+		SELECT u.id, u.tenant_id, u.first_name, u.last_name, u.email, u.role, u.image,
+		       u.created_at, u.updated_at, u.deleted_at,
+		       r.id        AS role_id,
+		       r.name      AS role_name,
+		       r.permissions AS role_permissions
+		FROM users u
+		LEFT JOIN user_tenant_roles utr
+		    ON utr.user_id = u.id
+		    AND utr.tenant_id = u.tenant_id
+		    AND utr.status = 'active'
+		LEFT JOIN roles r
+		    ON r.id = utr.role_id
+		    AND r.deleted_at IS NULL
+		WHERE u.id = $1 AND u.tenant_id = $2 AND u.deleted_at IS NULL
+	`
+
+	row := r.db.QueryRow(ctx, query, userID, tenantID)
+
+	var u users.User
+	var roleID *string
+	var roleName *string
+	var rolePermsJSON []byte // JSONB scanned as raw bytes, then unmarshalled
+
+	err := row.Scan(
+		&u.ID, &u.TenantID, &u.FirstName, &u.LastName, &u.Email, &u.Role, &u.Image,
+		&u.CreatedAt, &u.UpdatedAt, &u.DeletedAt,
+		&roleID, &roleName, &rolePermsJSON,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, users.ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to get user with roles: %w", err)
+	}
+
+	uwr := &users.UserWithRoles{
+		User:  u,
+		Roles: []users.AssignedRole{},
+	}
+
+	if roleID != nil && roleName != nil {
+		var perms []string
+		if len(rolePermsJSON) > 0 {
+			if jsonErr := json.Unmarshal(rolePermsJSON, &perms); jsonErr != nil {
+				return nil, fmt.Errorf("failed to parse role permissions: %w", jsonErr)
+			}
+		}
+		if perms == nil {
+			perms = []string{}
+		}
+		uwr.Roles = append(uwr.Roles, users.AssignedRole{
+			ID:          *roleID,
+			Name:        *roleName,
+			Permissions: perms,
+		})
+	}
+
+	return uwr, nil
+}
+
+// ListPendingByTenant retrieves users with a pending role assignment in the tenant.
+func (r *PostgresRepository) ListPendingByTenant(ctx context.Context, tenantID string) ([]*users.User, error) {
+	query := `
+		SELECT u.id, u.tenant_id, u.first_name, u.last_name, u.email, u.role, u.image,
+		       u.created_at, u.updated_at, u.deleted_at
+		FROM users u
+		JOIN user_tenant_roles utr
+		    ON utr.user_id = u.id
+		    AND utr.tenant_id = $1
+		    AND utr.status = 'pending'
+		WHERE u.deleted_at IS NULL
+		ORDER BY utr.created_at DESC
+	`
+
+	rows, err := r.db.Query(ctx, query, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query pending users: %w", err)
+	}
+	defer rows.Close()
+
+	result := make([]*users.User, 0)
+	for rows.Next() {
+		user, err := scanUser(rows)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan pending user: %w", err)
+		}
+		result = append(result, user)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating pending users: %w", err)
+	}
+
+	return result, nil
 }
 
 // scanUser maps a row to a User struct

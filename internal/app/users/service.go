@@ -5,22 +5,27 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
+	domain "github.com/tu-org/embolsadora-api/internal/domain"
 	domainUsers "github.com/tu-org/embolsadora-api/internal/domain/users"
-	"github.com/tu-org/embolsadora-api/internal/repo/pg/users"
+	usersRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/users"
+	userRolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/user_roles"
 	"go.uber.org/zap"
 )
 
 // Service handles user-related business logic
 type Service struct {
-	repo   users.Repository
-	logger *zap.Logger
+	repo         usersRepo.Repository
+	userRoleRepo userRolesRepo.UserRoleRepository
+	logger       *zap.Logger
 }
 
 // NewService creates a new user service
-func NewService(repo users.Repository, logger *zap.Logger) *Service {
+func NewService(repo usersRepo.Repository, userRoleRepo userRolesRepo.UserRoleRepository, logger *zap.Logger) *Service {
 	return &Service{
-		repo:   repo,
-		logger: logger,
+		repo:         repo,
+		userRoleRepo: userRoleRepo,
+		logger:       logger,
 	}
 }
 
@@ -54,6 +59,24 @@ func (s *Service) GetUser(ctx context.Context, tenantID, userID string) (*domain
 
 	s.logger.Debug("user retrieved", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 	return user, nil
+}
+
+// GetUserWithRoles retrieves a user and their active role assignment in the tenant.
+func (s *Service) GetUserWithRoles(ctx context.Context, tenantID, userID string) (*domainUsers.UserWithRoles, error) {
+	s.logger.Debug("getting user with roles", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
+
+	uwr, err := s.repo.GetByIDWithRoles(ctx, tenantID, userID)
+	if err != nil {
+		if errors.Is(err, domainUsers.ErrNotFound) {
+			s.logger.Debug("user not found", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
+			return nil, err
+		}
+		s.logger.Error("failed to get user with roles", zap.String("tenant_id", tenantID), zap.String("user_id", userID), zap.Error(err))
+		return nil, err
+	}
+
+	s.logger.Debug("user with roles retrieved", zap.String("tenant_id", tenantID), zap.String("user_id", userID), zap.Int("role_count", len(uwr.Roles)))
+	return uwr, nil
 }
 
 // CreateUser creates a new user in a tenant
@@ -149,4 +172,79 @@ func (s *Service) DeleteUser(ctx context.Context, tenantID, userID string) error
 
 	s.logger.Info("user soft-deleted", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 	return nil
+}
+
+// ListPendingUsers returns users with a pending role assignment in the tenant.
+func (s *Service) ListPendingUsers(ctx context.Context, tenantID string) ([]*domainUsers.User, error) {
+	s.logger.Debug("listing pending users", zap.String("tenant_id", tenantID))
+
+	users, err := s.repo.ListPendingByTenant(ctx, tenantID)
+	if err != nil {
+		s.logger.Error("failed to list pending users", zap.String("tenant_id", tenantID), zap.Error(err))
+		return nil, err
+	}
+
+	s.logger.Debug("pending users listed", zap.String("tenant_id", tenantID), zap.Int("count", len(users)))
+	return users, nil
+}
+
+// UpdateUserStatus changes the UTR status for a user in the tenant.
+// callerID is the ID of the authenticated admin making the request.
+// Allowed status values: "active", "inactive", "suspended".
+func (s *Service) UpdateUserStatus(ctx context.Context, tenantID, userID, callerID, status string) (*domainUsers.User, error) {
+	// Guard: admin cannot deactivate themselves
+	if userID == callerID {
+		return nil, domainUsers.ErrCannotDeactivateSelf
+	}
+
+	// Validate allowed status values
+	var utrStatus domain.UserRoleStatus
+	switch status {
+	case "active":
+		utrStatus = domain.UserRoleStatusActive
+	case "inactive":
+		utrStatus = domain.UserRoleStatusRevoked
+	case "suspended":
+		utrStatus = domain.UserRoleStatusSuspended
+	default:
+		return nil, domainUsers.ErrInvalidStatus
+	}
+
+	// Verify user belongs to this tenant
+	user, err := s.repo.GetByID(ctx, tenantID, userID)
+	if err != nil {
+		if errors.Is(err, domainUsers.ErrNotFound) {
+			s.logger.Debug("user not found for status update", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
+			return nil, err
+		}
+		s.logger.Error("failed to get user for status update", zap.String("tenant_id", tenantID), zap.String("user_id", userID), zap.Error(err))
+		return nil, err
+	}
+
+	tenantUUID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid tenant_id: %w", err)
+	}
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user_id: %w", err)
+	}
+
+	_, err = s.userRoleRepo.UpdateStatus(ctx, userUUID, tenantUUID, utrStatus)
+	if err != nil {
+		if errors.Is(err, domain.ErrNoActiveAssignment) {
+			s.logger.Warn("no active assignment found for status update",
+				zap.String("tenant_id", tenantID), zap.String("user_id", userID))
+			return nil, err
+		}
+		s.logger.Error("failed to update user status",
+			zap.String("tenant_id", tenantID), zap.String("user_id", userID), zap.Error(err))
+		return nil, err
+	}
+
+	s.logger.Info("user status updated",
+		zap.String("tenant_id", tenantID),
+		zap.String("user_id", userID),
+		zap.String("status", status))
+	return user, nil
 }

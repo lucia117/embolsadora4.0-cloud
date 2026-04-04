@@ -17,7 +17,7 @@
 | Servicios parcialmente implementados | 1 |
 | Servicios no implementados | 5 |
 | Interacciones N/A (Supabase maneja) | 5 |
-| Cobertura estimada | ~45% |
+| Cobertura estimada | ~47% |
 
 ---
 
@@ -160,18 +160,20 @@ Consumer: `embolsadora-frontend-bff` → Provider: `role-service-api`
 
 ### ⚠️ Parcialmente Implementados (endpoint existe, funcionalidad incompleta)
 
-#### `user-service-api-roles-extension` — 0/4 interacciones backend (+ 2 N/A Supabase)
+#### `user-service-api-roles-extension` — 3/4 interacciones backend (+ 2 N/A Supabase)
 
 Consumer: `embolsadora-frontend-bff` → Provider: `user-service-api`
 
 | Método | Path Pact | Estado | Observación |
 |---|---|---|---|
-| GET | `/api/v1/users/{id}?include=roles` | ❌ | Endpoint existe pero el parámetro `include=roles` no está implementado |
+| GET | `/api/v1/users/{id}?include=roles` | ✅ | `include=roles` implementado via JOIN con UTR + roles; campo `roles: []` en response (007) |
 | POST | `/api/v1/users` con rol inicial | ❌ | Create user existe, pero la asignación de rol inicial no está implementada |
 | POST | `/api/v1/users/register` | 🚫 N/A | El registro de usuarios es via invitaciones (Supabase Admin API) — no existe auto-registro |
 | POST | `/api/v1/users/verify-email` | 🚫 N/A | Verificación de email es 100% Supabase, no pasa por este backend |
-| PATCH | `/api/v1/users/{id}/status` | ❌ | No existe como endpoint dedicado |
-| GET | `/api/v1/users/pending` | ❌ | No existe |
+| PATCH | `/api/v1/users/{id}/status` | ✅ | Actualiza UTR.status (active/inactive→revoked/suspended); guard anti-auto-desactivación (007) |
+| GET | `/api/v1/users/pending` | ✅ | Devuelve usuarios con UTR.status='pending'; respuesta `{data:[], total:N}` (007) |
+
+> Implementado en `007-user-roles-status`: migration 000013 (suspended status), GET include=roles (JOIN UTR+roles), PATCH status (UTR status per-tenant), GET pending (JOIN UTR pending).
 
 ---
 

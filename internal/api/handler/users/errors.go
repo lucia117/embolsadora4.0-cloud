@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/tu-org/embolsadora-api/internal/domain"
 	domainUsers "github.com/tu-org/embolsadora-api/internal/domain/users"
 )
 
@@ -57,6 +58,27 @@ func HandleError(c *gin.Context, err error) {
 			Error:   "ACCESS_DENIED",
 			Message: "User does not belong to this tenant",
 			Status:  http.StatusForbidden,
+		})
+
+	case errors.Is(err, domainUsers.ErrCannotDeactivateSelf):
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "CANNOT_DEACTIVATE_SELF",
+			Message: "Admin cannot deactivate their own account",
+			Status:  http.StatusBadRequest,
+		})
+
+	case errors.Is(err, domainUsers.ErrInvalidStatus):
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "INVALID_STATUS",
+			Message: "Status must be one of: active, inactive, suspended",
+			Status:  http.StatusBadRequest,
+		})
+
+	case errors.Is(err, domain.ErrNoActiveAssignment):
+		c.JSON(http.StatusNotFound, ErrorResponse{
+			Error:   "NO_ACTIVE_ASSIGNMENT",
+			Message: "User has no active role assignment in this tenant",
+			Status:  http.StatusNotFound,
 		})
 
 	default:

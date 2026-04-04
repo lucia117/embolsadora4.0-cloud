@@ -54,7 +54,7 @@ type Config struct{}
 func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 	// Users - All /users routes share a single group with tenant middleware to avoid
 	// wildcard conflicts between groups (e.g., /users/:id vs /users/:id/roles).
-	userService := appUsers.NewService(deps.UserRepo, deps.Logger)
+	userService := appUsers.NewService(deps.UserRepo, deps.UserRoleRepo, deps.Logger)
 	uh := userhandlers.NewHandler(userService, deps.Logger)
 
 	getUserRolesUseCase := ucGetUserRoles.NewUseCase(deps.UserRoleRepo)
@@ -62,6 +62,9 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 
 	userRoutes := g.Group("")
 	userRoutes.Use(middleware.ExtractTenantID())
+
+	// Literal routes MUST be registered before wildcard routes to avoid Gin conflicts
+	userRoutes.GET("/users/pending", middleware.RequireRole("admin"), uh.ListPendingUsers)
 
 	// Read operations (no RBAC required)
 	userRoutes.GET("/users", uh.ListUsers)
@@ -71,6 +74,7 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 	// Write operations (admin only)
 	userRoutes.POST("/users", middleware.RequireRole("admin"), uh.CreateUser)
 	userRoutes.PATCH("/users/:id", middleware.RequireRole("admin"), uh.UpdateUser)
+	userRoutes.PATCH("/users/:id/status", middleware.RequireRole("admin"), uh.UpdateUserStatus)
 	userRoutes.DELETE("/users/:id", middleware.RequireRole("admin"), uh.DeleteUser)
 
 	// Machines

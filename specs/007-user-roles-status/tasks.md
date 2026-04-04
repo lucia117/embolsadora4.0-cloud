@@ -17,8 +17,8 @@
 
 **Purpose**: Extender el CHECK constraint de `user_tenant_roles.status` para soportar `suspended`.
 
-- [ ] T001 Crear migración `migrations/000013_add_suspended_status_to_utr.up.sql` con `ALTER TABLE user_tenant_roles DROP CONSTRAINT IF EXISTS user_tenant_roles_status_check, ADD CONSTRAINT user_tenant_roles_status_check CHECK (status IN ('active', 'pending', 'revoked', 'suspended'))`
-- [ ] T002 Crear migración `migrations/000013_add_suspended_status_to_utr.down.sql` que restaura el constraint original con `CHECK (status IN ('active', 'pending', 'revoked'))`
+- [X] T001 Crear migración `migrations/000013_add_suspended_status_to_utr.up.sql` con `ALTER TABLE user_tenant_roles DROP CONSTRAINT IF EXISTS user_tenant_roles_status_check, ADD CONSTRAINT user_tenant_roles_status_check CHECK (status IN ('active', 'pending', 'revoked', 'suspended'))`
+- [X] T002 Crear migración `migrations/000013_add_suspended_status_to_utr.down.sql` que restaura el constraint original con `CHECK (status IN ('active', 'pending', 'revoked'))`
 
 **Checkpoint**: Aplicar con `migrate -path migrations/ -database $DATABASE_URL up 1`
 
@@ -30,8 +30,8 @@
 
 **⚠️ CRÍTICO**: Completar antes de iniciar cualquier historia.
 
-- [ ] T003 [P] Agregar constante `UserRoleStatusSuspended UserRoleStatus = "suspended"` en `internal/domain/user_roles.go`
-- [ ] T004 [P] Agregar tipos `UserWithRoles` y `AssignedRole` en `internal/domain/users/user.go`:
+- [X] T003 [P] Agregar constante `UserRoleStatusSuspended UserRoleStatus = "suspended"` en `internal/domain/user_roles.go`
+- [X] T004 [P] Agregar tipos `UserWithRoles` y `AssignedRole` en `internal/domain/users/user.go`:
   ```go
   type UserWithRoles struct {
       User
@@ -43,9 +43,9 @@
       Permissions []string
   }
   ```
-- [ ] T005 [P] Agregar constantes de error `ErrCannotDeactivateSelf` y `ErrInvalidStatus` en `internal/domain/users/errors.go` (o en el archivo de errores de dominio existente)
-- [ ] T006 Extender `Service` en `internal/app/users/service.go` para inyectar `UserRoleRepository`: agregar campo `userRoleRepo userRolesRepo.UserRoleRepository` al struct y actualizar `NewService(repo users.Repository, userRoleRepo userRolesRepo.UserRoleRepository, logger *zap.Logger) *Service`
-- [ ] T007 Actualizar el sitio de construcción del Service en `internal/api/router.go` (función `RegisterAdminRoutes`) para pasar `deps.UserRoleRepo` al `NewService` actualizado
+- [X] T005 [P] Agregar constantes de error `ErrCannotDeactivateSelf` y `ErrInvalidStatus` en `internal/domain/users/errors.go` (o en el archivo de errores de dominio existente)
+- [X] T006 Extender `Service` en `internal/app/users/service.go` para inyectar `UserRoleRepository`: agregar campo `userRoleRepo userRolesRepo.UserRoleRepository` al struct y actualizar `NewService(repo users.Repository, userRoleRepo userRolesRepo.UserRoleRepository, logger *zap.Logger) *Service`
+- [X] T007 Actualizar el sitio de construcción del Service en `internal/api/router.go` (función `RegisterAdminRoutes`) para pasar `deps.UserRoleRepo` al `NewService` actualizado
 
 **Checkpoint**: `go build ./...` debe compilar sin errores antes de continuar.
 
@@ -59,11 +59,11 @@
 
 ### Implementación US1
 
-- [ ] T008 [P] [US1] Agregar método `GetByIDWithRoles` a la interface `Repository` en `internal/repo/pg/users/repository.go`:
+- [X] T008 [P] [US1] Agregar método `GetByIDWithRoles` a la interface `Repository` en `internal/repo/pg/users/repository.go`:
   ```go
   GetByIDWithRoles(ctx context.Context, tenantID, userID string) (*domainUsers.UserWithRoles, error)
   ```
-- [ ] T009 [P] [US1] Agregar constante SQL `getUserByIDWithRolesQuery` en `internal/repo/pg/users/postgres.go` (o crear `internal/repo/pg/users/queries.go`):
+- [X] T009 [P] [US1] Agregar constante SQL `getUserByIDWithRolesQuery` en `internal/repo/pg/users/postgres.go` (o crear `internal/repo/pg/users/queries.go`):
   ```sql
   SELECT u.id, u.tenant_id, u.first_name, u.last_name, u.email, u.role, u.status,
          u.image, u.created_at, u.updated_at, u.deleted_at,
@@ -75,9 +75,9 @@
       ON r.id = utr.role_id AND r.deleted_at IS NULL
   WHERE u.id = $1 AND u.tenant_id = $2 AND u.deleted_at IS NULL
   ```
-- [ ] T010 [US1] Implementar `GetByIDWithRoles` en `internal/repo/pg/users/postgres.go`: ejecutar la query, scanear los campos de usuario y los campos opcionales del rol (`role_id`, `role_name`, `role_permissions` pueden ser NULL si no hay UTR activo), construir `UserWithRoles` con `Roles: []AssignedRole{}` si el LEFT JOIN no trajo rol
-- [ ] T011 [US1] Implementar `Service.GetUserWithRoles` en `internal/app/users/service.go`: llamar a `repo.GetByIDWithRoles`, mapear errores de dominio (ErrNotFound → 404), loguear con Zap
-- [ ] T012 [P] [US1] Agregar DTOs `UserWithRolesResponse` y `RoleInfo` en `internal/api/handler/users/dto/` (nuevo archivo `include_roles.go`):
+- [X] T010 [US1] Implementar `GetByIDWithRoles` en `internal/repo/pg/users/postgres.go`: ejecutar la query, scanear los campos de usuario y los campos opcionales del rol (`role_id`, `role_name`, `role_permissions` pueden ser NULL si no hay UTR activo), construir `UserWithRoles` con `Roles: []AssignedRole{}` si el LEFT JOIN no trajo rol
+- [X] T011 [US1] Implementar `Service.GetUserWithRoles` en `internal/app/users/service.go`: llamar a `repo.GetByIDWithRoles`, mapear errores de dominio (ErrNotFound → 404), loguear con Zap
+- [X] T012 [P] [US1] Agregar DTOs `UserWithRolesResponse` y `RoleInfo` en `internal/api/handler/users/dto/` (nuevo archivo `include_roles.go`):
   ```go
   type RoleInfo struct {
       ID          string   `json:"id"`
@@ -89,7 +89,7 @@
       Roles []RoleInfo `json:"roles"`
   }
   ```
-- [ ] T013 [US1] Modificar `Handler.GetUser` en `internal/api/handler/users/handler.go`: si `c.Query("include") == "roles"`, llamar a `service.GetUserWithRoles` y retornar `UserWithRolesResponse`; de lo contrario mantener el flujo actual con `service.GetUser`
+- [X] T013 [US1] Modificar `Handler.GetUser` en `internal/api/handler/users/handler.go`: si `c.Query("include") == "roles"`, llamar a `service.GetUserWithRoles` y retornar `UserWithRolesResponse`; de lo contrario mantener el flujo actual con `service.GetUser`
 
 **Checkpoint**: `curl "$BASE_URL/users/$USER_ID?include=roles"` retorna 200 con campo `roles`. `curl "$BASE_URL/users/$USER_ID"` retorna 200 sin campo `roles` (backward-compat).
 
@@ -103,33 +103,33 @@
 
 ### Implementación US2
 
-- [ ] T014 [P] [US2] Agregar constante SQL `updateUTRStatusQuery` en `internal/repo/pg/user_roles/resources.go`:
+- [X] T014 [P] [US2] Agregar constante SQL `updateUTRStatusQuery` en `internal/repo/pg/user_roles/resources.go`:
   ```sql
   UPDATE user_tenant_roles
   SET status = $1, updated_at = NOW()
   WHERE user_id = $2 AND tenant_id = $3 AND status != 'pending'
   RETURNING id, user_id, tenant_id, role_id, status, assigned_by, assigned_at, created_at, updated_at
   ```
-- [ ] T015 [P] [US2] Agregar DTO `UpdateUserStatusRequest` en `internal/api/handler/users/dto/` (nuevo archivo `status.go`):
+- [X] T015 [P] [US2] Agregar DTO `UpdateUserStatusRequest` en `internal/api/handler/users/dto/` (nuevo archivo `status.go`):
   ```go
   type UpdateUserStatusRequest struct {
       Status string `json:"status" binding:"required"`
   }
   ```
-- [ ] T016 [US2] Agregar método `UpdateStatus` a la interface `UserRoleRepository` en `internal/repo/pg/user_roles/repository.go`:
+- [X] T016 [US2] Agregar método `UpdateStatus` a la interface `UserRoleRepository` en `internal/repo/pg/user_roles/repository.go`:
   ```go
   UpdateStatus(ctx context.Context, userID, tenantID uuid.UUID, status domain.UserRoleStatus) (*domain.UserTenantRole, error)
   ```
-- [ ] T017 [US2] Implementar `UpdateStatus` en `internal/repo/pg/user_roles/repository.go`: ejecutar `updateUTRStatusQuery`, retornar `ErrNotFound` si no hay filas afectadas (RETURNING vacío)
-- [ ] T018 [US2] Implementar `Service.UpdateUserStatus` en `internal/app/users/service.go`:
+- [X] T017 [US2] Implementar `UpdateStatus` en `internal/repo/pg/user_roles/repository.go`: ejecutar `updateUTRStatusQuery`, retornar `ErrNotFound` si no hay filas afectadas (RETURNING vacío)
+- [X] T018 [US2] Implementar `Service.UpdateUserStatus` en `internal/app/users/service.go`:
   - Validar `status` in {active, inactive, suspended} → retornar `ErrInvalidStatus` si inválido
   - Comparar `callerID == userID` → retornar `ErrCannotDeactivateSelf` si iguales
   - Verificar que el usuario pertenece al tenant via `repo.GetByID` → retornar `ErrNotFound` si no
   - Mapear status: `"active"` → `UserRoleStatusActive`, `"inactive"` → `UserRoleStatusRevoked`, `"suspended"` → `UserRoleStatusSuspended`
   - Llamar `userRoleRepo.UpdateStatus(ctx, userUUID, tenantUUID, mappedStatus)`
   - Retornar el usuario actualizado via `repo.GetByID`
-- [ ] T019 [US2] Implementar `Handler.UpdateUserStatus` en `internal/api/handler/users/handler.go`: extraer `tenant_id` del contexto, `id` del path, `callerID` del JWT (`platform.UserID(ctx)` o `c.GetString("user_id")`), bind `UpdateUserStatusRequest`, llamar `service.UpdateUserStatus`, mapear errores a HTTP (400 para ErrInvalidStatus/ErrCannotDeactivateSelf, 403 para falta de permisos, 404 para ErrNotFound)
-- [ ] T020 [US2] Registrar `PATCH /users/:id/status` en `internal/api/router.go` dentro del bloque `userRoutes`, con `middleware.RequireRole("admin")`:
+- [X] T019 [US2] Implementar `Handler.UpdateUserStatus` en `internal/api/handler/users/handler.go`: extraer `tenant_id` del contexto, `id` del path, `callerID` del JWT (`platform.UserID(ctx)` o `c.GetString("user_id")`), bind `UpdateUserStatusRequest`, llamar `service.UpdateUserStatus`, mapear errores a HTTP (400 para ErrInvalidStatus/ErrCannotDeactivateSelf, 403 para falta de permisos, 404 para ErrNotFound)
+- [X] T020 [US2] Registrar `PATCH /users/:id/status` en `internal/api/router.go` dentro del bloque `userRoutes`, con `middleware.RequireRole("admin")`:
   ```go
   userRoutes.PATCH("/users/:id/status", middleware.RequireRole("admin"), uh.UpdateUserStatus)
   ```
@@ -146,7 +146,7 @@
 
 ### Implementación US3
 
-- [ ] T021 [P] [US3] Agregar constante SQL `listPendingByTenantQuery` en `internal/repo/pg/users/postgres.go` (o `queries.go`):
+- [X] T021 [P] [US3] Agregar constante SQL `listPendingByTenantQuery` en `internal/repo/pg/users/postgres.go` (o `queries.go`):
   ```sql
   SELECT u.id, u.tenant_id, u.first_name, u.last_name, u.email, u.role, u.status,
          u.image, u.created_at, u.updated_at, u.deleted_at
@@ -156,14 +156,14 @@
   WHERE u.deleted_at IS NULL
   ORDER BY utr.created_at DESC
   ```
-- [ ] T022 [P] [US3] Agregar método `ListPendingByTenant` a la interface `Repository` en `internal/repo/pg/users/repository.go`:
+- [X] T022 [P] [US3] Agregar método `ListPendingByTenant` a la interface `Repository` en `internal/repo/pg/users/repository.go`:
   ```go
   ListPendingByTenant(ctx context.Context, tenantID string) ([]*users.User, error)
   ```
-- [ ] T023 [US3] Implementar `ListPendingByTenant` en `internal/repo/pg/users/postgres.go`: ejecutar la query, scanear filas con el mismo patrón que `ListByTenant`, retornar slice vacío (no nil) si no hay filas
-- [ ] T024 [US3] Implementar `Service.ListPendingUsers` en `internal/app/users/service.go`: llamar a `repo.ListPendingByTenant(ctx, tenantID)`, loguear resultado con Zap
-- [ ] T025 [US3] Implementar `Handler.ListPendingUsers` en `internal/api/handler/users/handler.go`: extraer `tenant_id` del contexto, llamar `service.ListPendingUsers`, retornar `{"data": [...], "total": len(users)}` (reusar `dto.UserResponse` para cada item del slice)
-- [ ] T026 [US3] Registrar `GET /users/pending` en `internal/api/router.go` **ANTES** de `GET /users/:id` para evitar conflicto Gin, con `middleware.RequireRole("admin")`:
+- [X] T023 [US3] Implementar `ListPendingByTenant` en `internal/repo/pg/users/postgres.go`: ejecutar la query, scanear filas con el mismo patrón que `ListByTenant`, retornar slice vacío (no nil) si no hay filas
+- [X] T024 [US3] Implementar `Service.ListPendingUsers` en `internal/app/users/service.go`: llamar a `repo.ListPendingByTenant(ctx, tenantID)`, loguear resultado con Zap
+- [X] T025 [US3] Implementar `Handler.ListPendingUsers` en `internal/api/handler/users/handler.go`: extraer `tenant_id` del contexto, llamar `service.ListPendingUsers`, retornar `{"data": [...], "total": len(users)}` (reusar `dto.UserResponse` para cada item del slice)
+- [X] T026 [US3] Registrar `GET /users/pending` en `internal/api/router.go` **ANTES** de `GET /users/:id` para evitar conflicto Gin, con `middleware.RequireRole("admin")`:
   ```go
   userRoutes.GET("/users/pending", middleware.RequireRole("admin"), uh.ListPendingUsers)
   // ... luego GET /users/:id como ya está
@@ -177,9 +177,9 @@
 
 **Purpose**: Documentación, colección Postman y actualización de contratos Pact.
 
-- [ ] T027 [P] Agregar carpeta "Users — Extension (007)" a `postman/Embolsadora-API-Complete.postman_collection.json` con 7 requests que cubren los escenarios del `quickstart.md` (GET /users/:id?include=roles, GET /users/:id sin include, PATCH /users/:id/status → active/inactive/400/400-self, GET /users/pending)
-- [ ] T028 [P] Actualizar `PACTS_ANALYSIS.md`: en la sección `user-service-api-roles-extension` marcar ✅ las 3 interacciones implementadas (GET include=roles, PATCH status, GET pending); mantener ❌ la de `POST /users` con rol inicial (fuera del alcance de 007)
-- [ ] T029 Ejecutar los curls de `specs/007-user-roles-status/quickstart.md` contra el servidor local y completar el checklist Pact de 4 interacciones
+- [X] T027 [P] Agregar carpeta "Users — Extension (007)" a `postman/Embolsadora-API-Complete.postman_collection.json` con 7 requests que cubren los escenarios del `quickstart.md` (GET /users/:id?include=roles, GET /users/:id sin include, PATCH /users/:id/status → active/inactive/400/400-self, GET /users/pending)
+- [X] T028 [P] Actualizar `PACTS_ANALYSIS.md`: en la sección `user-service-api-roles-extension` marcar ✅ las 3 interacciones implementadas (GET include=roles, PATCH status, GET pending); mantener ❌ la de `POST /users` con rol inicial (fuera del alcance de 007)
+- [X] T029 Ejecutar los curls de `specs/007-user-roles-status/quickstart.md` contra el servidor local y completar el checklist Pact de 4 interacciones
 
 ---
 
