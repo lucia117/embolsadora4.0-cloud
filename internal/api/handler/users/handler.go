@@ -166,12 +166,17 @@ func (h *Handler) UpdateUserStatus(c *gin.Context) {
 		return
 	}
 
-	// Extract caller ID from JWT context
+	// Extract caller ID from JWT context — fail explicitly if unavailable
 	callerUUID := platform.UserID(c.Request.Context())
-	callerID := ""
-	if callerUUID != nil {
-		callerID = callerUUID.String()
+	if callerUUID == nil {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error:   "UNAUTHORIZED",
+			Message: "Authenticated user identity not available",
+			Status:  http.StatusUnauthorized,
+		})
+		return
 	}
+	callerID := callerUUID.String()
 
 	var req dto.UpdateUserStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
