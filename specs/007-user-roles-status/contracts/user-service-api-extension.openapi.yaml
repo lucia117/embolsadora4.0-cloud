@@ -239,14 +239,14 @@ paths:
               examples:
                 estado_invalido:
                   value:
-                    success: false
                     error: "INVALID_STATUS"
                     message: "el estado debe ser active, inactive o suspended"
+                    status: 400
                 auto_desactivacion:
                   value:
-                    success: false
                     error: "CANNOT_DEACTIVATE_SELF"
                     message: "un administrador no puede desactivarse a sí mismo"
+                    status: 400
         "401":
           $ref: '#/components/responses/Unauthorized'
         "403":
@@ -345,15 +345,15 @@ components:
     ErrorResponse:
       type: object
       properties:
-        success:
-          type: boolean
-          example: false
         error:
           type: string
           description: Código de error estable (ej. NOT_FOUND, INVALID_STATUS)
         message:
           type: string
           description: Mensaje descriptivo en español
+        status:
+          type: integer
+          description: Código HTTP de la respuesta
 
   responses:
     Unauthorized:
@@ -363,9 +363,9 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            success: false
             error: "UNAUTHORIZED"
             message: "token de autenticación requerido"
+            status: 401
 
     Forbidden:
       description: Sin permisos suficientes
@@ -374,9 +374,9 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            success: false
             error: "FORBIDDEN"
             message: "se requiere permiso de administrador"
+            status: 403
 
     NotFound:
       description: Usuario no encontrado o no pertenece al tenant
@@ -385,6 +385,6 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            success: false
             error: "NOT_FOUND"
             message: "usuario no encontrado"
+            status: 404

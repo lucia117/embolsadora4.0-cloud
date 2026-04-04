@@ -224,7 +224,7 @@ func scanUTRFromRow(rows pgx.Rows) (*domain.UserTenantRole, error) {
 
 // UpdateStatus changes the status of a user's UTR within a tenant.
 // Only affects non-pending assignments (pending → active is handled by invitation flow).
-// Returns an error wrapping domain ErrNoActiveAssignment if no row was updated.
+// Returns domain.ErrNoActiveAssignment directly if no non-pending row was updated.
 func (r *userRoleRepository) UpdateStatus(ctx context.Context, userID, tenantID uuid.UUID, status domain.UserRoleStatus) (*domain.UserTenantRole, error) {
 	row := r.db.QueryRow(ctx, UpdateStatusQuery, string(status), userID, tenantID)
 

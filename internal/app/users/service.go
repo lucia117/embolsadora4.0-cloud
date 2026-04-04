@@ -210,9 +210,8 @@ func (s *Service) UpdateUserStatus(ctx context.Context, tenantID, userID, caller
 		return nil, domainUsers.ErrInvalidStatus
 	}
 
-	// Verify user belongs to this tenant
-	user, err := s.repo.GetByID(ctx, tenantID, userID)
-	if err != nil {
+	// Verify user belongs to this tenant (existence check only)
+	if _, err := s.repo.GetByID(ctx, tenantID, userID); err != nil {
 		if errors.Is(err, domainUsers.ErrNotFound) {
 			s.logger.Debug("user not found for status update", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 			return nil, err
@@ -246,5 +245,13 @@ func (s *Service) UpdateUserStatus(ctx context.Context, tenantID, userID, caller
 		zap.String("tenant_id", tenantID),
 		zap.String("user_id", userID),
 		zap.String("status", status))
-	return user, nil
+
+	// Re-fetch to return the latest state (updatedAt reflects the mutation)
+	updated, err := s.repo.GetByID(ctx, tenantID, userID)
+	if err != nil {
+		s.logger.Error("failed to re-fetch user after status update",
+			zap.String("tenant_id", tenantID), zap.String("user_id", userID), zap.Error(err))
+		return nil, err
+	}
+	return updated, nil
 }

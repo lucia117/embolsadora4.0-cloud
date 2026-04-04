@@ -107,7 +107,7 @@ Un administrador necesita ver qué usuarios fueron invitados pero todavía no co
 ## Suposiciones
 
 - El estado de un usuario se almacena en la tabla `users` como campo `status` (ya existe en el dominio actual).
-- Los usuarios "pendientes" son aquellos cuyo estado es `pending` en la tabla `users` del tenant.
+- Los usuarios "pendientes" son aquellos cuya asignación en `user_tenant_roles` tiene `status = 'pending'` para el tenant consultado.
 - El parámetro `include=roles` es opcional y no afecta el comportamiento por defecto del endpoint.
 - La autenticación y autorización siguen el mismo patrón que el resto de la API.
 

@@ -64,7 +64,7 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 	userRoutes.Use(middleware.ExtractTenantID())
 
 	// Literal routes MUST be registered before wildcard routes to avoid Gin conflicts
-	userRoutes.GET("/users/pending", middleware.RequireRole("admin"), uh.ListPendingUsers)
+	userRoutes.GET("/users/pending", middleware.RBACCheck("users:write"), uh.ListPendingUsers)
 
 	// Read operations (no RBAC required)
 	userRoutes.GET("/users", uh.ListUsers)
@@ -72,10 +72,10 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 	userRoutes.GET("/users/:id/roles", getUserRolesHandler.Handle)
 
 	// Write operations (admin only)
-	userRoutes.POST("/users", middleware.RequireRole("admin"), uh.CreateUser)
-	userRoutes.PATCH("/users/:id", middleware.RequireRole("admin"), uh.UpdateUser)
-	userRoutes.PATCH("/users/:id/status", middleware.RequireRole("admin"), uh.UpdateUserStatus)
-	userRoutes.DELETE("/users/:id", middleware.RequireRole("admin"), uh.DeleteUser)
+	userRoutes.POST("/users", middleware.RBACCheck("users:write"), uh.CreateUser)
+	userRoutes.PATCH("/users/:id", middleware.RBACCheck("users:write"), uh.UpdateUser)
+	userRoutes.PATCH("/users/:id/status", middleware.RBACCheck("users:write"), uh.UpdateUserStatus)
+	userRoutes.DELETE("/users/:id", middleware.RBACCheck("users:write"), uh.DeleteUser)
 
 	// Machines
 	g.GET("/machines", ListMachines)
