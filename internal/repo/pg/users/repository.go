@@ -14,6 +14,14 @@ type Repository interface {
 	// GetByID retrieves a single user by ID (returns ErrNotFound if soft-deleted or not found)
 	GetByID(ctx context.Context, tenantID, userID string) (*users.User, error)
 
+	// GetByIDWithRoles retrieves a user with their active role assignment in the tenant.
+	// Returns ErrNotFound if user doesn't exist or is soft-deleted.
+	// The Roles field is an empty slice if no active UTR is found.
+	GetByIDWithRoles(ctx context.Context, tenantID, userID string) (*users.UserWithRoles, error)
+
+	// ListPendingByTenant retrieves users with a pending UTR in the tenant.
+	ListPendingByTenant(ctx context.Context, tenantID string) ([]*users.User, error)
+
 	// Create inserts a new user and returns it with server-generated fields
 	// Returns ErrEmailTaken if email exists in same tenant
 	Create(ctx context.Context, user *users.User) (*users.User, error)

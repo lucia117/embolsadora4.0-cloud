@@ -20,4 +20,10 @@ var (
 
 	// ErrValidation validation error in request
 	ErrValidation = errors.New("validation error")
+
+	// ErrCannotDeactivateSelf admin cannot deactivate their own account
+	ErrCannotDeactivateSelf = errors.New("admin cannot deactivate their own account")
+
+	// ErrInvalidStatus the provided status value is not allowed
+	ErrInvalidStatus = errors.New("invalid status value")
 )

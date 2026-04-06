@@ -13,10 +13,11 @@
 |---|---|
 | Archivos Pact | 13 |
 | Interacciones totales | 149 |
-| Servicios completamente implementados | 5 |
-| Servicios parcialmente implementados | 3 |
+| Servicios completamente implementados | 7 |
+| Servicios parcialmente implementados | 1 |
 | Servicios no implementados | 5 |
-| Cobertura estimada | ~35% |
+| Interacciones N/A (Supabase maneja) | 5 |
+| Cobertura estimada | ~47% |
 
 ---
 
@@ -122,20 +123,20 @@ Consumer: `embolsadora-frontend` → Provider: `edge-device-service-api`
 
 ---
 
-### ⚠️ Parcialmente Implementados
-
-#### `auth-service-api` — 2/6 interacciones
+#### `auth-service-api` — 3/3 interacciones backend (+ 3 N/A Supabase)
 
 Consumer: `embolsadora-frontend` → Provider: `auth-service`
 
-| Método | Path Pact | Estado | Observación |
-|---|---|---|---|
-| POST | `/api/auth/callback/credentials` → 200 | ✅ | `/api/v1/auth/login` |
-| POST | `/api/auth/callback/credentials` → 401 | ✅ | manejado por middleware |
-| GET | `/api/auth/session` | ❌ | No existe — podría mapearse a `GET /api/v1/me` |
-| POST | `/api/auth/signout` | ❌ | No existe — Supabase maneja logout en el frontend |
-| POST | `/api/auth/forgot-password` | ❌ | No existe — pendiente en Supabase Admin API |
-| POST | `/api/auth/reset-password` | ❌ | No existe — pendiente en Supabase Admin API |
+| Método | Path Pact | Path Backend | Estado | Observación |
+|---|---|---|---|---|
+| POST | `/api/auth/callback/credentials` → 200 | `/api/v1/auth/login` | ✅ | Proxy a Supabase `/auth/v1/token` |
+| POST | `/api/auth/callback/credentials` → 401 | `/api/v1/auth/login` | ✅ | Manejado por el mismo handler |
+| GET | `/api/auth/session` | `/api/v1/me` | ✅ | Retorna usuario + tenant + rol + permisos desde JWT |
+| POST | `/api/auth/signout` | — | 🚫 N/A | JWT es stateless — el frontend descarta el token localmente, no requiere endpoint backend |
+| POST | `/api/auth/forgot-password` | — | 🚫 N/A | Supabase lo maneja directamente desde el frontend sin pasar por este backend |
+| POST | `/api/auth/reset-password` | — | 🚫 N/A | Ídem — el reset completo es responsabilidad de Supabase |
+
+> **Nota**: PR #16 implementó la integración completa con Supabase Auth (JWKS verification, auto-provisioning, JWT middleware chain). Los flujos de signout/forgot/reset no requieren endpoint en este backend — Supabase los resuelve directamente con el frontend.
 
 ---
 
@@ -157,18 +158,22 @@ Consumer: `embolsadora-frontend-bff` → Provider: `role-service-api`
 
 ---
 
-#### `user-service-api-roles-extension` — 2/6 interacciones
+### ⚠️ Parcialmente Implementados (endpoint existe, funcionalidad incompleta)
+
+#### `user-service-api-roles-extension` — 3/4 interacciones backend (+ 2 N/A Supabase)
 
 Consumer: `embolsadora-frontend-bff` → Provider: `user-service-api`
 
 | Método | Path Pact | Estado | Observación |
 |---|---|---|---|
-| GET | `/api/v1/users/{id}?include=roles` | ⚠️ | Endpoint existe pero `include=roles` probablemente no implementado |
-| POST | `/api/v1/users` con rol inicial | ⚠️ | Create user existe, asignación de rol inicial puede faltar |
-| POST | `/api/v1/users/register` | ❌ | Auto-registro no existe |
-| POST | `/api/v1/users/verify-email` | ❌ | No existe — incumbe a Supabase |
-| PATCH | `/api/v1/users/{id}/status` | ❌ | No existe como endpoint dedicado |
-| GET | `/api/v1/users/pending` | ❌ | No existe |
+| GET | `/api/v1/users/{id}?include=roles` | ✅ | `include=roles` implementado via JOIN con UTR + roles; campo `roles: []` en response (007) |
+| POST | `/api/v1/users` con rol inicial | ❌ | Create user existe, pero la asignación de rol inicial no está implementada |
+| POST | `/api/v1/users/register` | 🚫 N/A | El registro de usuarios es via invitaciones (Supabase Admin API) — no existe auto-registro |
+| POST | `/api/v1/users/verify-email` | 🚫 N/A | Verificación de email es 100% Supabase, no pasa por este backend |
+| PATCH | `/api/v1/users/{id}/status` | ✅ | Actualiza UTR.status (active/inactive→revoked/suspended); guard anti-auto-desactivación (007) |
+| GET | `/api/v1/users/pending` | ✅ | Devuelve usuarios con UTR.status='pending'; respuesta `{data:[], total:N}` (007) |
+
+> Implementado en `007-user-roles-status`: migration 000013 (suspended status), GET include=roles (JOIN UTR+roles), PATCH status (UTR status per-tenant), GET pending (JOIN UTR pending).
 
 ---
 
@@ -280,16 +285,14 @@ Consumer: `embolsadora-frontend` → Provider: `reports-service-api`
 
 | # | Servicio | Interacciones | Prioridad | Justificación |
 |---|---|---|---|---|
-| 1 | `role-service-api` | 7 | 🔴 Alta | Dependencia directa del ABM de usuarios/permisos |
-| 3 | `auth-service-api` (completar) | 4 | 🔴 Alta | Forgot/reset password, session — flujos críticos de auth |
-| 4 | `alarm-rules-service-api` | 10 | 🟡 Media | Core del sistema de monitoreo industrial |
-| 5 | `notification-service-api` | 6 | 🟡 Media | Depende de alarm-rules |
-| 6 | `log-service-api` | 14 | 🟡 Media | Observabilidad activa — alto valor para operadores |
-| 7 | `permissions-service-api` | 10 | 🟠 Media-baja | RBAC dinámico, actualmente estático en código |
-| 8 | `user-service-api-roles-extension` (completar) | 4 | 🟠 Media-baja | Completar registro y status de usuarios |
-| 9 | `reports-service-api` | 16 | 🔵 Baja | Generación async compleja, mayor esfuerzo |
+| 1 | `alarm-rules-service-api` | 10 | 🔴 Alta | Core del sistema de monitoreo industrial |
+| 2 | `log-service-api` | 14 | 🔴 Alta | Observabilidad activa — alto valor para operadores |
+| 3 | `notification-service-api` | 6 | 🟡 Media | Depende de alarm-rules |
+| 4 | `permissions-service-api` | 10 | 🟡 Media | RBAC dinámico, actualmente estático en código |
+| 5 | `user-service-api-roles-extension` (completar) | 4 | 🟠 Media-baja | include=roles, status y pending de usuarios |
+| 6 | `reports-service-api` | 16 | 🔵 Baja | Generación async compleja, mayor esfuerzo |
 
-**Total interacciones pendientes**: ~71 de 149
+**Total interacciones pendientes**: ~60 de 149 (excluyendo 5 N/A Supabase)
 
 ---
 

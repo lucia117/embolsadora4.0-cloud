@@ -634,6 +634,179 @@
               ]
             }
           }
+        },
+        {
+          "name": "Get User with Roles (include=roles)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}?include=roles",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "{{user_id}}"
+              ],
+              "query": [
+                {
+                  "key": "include",
+                  "value": "roles"
+                }
+              ]
+            },
+            "description": "Get user with active role assignment in tenant (007 - include=roles Pact)"
+          },
+          "response": []
+        },
+        {
+          "name": "Update User Status (active)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"active\"}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "{{user_id}}",
+                "status"
+              ]
+            },
+            "description": "Activate a user in the tenant (007 - PATCH status Pact)"
+          },
+          "response": []
+        },
+        {
+          "name": "Update User Status (inactive)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"inactive\"}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "{{user_id}}",
+                "status"
+              ]
+            },
+            "description": "Deactivate a user in the tenant (007 - PATCH status Pact)"
+          },
+          "response": []
+        },
+        {
+          "name": "Update User Status - Self Deactivation (400)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"inactive\"}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/{{admin_user_id}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "{{admin_user_id}}",
+                "status"
+              ]
+            },
+            "description": "Admin trying to deactivate themselves - should return 400 CANNOT_DEACTIVATE_SELF (007)"
+          },
+          "response": []
+        },
+        {
+          "name": "List Pending Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/pending",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "pending"
+              ]
+            },
+            "description": "List users pending activation (UTR status=pending) in tenant (007 - GET pending Pact)"
+          },
+          "response": []
         }
       ]
     },
