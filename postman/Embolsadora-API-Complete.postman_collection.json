@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "embolsadora-api-master-collection",
     "name": "Embolsadora API - Complete Collection",
-    "description": "Master collection for Embolsadora 4.0 Cloud API\n\nConsolidated endpoints across all features:\n- Auth (Supabase JWT)\n- Invitations CRUD\n- Tenants management\n- Users CRUD\n- User Role Assignments\n- Edge Device Management (Complete US1-US9)\n- Dashboard Layouts (Complete US1-US5)\n- Roles Management (7 Pact interactions)\n\n**Base URL:** `{{baseUrl}}` = http://localhost:8080\n\n**Authentication:** Bearer JWT Token (usar POST Login para obtenerlo)\n**Multi-tenant:** `X-Tenant-ID: {{tenant_uuid}}` header requerido en la mayoría de endpoints\n\n**Dashboard Layout Endpoints (005-dashboard-layouts):**\n- US1: List Layouts - GET /api/v1/dashboard-layouts\n- US2: Create Layout - POST /api/v1/dashboard-layouts\n- US3: Get Layout - GET /api/v1/dashboard-layouts/:layoutId\n- US4: Update Layout - PUT /api/v1/dashboard-layouts/:layoutId\n- US5: Delete Layout - DELETE /api/v1/dashboard-layouts/:layoutId\n- Headers: Authorization + X-Tenant-ID (UUID) requeridos\n\n**Edge Device Endpoints (All 9 User Stories Implemented):**\n- US1: List Devices - GET /api/tenants/:tenantId/edge-devices\n- US2: Create Device - POST /api/tenants/:tenantId/edge-devices\n- US3: Get Device - GET /api/tenants/:tenantId/edge-devices/:deviceId\n- US4: Update Device - PUT /api/tenants/:tenantId/edge-devices/:deviceId\n- US5: Enable/Disable - POST /api/tenants/:tenantId/edge-devices/:deviceId/enable, /disable\n- US6: Status Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/status\n- US7: Health Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/health-check\n- US8: Telemetry - GET /api/tenants/:tenantId/edge-devices/:deviceId/telemetry\n- US9: Events - GET /api/tenants/:tenantId/edge-devices/:deviceId/events",
+    "description": "Master collection for Embolsadora 4.0 Cloud API\n\nConsolidated endpoints across all features:\n- Auth (Supabase JWT)\n- Invitations CRUD\n- Tenants management\n- Users CRUD\n- User Role Assignments\n- Edge Device Management (Complete US1-US9)\n- Dashboard Layouts (Complete US1-US5)\n- Roles Management (7 Pact interactions)\n\n**Base URL:** `{{baseUrl}}` = http://localhost:8080\n\n**Authentication:** Bearer JWT Token (usar POST Login para obtenerlo)\n**Multi-tenant:** `X-Tenant-ID: {{tenant_uuid}}` header requerido en la mayoría de endpoints\n\n**Dashboard Layout Endpoints (005-dashboard-layouts):**\n- US1: List Layouts - GET /api/v1/dashboard-layouts\n- US2: Create Layout - POST /api/v1/dashboard-layouts\n- US3: Get Layout - GET /api/v1/dashboard-layouts/:layoutId\n- US4: Update Layout - PUT /api/v1/dashboard-layouts/:layoutId\n- US5: Delete Layout - DELETE /api/v1/dashboard-layouts/:layoutId\n- Headers: Authorization + X-Tenant-ID (UUID) requeridos\n\n**Edge Device Endpoints (All 9 User Stories Implemented):**\n- US1: List Devices - GET /api/tenants/:tenantId/edge-devices\n- US2: Create Device - POST /api/tenants/:tenantId/edge-devices\n- US3: Get Device - GET /api/tenants/:tenantId/edge-devices/:deviceId\n- US4: Update Device - PUT /api/tenants/:tenantId/edge-devices/:deviceId\n- US5: Enable/Disable - POST /api/tenants/:tenantId/edge-devices/:deviceId/enable, /disable\n- US6: Status Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/status\n- US7: Health Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/health-check\n- US8: Telemetry - GET /api/tenants/:tenantId/edge-devices/:deviceId/telemetry\n- US9: Events - GET /api/tenants/:tenantId/edge-devices/:deviceId/events\n- Alarm Rules (008-alarm-rules) — CRUD completo con 10 Pact interactions (GET list, GET by id, POST, PATCH, DELETE + errores 401/404/400)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -1733,6 +1733,377 @@
               ]
             },
             "description": "Intenta eliminar un rol del sistema.\n\nRespuesta 403: {success: false, error: \"los roles del sistema no pueden modificarse ni eliminarse\"}\n\nIDs de roles del sistema: admin | operario | cliente_admin | cliente_operario\nEstos roles tienen isSystemRole=true y no pueden eliminarse bajo ninguna circunstancia."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alarm Rules",
+      "item": [
+        {
+          "name": "Pact 1 - List Alarm Rules 401 (sin auth)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alarm-rules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "alarm-rules"
+              ]
+            },
+            "description": "Sin token de autenticación → 401.\n\nRespuesta esperada:\n{success: false, error: 'UNAUTHORIZED', message: '...', status: 401}"
+          }
+        },
+        {
+          "name": "Pact 2 - List Alarm Rules (200 vacío)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alarm-rules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "alarm-rules"
+              ]
+            },
+            "description": "Lista todas las reglas del tenant. Respuesta vacía si no hay ninguna.\n\nRespuesta 200:\n{success: true, data: []}"
+          }
+        },
+        {
+          "name": "Pact 3 - Create Alarm Rule (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alarm-rules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "alarm-rules"
+              ]
+            },
+            "description": "Crea una nueva regla de alarma.\n\nRespuesta 201:\n{success: true, data: {id, tenantId, name, description, metric, operator, threshold, severity, enabled, createdAt, updatedAt}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Temperatura alta\",\n  \"description\": \"Alerta cuando la temperatura supera el umbral\",\n  \"metric\": \"temperature\",\n  \"operator\": \"gt\",\n  \"threshold\": 80.0,\n  \"severity\": \"critical\",\n  \"enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Pact 4 - Create Alarm Rule 400 (validación)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alarm-rules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "alarm-rules"
+              ]
+            },
+            "description": "Body con campos faltantes → 400 VALIDATION_ERROR.\n\nRespuesta 400:\n{success: false, error: 'VALIDATION_ERROR', message: '...', status: 400}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Regla incompleta\",\n  \"operator\": \"gt\",\n  \"threshold\": 50.0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Pact 5 - List Alarm Rules (200 con datos)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alarm-rules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "alarm-rules"
+              ]
+            },
+            "description": "Lista reglas del tenant con al menos una regla creada.\n\nRespuesta 200:\n{success: true, data: [{id, tenantId, name, metric, operator, threshold, severity, enabled, createdAt, updatedAt}]}"
+          }
+        },
+        {
+          "name": "Pact 6 - Get Alarm Rule (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alarm-rules/{{alarm_rule_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "alarm-rules",
+                "{{alarm_rule_id}}"
+              ]
+            },
+            "description": "Obtiene el detalle de una regla por ID.\n\nRespuesta 200:\n{success: true, data: {id, tenantId, name, metric, operator, threshold, severity, enabled, createdAt, updatedAt}}"
+          }
+        },
+        {
+          "name": "Pact 7 - Get Alarm Rule 404 (no existe)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alarm-rules/00000000-0000-0000-0000-000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "alarm-rules",
+                "00000000-0000-0000-0000-000000000000"
+              ]
+            },
+            "description": "ID inexistente → 404 NOT_FOUND.\n\nRespuesta 404:\n{success: false, error: 'NOT_FOUND', message: 'regla de alarma no encontrada', status: 404}"
+          }
+        },
+        {
+          "name": "Pact 8 - Update Alarm Rule (200)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alarm-rules/{{alarm_rule_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "alarm-rules",
+                "{{alarm_rule_id}}"
+              ]
+            },
+            "description": "Actualiza parcialmente una regla (PATCH). Solo los campos enviados cambian.\n\nRespuesta 200:\n{success: true, data: {...regla actualizada...}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"threshold\": 85.0,\n  \"severity\": \"warning\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Pact 9 - Update Alarm Rule 404 (no existe)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alarm-rules/00000000-0000-0000-0000-000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "alarm-rules",
+                "00000000-0000-0000-0000-000000000000"
+              ]
+            },
+            "description": "ID inexistente en update → 404 NOT_FOUND.\n\nRespuesta 404:\n{success: false, error: 'NOT_FOUND', message: 'regla de alarma no encontrada', status: 404}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"threshold\": 90.0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Pact 10 - Delete Alarm Rule (200)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alarm-rules/{{alarm_rule_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "alarm-rules",
+                "{{alarm_rule_id}}"
+              ]
+            },
+            "description": "Elimina permanentemente una regla.\n\nRespuesta 200:\n{success: true}"
+          }
+        },
+        {
+          "name": "Pact 11 - Delete Alarm Rule 404 (ya eliminada)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alarm-rules/00000000-0000-0000-0000-000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "alarm-rules",
+                "00000000-0000-0000-0000-000000000000"
+              ]
+            },
+            "description": "ID inexistente en delete → 404 NOT_FOUND.\n\nRespuesta 404:\n{success: false, error: 'NOT_FOUND', message: 'regla de alarma no encontrada', status: 404}"
           }
         }
       ]

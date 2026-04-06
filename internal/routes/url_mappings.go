@@ -28,12 +28,15 @@ import (
 	invitationsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/invitations"
 	edgeDevicesApp "github.com/tu-org/embolsadora-api/internal/app/edge_devices"
 	dashboardLayoutsApp "github.com/tu-org/embolsadora-api/internal/app/dashboard_layouts"
+	alarmRulesApp "github.com/tu-org/embolsadora-api/internal/app/alarm_rules"
 	rolesApp "github.com/tu-org/embolsadora-api/internal/app/roles"
 	edgeDevicesHandler "github.com/tu-org/embolsadora-api/internal/api/handler/edge_devices"
 	dashboardLayoutsHandler "github.com/tu-org/embolsadora-api/internal/api/handler/dashboard_layouts"
+	alarmRulesHandler "github.com/tu-org/embolsadora-api/internal/api/handler/alarm_rules"
 	rolesHandler "github.com/tu-org/embolsadora-api/internal/api/handler/roles"
 	edgeDevicesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/edge_devices"
 	dashboardLayoutsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/dashboard_layouts"
+	alarmRulesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/alarm_rules"
 	rolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/roles"
 	"github.com/tu-org/embolsadora-api/internal/platform/edgeclient"
 	tenantsRepository "github.com/tu-org/embolsadora-api/internal/repo/pg/tenants"
@@ -164,4 +167,12 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	rService := rolesApp.NewService(rRepo, logger)
 	rolesWriteGroup := v1.Group("", apimw.RBACCheck("users:write"))
 	rolesHandler.RegisterRoutes(v1, rolesWriteGroup, rService)
+
+	// Alarm Rules surface (/api/v1/alarm-rules)
+	// GET endpoints: sin RBAC adicional (cualquier usuario autenticado del tenant puede listar/ver reglas)
+	// POST/PATCH/DELETE: requieren permiso users:write (solo administradores)
+	arRepo := alarmRulesRepo.NewPostgresRepository(db)
+	arService := alarmRulesApp.NewService(arRepo, logger)
+	alarmRulesWriteGroup := v1.Group("", apimw.RBACCheck("users:write"))
+	alarmRulesHandler.RegisterRoutes(v1, alarmRulesWriteGroup, arService)
 }

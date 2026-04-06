@@ -13,11 +13,11 @@
 |---|---|
 | Archivos Pact | 13 |
 | Interacciones totales | 149 |
-| Servicios completamente implementados | 7 |
+| Servicios completamente implementados | 8 |
 | Servicios parcialmente implementados | 1 |
-| Servicios no implementados | 5 |
+| Servicios no implementados | 4 |
 | Interacciones N/A (Supabase maneja) | 5 |
-| Cobertura estimada | ~47% |
+| Cobertura estimada | ~54% |
 
 ---
 
@@ -177,27 +177,28 @@ Consumer: `embolsadora-frontend-bff` → Provider: `user-service-api`
 
 ---
 
-### ❌ No Implementados
-
-
----
-
-#### `alarm-rules-service-api` — 0/10 interacciones
+#### `alarm-rules-service-api` — 10/10 interacciones
 
 Consumer: `embolsadora-frontend` → Provider: `alarm-rules-service-api`
 
-| Método | Path | Descripción |
-|---|---|---|
-| GET | `/api/alarm-rules` | Listar reglas |
-| GET | `/api/alarm-rules/{id}` → 200 | Obtener regla |
-| GET | `/api/alarm-rules/{id}` → 404 | Regla no encontrada |
-| POST | `/api/alarm-rules` → 201 | Crear regla |
-| POST | `/api/alarm-rules` → 400 | Error de validación |
-| PATCH | `/api/alarm-rules/{id}` → 200 | Actualizar regla |
-| PATCH | `/api/alarm-rules/{id}` → 404 | No encontrado en update |
-| DELETE | `/api/alarm-rules/{id}` → 200 | Eliminar regla |
-| DELETE | `/api/alarm-rules/{id}` → 404 | No encontrado en delete |
-| GET | `/api/alarm-rules` → 401 | Auth requerida |
+| Método | Path Pact | Path Backend | Estado | Observación |
+|---|---|---|---|---|
+| GET | `/api/alarm-rules` | `/api/v1/alarm-rules` | ✅ | Lista reglas del tenant; `[]` si vacío |
+| GET | `/api/alarm-rules/{id}` → 200 | `/api/v1/alarm-rules/:id` | ✅ | Verifica tenant_id para aislamiento |
+| GET | `/api/alarm-rules/{id}` → 404 | `/api/v1/alarm-rules/:id` | ✅ | Regla inexistente o de otro tenant |
+| POST | `/api/alarm-rules` → 201 | `/api/v1/alarm-rules` | ✅ | Valida operator y severity |
+| POST | `/api/alarm-rules` → 400 | `/api/v1/alarm-rules` | ✅ | VALIDATION_ERROR con campo que falló |
+| PATCH | `/api/alarm-rules/{id}` → 200 | `/api/v1/alarm-rules/:id` | ✅ | Actualización parcial via punteros |
+| PATCH | `/api/alarm-rules/{id}` → 404 | `/api/v1/alarm-rules/:id` | ✅ | NOT_FOUND |
+| DELETE | `/api/alarm-rules/{id}` → 200 | `/api/v1/alarm-rules/:id` | ✅ | Eliminación permanente |
+| DELETE | `/api/alarm-rules/{id}` → 404 | `/api/v1/alarm-rules/:id` | ✅ | NOT_FOUND |
+| GET | `/api/alarm-rules` → 401 | auth middleware | ✅ | Sin JWT → UNAUTHORIZED |
+
+> Implementado en `008-alarm-rules`: migración 000014 (`alarm_rules` table con CHECK constraints), domain + repo + service + 5 handlers. Eliminación permanente (no soft-delete).
+
+---
+
+### ❌ No Implementados
 
 ---
 
@@ -285,12 +286,11 @@ Consumer: `embolsadora-frontend` → Provider: `reports-service-api`
 
 | # | Servicio | Interacciones | Prioridad | Justificación |
 |---|---|---|---|---|
-| 1 | `alarm-rules-service-api` | 10 | 🔴 Alta | Core del sistema de monitoreo industrial |
-| 2 | `log-service-api` | 14 | 🔴 Alta | Observabilidad activa — alto valor para operadores |
-| 3 | `notification-service-api` | 6 | 🟡 Media | Depende de alarm-rules |
-| 4 | `permissions-service-api` | 10 | 🟡 Media | RBAC dinámico, actualmente estático en código |
-| 5 | `user-service-api-roles-extension` (completar) | 4 | 🟠 Media-baja | include=roles, status y pending de usuarios |
-| 6 | `reports-service-api` | 16 | 🔵 Baja | Generación async compleja, mayor esfuerzo |
+| 1 | `log-service-api` | 14 | 🔴 Alta | Observabilidad activa — alto valor para operadores |
+| 2 | `notification-service-api` | 6 | 🟡 Media | Depende de alarm-rules (ya implementado) |
+| 3 | `permissions-service-api` | 10 | 🟡 Media | RBAC dinámico, actualmente estático en código |
+| 4 | `user-service-api-roles-extension` (completar) | 1 | 🟠 Media-baja | Solo falta POST /users con rol inicial |
+| 5 | `reports-service-api` | 16 | 🔵 Baja | Generación async compleja, mayor esfuerzo |
 
 **Total interacciones pendientes**: ~60 de 149 (excluyendo 5 N/A Supabase)
 
