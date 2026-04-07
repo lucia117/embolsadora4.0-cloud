@@ -28,6 +28,7 @@ import (
 	alarmRulesApp "github.com/tu-org/embolsadora-api/internal/app/alarm_rules"
 	dashboardLayoutsApp "github.com/tu-org/embolsadora-api/internal/app/dashboard_layouts"
 	edgeDevicesApp "github.com/tu-org/embolsadora-api/internal/app/edge_devices"
+	appLogs "github.com/tu-org/embolsadora-api/internal/app/logs"
 	rolesApp "github.com/tu-org/embolsadora-api/internal/app/roles"
 	"github.com/tu-org/embolsadora-api/internal/config"
 	consumers "github.com/tu-org/embolsadora-api/internal/consumers"
@@ -38,6 +39,8 @@ import (
 	dashboardLayoutsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/dashboard_layouts"
 	edgeDevicesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/edge_devices"
 	invitationsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/invitations"
+	logsHandler "github.com/tu-org/embolsadora-api/internal/api/handler/logs"
+	logsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/logs"
 	rolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/roles"
 	tenantsRepository "github.com/tu-org/embolsadora-api/internal/repo/pg/tenants"
 	userRolesRepository "github.com/tu-org/embolsadora-api/internal/repo/pg/user_roles"
@@ -175,4 +178,9 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	arService := alarmRulesApp.NewService(arRepo, logger)
 	alarmRulesWriteGroup := v1.Group("", apimw.RBACCheck("users:write"))
 	alarmRulesHandler.RegisterRoutes(v1, alarmRulesWriteGroup, arService)
+
+	// Log Service (/api/v1/logs)
+	logRepository := logsRepo.New(db)
+	logService := appLogs.New(logRepository, logger)
+	logsHandler.RegisterRoutes(v1, logService)
 }

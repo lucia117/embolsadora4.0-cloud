@@ -13,7 +13,7 @@ y gestión de política de retención por tenant. Cubre 14 contratos Pact del fr
 
 **Language/Version**: Go 1.24+  
 **Primary Dependencies**: Gin (HTTP), pgx/v5 (PostgreSQL), Zap (logging), Prometheus (métricas)  
-**Storage**: PostgreSQL — tablas `log_entries` + `log_retention_policies` (migración 000004)  
+**Storage**: PostgreSQL — tablas `log_entries` + `log_retention_policies` (migración 000015)  
 **Testing**: testify, uber/mock, Postman collection con 14 interacciones Pact  
 **Target Platform**: Linux server (Docker)  
 **Project Type**: web-service (REST + SSE)  
@@ -85,8 +85,8 @@ internal/
         routes.go                     # RegisterRoutes — orden crítico: estáticas antes de :id
 
 migrations/
-  000004_create_log_entries_table.up.sql
-  000004_create_log_entries_table.down.sql
+  000015_create_log_entries_table.up.sql
+  000015_create_log_entries_table.down.sql
 
 postman/
   Log-Service-API.postman_collection.json   # 14 Pact interactions

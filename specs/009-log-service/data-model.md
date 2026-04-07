@@ -59,7 +59,7 @@ Configuración de retención de logs por tenant. Un registro por tenant, upsert 
 ## Esquema SQL
 
 ```sql
--- Migration: 000004_create_log_entries_table.up.sql
+-- Migration: 000015_create_log_entries_table.up.sql
 
 -- Función trigger reutilizada (si no existe)
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -127,7 +127,7 @@ CREATE INDEX idx_log_entries_message_fts
 ## Rollback SQL
 
 ```sql
--- Migration: 000004_create_log_entries_table.down.sql
+-- Migration: 000015_create_log_entries_table.down.sql
 DROP TABLE IF EXISTS log_retention_policies;
 DROP TABLE IF EXISTS log_entries;
 ```
@@ -177,6 +177,6 @@ internal/
         update_retention.go
         routes.go
 migrations/
-  000004_create_log_entries_table.up.sql
-  000004_create_log_entries_table.down.sql
+  000015_create_log_entries_table.up.sql
+  000015_create_log_entries_table.down.sql
 ```

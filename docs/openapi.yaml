@@ -20,6 +20,8 @@ tags:
   - name: Machines
   - name: Tenants
   - name: Consumers
+  - name: Logs
+  - name: Retention
 
 paths:
   ########################
@@ -668,6 +670,157 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
 
+  ########################
+  # Logs — List
+  ########################
+  /api/v1/logs:
+    get:
+      tags: [Logs]
+      summary: Listar logs del tenant con filtros y paginación por cursor
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: event_type, in: query, schema: { type: string, enum: [alarm_triggered, alarm_resolved, device_connected, device_disconnected, device_state_changed, user_action, system] } }
+        - { name: severity,   in: query, schema: { type: string, enum: [info, warning, critical, error] } }
+        - { name: machine_id, in: query, schema: { type: string, format: uuid } }
+        - { name: from,       in: query, schema: { type: string, format: date-time } }
+        - { name: to,         in: query, schema: { type: string, format: date-time } }
+        - { name: q,          in: query, schema: { type: string } }
+        - { name: cursor,     in: query, schema: { type: string } }
+        - { name: limit,      in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        '200':
+          description: Lista de logs
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LogListResponse' }
+        '400':
+          description: Parámetros inválidos (ej. from > to, cursor inválido, severity desconocido)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  ########################
+  # Logs — Export
+  ########################
+  /api/v1/logs/export:
+    get:
+      tags: [Logs]
+      summary: Exportar logs filtrados (máx 50.000)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: event_type, in: query, schema: { type: string } }
+        - { name: severity,   in: query, schema: { type: string } }
+        - { name: machine_id, in: query, schema: { type: string, format: uuid } }
+        - { name: from,       in: query, schema: { type: string, format: date-time } }
+        - { name: to,         in: query, schema: { type: string, format: date-time } }
+        - { name: q,          in: query, schema: { type: string } }
+        - { name: format,     in: query, schema: { type: string, enum: [json, csv], default: json } }
+      responses:
+        '200':
+          description: Exportación completada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LogExportResponse' }
+        '400':
+          description: Parámetros inválidos (ej. from > to, severity desconocido)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  ########################
+  # Logs — Stream SSE
+  ########################
+  /api/v1/logs/stream:
+    get:
+      tags: [Logs]
+      summary: Streaming SSE de nuevos eventos en tiempo real
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: event_type, in: query, schema: { type: string } }
+        - { name: severity,   in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Conexión SSE establecida
+          content:
+            text/event-stream:
+              schema: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  ########################
+  # Logs — Retention
+  ########################
+  /api/v1/logs/retention:
+    get:
+      tags: [Retention]
+      summary: Obtener política de retención del tenant
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Política de retención actual
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RetentionResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    patch:
+      tags: [Retention]
+      summary: Actualizar política de retención (requiere logs:admin)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateRetentionRequest' }
+      responses:
+        '200':
+          description: Política actualizada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RetentionResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  ########################
+  # Logs — By ID
+  ########################
+  /api/v1/logs/{id}:
+    get:
+      tags: [Logs]
+      summary: Obtener log por ID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Log encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LogEntry' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  ########################
+  # Logs — Context
+  ########################
+  /api/v1/logs/{id}/context:
+    get:
+      tags: [Logs]
+      summary: Obtener ventana de logs alrededor de un evento
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id,       in: path,  required: true, schema: { type: string, format: uuid } }
+        - { name: window_size, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 10 } }
+      responses:
+        '200':
+          description: Ventana de contexto
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LogContextResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
 components:
   ########################
   # Security
@@ -980,6 +1133,63 @@ components:
         ts: { type: string, format: date-time }
         status: { type: string, enum: [online, offline, degraded] }
       required: [machineId, ts, status]
+
+  ########################
+  # Log Service Schemas
+  ########################
+    LogEntry:
+      type: object
+      required: [id, tenant_id, created_at, severity, event_type, message, metadata]
+      properties:
+        id:          { type: string, format: uuid }
+        tenant_id:   { type: string, format: uuid }
+        created_at:  { type: string, format: date-time }
+        severity:    { type: string, enum: [info, warning, critical, error] }
+        event_type:  { type: string, enum: [alarm_triggered, alarm_resolved, device_connected, device_disconnected, device_state_changed, user_action, system] }
+        source_id:   { type: string, format: uuid, nullable: true }
+        machine_id:  { type: string, format: uuid, nullable: true }
+        message:     { type: string }
+        metadata:    { type: object, additionalProperties: true }
+
+    LogListResponse:
+      type: object
+      required: [data, total]
+      properties:
+        data:        { type: array, items: { $ref: '#/components/schemas/LogEntry' } }
+        next_cursor: { type: string, nullable: true }
+        total:       { type: integer }
+
+    LogExportResponse:
+      type: object
+      required: [data, truncated, exported_count, total_available]
+      properties:
+        data:            { type: array, items: { $ref: '#/components/schemas/LogEntry' } }
+        truncated:       { type: boolean }
+        exported_count:  { type: integer }
+        total_available: { type: integer }
+
+    LogContextResponse:
+      type: object
+      required: [before, anchor, after]
+      properties:
+        before: { type: array, items: { $ref: '#/components/schemas/LogEntry' } }
+        anchor: { $ref: '#/components/schemas/LogEntry' }
+        after:  { type: array, items: { $ref: '#/components/schemas/LogEntry' } }
+
+    RetentionResponse:
+      type: object
+      required: [tenant_id, retention_days, next_purge_at, updated_at]
+      properties:
+        tenant_id:      { type: string, format: uuid }
+        retention_days: { type: integer, minimum: 1 }
+        next_purge_at:  { type: string, format: date-time }
+        updated_at:     { type: string, format: date-time }
+
+    UpdateRetentionRequest:
+      type: object
+      required: [retention_days]
+      properties:
+        retention_days: { type: integer, minimum: 1, maximum: 3650 }
 
   ########################
   # Standard responses

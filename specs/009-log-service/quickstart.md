@@ -1,7 +1,7 @@
 # Quickstart: Log Service API (009)
 
 **Objetivo**: Validar los 14 contratos Pact de `log-service-api` contra el servidor local.  
-**Prerequisitos**: Servidor corriendo en `http://localhost:8080`, usuario admin autenticado, migración 000004 aplicada.
+**Prerequisitos**: Servidor corriendo en `http://localhost:8080`, usuario admin autenticado, migración 000015 aplicada.
 
 ---
 
@@ -148,6 +148,9 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 ---
 
 ## Pact 11 — Update Retention Policy (200)
+
+> **Requiere permiso `logs:admin`** — el token debe pertenecer a un usuario con ese permiso.
+> Sin él, la respuesta será `403 Forbidden`.
 
 ```bash
 curl -s -X PATCH \
