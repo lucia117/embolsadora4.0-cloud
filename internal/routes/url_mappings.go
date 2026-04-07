@@ -11,31 +11,34 @@ import (
 	"go.uber.org/zap"
 
 	api "github.com/tu-org/embolsadora-api/internal/api"
-	apimw "github.com/tu-org/embolsadora-api/internal/api/middleware"
+	alarmRulesHandler "github.com/tu-org/embolsadora-api/internal/api/handler/alarm_rules"
 	handlerChangePassword "github.com/tu-org/embolsadora-api/internal/api/handler/auth/change_password"
 	handlerLogin "github.com/tu-org/embolsadora-api/internal/api/handler/auth/login"
+	dashboardLayoutsHandler "github.com/tu-org/embolsadora-api/internal/api/handler/dashboard_layouts"
+	edgeDevicesHandler "github.com/tu-org/embolsadora-api/internal/api/handler/edge_devices"
 	handlerCreateInvitation "github.com/tu-org/embolsadora-api/internal/api/handler/invitations/create_invitation"
 	handlerListInvitations "github.com/tu-org/embolsadora-api/internal/api/handler/invitations/list_invitations"
 	handlerResendInvitation "github.com/tu-org/embolsadora-api/internal/api/handler/invitations/resend_invitation"
 	handlerRevokeInvitation "github.com/tu-org/embolsadora-api/internal/api/handler/invitations/revoke_invitation"
 	handlerMe "github.com/tu-org/embolsadora-api/internal/api/handler/me"
+	rolesHandler "github.com/tu-org/embolsadora-api/internal/api/handler/roles"
 	handlerForcePasswordChange "github.com/tu-org/embolsadora-api/internal/api/handler/users/force_password_change"
+	apimw "github.com/tu-org/embolsadora-api/internal/api/middleware"
 	"github.com/tu-org/embolsadora-api/internal/api/usecases"
+	alarmRulesApp "github.com/tu-org/embolsadora-api/internal/app/alarm_rules"
+	dashboardLayoutsApp "github.com/tu-org/embolsadora-api/internal/app/dashboard_layouts"
+	edgeDevicesApp "github.com/tu-org/embolsadora-api/internal/app/edge_devices"
+	rolesApp "github.com/tu-org/embolsadora-api/internal/app/roles"
+	"github.com/tu-org/embolsadora-api/internal/config"
 	consumers "github.com/tu-org/embolsadora-api/internal/consumers"
 	consumermw "github.com/tu-org/embolsadora-api/internal/consumers/middleware"
-	"github.com/tu-org/embolsadora-api/internal/config"
-	"github.com/tu-org/embolsadora-api/internal/platform/supabase"
-	invitationsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/invitations"
-	edgeDevicesApp "github.com/tu-org/embolsadora-api/internal/app/edge_devices"
-	dashboardLayoutsApp "github.com/tu-org/embolsadora-api/internal/app/dashboard_layouts"
-	rolesApp "github.com/tu-org/embolsadora-api/internal/app/roles"
-	edgeDevicesHandler "github.com/tu-org/embolsadora-api/internal/api/handler/edge_devices"
-	dashboardLayoutsHandler "github.com/tu-org/embolsadora-api/internal/api/handler/dashboard_layouts"
-	rolesHandler "github.com/tu-org/embolsadora-api/internal/api/handler/roles"
-	edgeDevicesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/edge_devices"
-	dashboardLayoutsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/dashboard_layouts"
-	rolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/roles"
 	"github.com/tu-org/embolsadora-api/internal/platform/edgeclient"
+	"github.com/tu-org/embolsadora-api/internal/platform/supabase"
+	alarmRulesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/alarm_rules"
+	dashboardLayoutsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/dashboard_layouts"
+	edgeDevicesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/edge_devices"
+	invitationsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/invitations"
+	rolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/roles"
 	tenantsRepository "github.com/tu-org/embolsadora-api/internal/repo/pg/tenants"
 	userRolesRepository "github.com/tu-org/embolsadora-api/internal/repo/pg/user_roles"
 	usersRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/users"
@@ -164,4 +167,12 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	rService := rolesApp.NewService(rRepo, logger)
 	rolesWriteGroup := v1.Group("", apimw.RBACCheck("users:write"))
 	rolesHandler.RegisterRoutes(v1, rolesWriteGroup, rService)
+
+	// Alarm Rules surface (/api/v1/alarm-rules)
+	// GET endpoints: sin RBAC adicional (cualquier usuario autenticado del tenant puede listar/ver reglas)
+	// POST/PATCH/DELETE: requieren permiso users:write (solo administradores)
+	arRepo := alarmRulesRepo.NewPostgresRepository(db)
+	arService := alarmRulesApp.NewService(arRepo, logger)
+	alarmRulesWriteGroup := v1.Group("", apimw.RBACCheck("users:write"))
+	alarmRulesHandler.RegisterRoutes(v1, alarmRulesWriteGroup, arService)
 }

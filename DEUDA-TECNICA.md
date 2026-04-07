@@ -4,6 +4,27 @@ Registro de problemas técnicos identificados que requieren corrección pero no 
 
 ---
 
+## 🟡 Pendientes de Decisión
+
+### RBAC en endpoints de lectura de usuarios (GET /users)
+**Severity**: MEDIA
+**Status**: PENDIENTE DECISIÓN
+**Detectado por**: Copilot Code Review (PR #25)
+**Fecha**: 2026-04-07
+
+#### Problema
+Los endpoints `GET /users`, `GET /users/:id` y `GET /users/:id/roles` no tienen `RBACCheck("users:read")`, mientras que `GET /users/pending` sí lo tiene. Esto es inconsistente.
+
+#### Opciones
+- **A) Agregar `users:read` a los tres GETs**: solo `admin` y `cliente_admin` pueden listar/ver usuarios. Más seguro pero más restrictivo.
+- **B) Dejar sin RBAC**: cualquier usuario autenticado puede ver usuarios del tenant. Más permisivo, útil si operarios necesitan ver compañeros.
+- **C) Permiso diferenciado** (ej. `users:list` vs `users:read`): mayor granularidad.
+
+#### Estado actual
+Sin RBAC en GET /users, /users/:id, /users/:id/roles. Se revirtió el cambio intencionalmente hasta definir el modelo de permisos final.
+
+---
+
 ## 🔴 Críticos (Fix Soon)
 
 ### 1. JWT Middleware es un Stub sin Validación
