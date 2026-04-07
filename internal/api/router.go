@@ -63,12 +63,12 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 	userRoutes := g.Group("")
 	userRoutes.Use(middleware.ExtractTenantID())
 
-	// Read operations (no RBAC required)
+	// Read operations (users:read required)
 	// NOTE: /users/pending MUST be registered before /users/:id to avoid Gin treating "pending" as :id
 	userRoutes.GET("/users/pending", middleware.RBACCheck("users:read"), uh.ListPendingUsers)
-	userRoutes.GET("/users", uh.ListUsers)
-	userRoutes.GET("/users/:id", uh.GetUser)
-	userRoutes.GET("/users/:id/roles", getUserRolesHandler.Handle)
+	userRoutes.GET("/users", middleware.RBACCheck("users:read"), uh.ListUsers)
+	userRoutes.GET("/users/:id", middleware.RBACCheck("users:read"), uh.GetUser)
+	userRoutes.GET("/users/:id/roles", middleware.RBACCheck("users:read"), getUserRolesHandler.Handle)
 
 	// Write operations (admin only)
 	userRoutes.POST("/users", middleware.RBACCheck("users:write"), uh.CreateUser)

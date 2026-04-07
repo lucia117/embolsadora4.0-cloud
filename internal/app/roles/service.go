@@ -160,12 +160,13 @@ func deduplicatePermissions(permissions []string) []string {
 	seen := make(map[string]struct{}, len(permissions))
 	result := make([]string, 0, len(permissions))
 	for _, p := range permissions {
-		if strings.TrimSpace(p) == "" {
+		normalized := strings.TrimSpace(p)
+		if normalized == "" {
 			continue
 		}
-		if _, exists := seen[p]; !exists {
-			seen[p] = struct{}{}
-			result = append(result, p)
+		if _, exists := seen[normalized]; !exists {
+			seen[normalized] = struct{}{}
+			result = append(result, normalized)
 		}
 	}
 	sort.Strings(result)
