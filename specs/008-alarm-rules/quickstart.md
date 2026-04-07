@@ -1,6 +1,6 @@
 # Quickstart: Alarm Rules Service API (008)
 
-**Objetivo**: Validar los 10 contratos Pact de `alarm-rules-service-api` contra el servidor local.  
+**Objetivo**: Validar los 11 contratos Pact de `alarm-rules-service-api` contra el servidor local.  
 **Prerequisitos**: Servidor corriendo en `http://localhost:8080`, usuario admin autenticado, migración 000014 aplicada.
 
 ---

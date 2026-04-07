@@ -29,7 +29,7 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{pool: pool}
 }
 
-// List devuelve todas las reglas de alarma activas del tenant.
+// List devuelve todas las reglas de alarma del tenant (incluyendo deshabilitadas).
 func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID) ([]*domain.AlarmRule, error) {
 	query := `
 		SELECT id, tenant_id, name, description, metric, operator, threshold, severity, enabled, created_at, updated_at

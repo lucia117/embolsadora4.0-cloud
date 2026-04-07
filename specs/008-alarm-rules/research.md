@@ -27,9 +27,9 @@
 
 ### 4. ID de regla — UUID
 
-**Decision**: UUID v4 generado en la capa de aplicación al crear.  
+**Decision**: UUID v4 generado por la base de datos al crear (`DEFAULT gen_random_uuid()`) y recuperado desde el `INSERT ... RETURNING id`.  
 **Rationale**: Consistente con todas las demás entidades del sistema (users, tenants, roles, edge devices, dashboard layouts).  
-**Alternatives considered**: ID secuencial (más simple) → rechazado por inconsistencia y exposición de volumen.
+**Alternatives considered**: Generar UUID en capa de aplicación (válido) → no implementado. ID secuencial (más simple) → rechazado por inconsistencia y exposición de volumen.
 
 ### 5. Desajuste de prefijo Pact `/api/alarm-rules` vs backend `/api/v1/alarm-rules`
 

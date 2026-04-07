@@ -132,7 +132,7 @@ Sin soft-delete en MVP (eliminación permanente).
 - `dto/request.go`: `CreateAlarmRuleRequest`, `UpdateAlarmRuleRequest` con json tags y validación
 - `dto/response.go`: `AlarmRuleResponse`, función `FromDomain`
 - Un archivo por handler: list, get, create, update, delete
-- `routes.go`: `RegisterRoutes(readGroup, writeGroup *gin.RouterGroup, service *appRoles.Service)`
+- `routes.go`: `RegisterRoutes(readGroup, writeGroup *gin.RouterGroup, service *appAlarmRules.Service)`
 
 Mapeo de errores de dominio → HTTP:
 - `ErrAlarmRuleNotFound` → 404

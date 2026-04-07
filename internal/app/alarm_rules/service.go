@@ -5,9 +5,9 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
-	"go.uber.org/zap"
 	"github.com/tu-org/embolsadora-api/internal/domain"
 	alarmRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/alarm_rules"
+	"go.uber.org/zap"
 )
 
 // ErrInvalidOperator se devuelve cuando el operador no es válido.

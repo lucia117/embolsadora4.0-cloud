@@ -183,7 +183,7 @@ Secuencial (T002 → T005 → T006):
 
 ## Notes
 
-- Migración: siguente número disponible es 000014
+- Migración: siguiente número disponible es 000014
 - Pattern de repo: seguir `internal/repo/pg/roles/repository.go` exactamente
 - Pattern de service: seguir `internal/app/roles/service.go`
 - Pattern de handler: seguir `internal/api/handler/roles/list_roles.go`

@@ -177,7 +177,9 @@ Consumer: `embolsadora-frontend-bff` → Provider: `user-service-api`
 
 ---
 
-#### `alarm-rules-service-api` — 10/10 interacciones
+#### `alarm-rules-service-api` — 11/11 interacciones
+
+> **Nota de conteo**: se contabilizan 11 interacciones. El listado `GET /api/alarm-rules → 200` se desglosa en dos variantes operativas (lista con resultados y lista vacía), ambas cubiertas por el contrato de listado.
 
 Consumer: `embolsadora-frontend` → Provider: `alarm-rules-service-api`
 
