@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "embolsadora-api-master-collection",
     "name": "Embolsadora API - Complete Collection",
-    "description": "Master collection for Embolsadora 4.0 Cloud API\n\nConsolidated endpoints across all features:\n- Auth (Supabase JWT)\n- Invitations CRUD\n- Tenants management\n- Users CRUD\n- User Role Assignments\n- Edge Device Management (Complete US1-US9)\n- Dashboard Layouts (Complete US1-US5)\n- Roles Management (7 Pact interactions)\n\n**Base URL:** `{{baseUrl}}` = http://localhost:8080\n\n**Authentication:** Bearer JWT Token (usar POST Login para obtenerlo)\n**Multi-tenant:** `X-Tenant-ID: {{tenant_uuid}}` header requerido en la mayorÃ­a de endpoints\n\n**Dashboard Layout Endpoints (005-dashboard-layouts):**\n- US1: List Layouts - GET /api/v1/dashboard-layouts\n- US2: Create Layout - POST /api/v1/dashboard-layouts\n- US3: Get Layout - GET /api/v1/dashboard-layouts/:layoutId\n- US4: Update Layout - PUT /api/v1/dashboard-layouts/:layoutId\n- US5: Delete Layout - DELETE /api/v1/dashboard-layouts/:layoutId\n- Headers: Authorization + X-Tenant-ID (UUID) requeridos\n\n**Edge Device Endpoints (All 9 User Stories Implemented):**\n- US1: List Devices - GET /api/tenants/:tenantId/edge-devices\n- US2: Create Device - POST /api/tenants/:tenantId/edge-devices\n- US3: Get Device - GET /api/tenants/:tenantId/edge-devices/:deviceId\n- US4: Update Device - PUT /api/tenants/:tenantId/edge-devices/:deviceId\n- US5: Enable/Disable - POST /api/tenants/:tenantId/edge-devices/:deviceId/enable, /disable\n- US6: Status Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/status\n- US7: Health Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/health-check\n- US8: Telemetry - GET /api/tenants/:tenantId/edge-devices/:deviceId/telemetry\n- US9: Events - GET /api/tenants/:tenantId/edge-devices/:deviceId/events\n- Alarm Rules (008-alarm-rules) â CRUD completo con 10 Pact interactions (GET list, GET by id, POST, PATCH, DELETE + errores 401/404/400)",
+    "description": "Master collection for Embolsadora 4.0 Cloud API\n\nConsolidated endpoints across all features:\n- Auth (Supabase JWT)\n- Invitations CRUD\n- Tenants management\n- Users CRUD\n- User Role Assignments\n- Edge Device Management (Complete US1-US9)\n- Dashboard Layouts (Complete US1-US5)\n- Roles Management (7 Pact interactions)\n\n**Base URL:** `{{baseUrl}}` = http://localhost:8080\n\n**Authentication:** Bearer JWT Token (usar POST Login para obtenerlo)\n**Multi-tenant:** `X-Tenant-ID: {{tenant_uuid}}` header requerido en la mayoría de endpoints\n\n**Dashboard Layout Endpoints (005-dashboard-layouts):**\n- US1: List Layouts - GET /api/v1/dashboard-layouts\n- US2: Create Layout - POST /api/v1/dashboard-layouts\n- US3: Get Layout - GET /api/v1/dashboard-layouts/:layoutId\n- US4: Update Layout - PUT /api/v1/dashboard-layouts/:layoutId\n- US5: Delete Layout - DELETE /api/v1/dashboard-layouts/:layoutId\n- Headers: Authorization + X-Tenant-ID (UUID) requeridos\n\n**Edge Device Endpoints (All 9 User Stories Implemented):**\n- US1: List Devices - GET /api/tenants/:tenantId/edge-devices\n- US2: Create Device - POST /api/tenants/:tenantId/edge-devices\n- US3: Get Device - GET /api/tenants/:tenantId/edge-devices/:deviceId\n- US4: Update Device - PUT /api/tenants/:tenantId/edge-devices/:deviceId\n- US5: Enable/Disable - POST /api/tenants/:tenantId/edge-devices/:deviceId/enable, /disable\n- US6: Status Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/status\n- US7: Health Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/health-check\n- US8: Telemetry - GET /api/tenants/:tenantId/edge-devices/:deviceId/telemetry\n- US9: Events - GET /api/tenants/:tenantId/edge-devices/:deviceId/events\n- Alarm Rules (008-alarm-rules) â CRUD completo con 10 Pact interactions (GET list, GET by id, POST, PATCH, DELETE + errores 401/404/400)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -50,7 +50,7 @@
                 "login"
               ]
             },
-            "description": "Login con email y contraseÃ±a. Guarda automÃ¡ticamente el access_token en la variable de entorno `token`."
+            "description": "Login con email y contraseña. Guarda automáticamente el access_token en la variable de entorno `token`."
           }
         },
         {
@@ -127,7 +127,7 @@
                 "change-password"
               ]
             },
-            "description": "Limpia el flag password_change_required. Llamar desde el frontend despuÃ©s de que el usuario completÃ³ el cambio de contraseÃ±a en Supabase. No requiere X-Tenant-ID."
+            "description": "Limpia el flag password_change_required. Llamar desde el frontend después de que el usuario completó el cambio de contraseña en Supabase. No requiere X-Tenant-ID."
           }
         }
       ]
@@ -229,7 +229,7 @@
                 "invitations"
               ]
             },
-            "description": "Crea una invitaciÃ³n y envÃ­a el email via Supabase. Requiere permiso invitations:write (rol admin o cliente_admin). Responde 409 si ya hay una invitaciÃ³n pendiente para ese email."
+            "description": "Crea una invitación y envía el email via Supabase. Requiere permiso invitations:write (rol admin o cliente_admin). Responde 409 si ya hay una invitación pendiente para ese email."
           }
         },
         {
@@ -259,7 +259,7 @@
                 "resend"
               ]
             },
-            "description": "ReenvÃ­a el email de invitaciÃ³n. La invitaciÃ³n debe estar en estado pending. Requiere permiso invitations:write."
+            "description": "Reenvía el email de invitación. La invitación debe estar en estado pending. Requiere permiso invitations:write."
           }
         },
         {
@@ -288,7 +288,7 @@
                 "{{invitation_id}}"
               ]
             },
-            "description": "Revoca una invitaciÃ³n (cambia estado a revoked). Requiere permiso invitations:write."
+            "description": "Revoca una invitación (cambia estado a revoked). Requiere permiso invitations:write."
           }
         }
       ]
@@ -323,7 +323,7 @@
                 "force-password-change"
               ]
             },
-            "description": "Fuerza el cambio de contraseÃ±a de un usuario: activa el flag password_change_required y envÃ­a email de reset via Supabase. El usuario target debe pertenecer al tenant activo. Requiere permiso users:write."
+            "description": "Fuerza el cambio de contraseña de un usuario: activa el flag password_change_required y envía email de reset via Supabase. El usuario target debe pertenecer al tenant activo. Requiere permiso users:write."
           }
         }
       ]
@@ -556,7 +556,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"firstName\": \"Carlos\",\n  \"lastName\": \"LÃ³pez\",\n  \"email\": \"carlos@example.com\",\n  \"role\": \"admin\"\n}"
+              "raw": "{\n  \"firstName\": \"Carlos\",\n  \"lastName\": \"López\",\n  \"email\": \"carlos@example.com\",\n  \"role\": \"admin\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/users",
@@ -995,7 +995,7 @@
                 "dashboard-layouts"
               ]
             },
-            "description": "Crea un nuevo layout para el (tenant, user).\n\nRespuesta 200: `{success, data: {...}}`\nRespuesta 403: lÃ­mite de 3 layouts alcanzado â `{error: \"LIMIT_REACHED\"}`\nRespuesta 409: nombre duplicado â `{error: \"DUPLICATE_NAME\"}`"
+            "description": "Crea un nuevo layout para el (tenant, user).\n\nRespuesta 200: `{success, data: {...}}`\nRespuesta 403: límite de 3 layouts alcanzado â `{error: \"LIMIT_REACHED\"}`\nRespuesta 409: nombre duplicado â `{error: \"DUPLICATE_NAME\"}`"
           }
         },
         {
@@ -1126,7 +1126,7 @@
                 "{{layout_id}}"
               ]
             },
-            "description": "Soft-delete de un layout.\n\nRespuesta 200: `{success: true, message: \"Layout eliminado correctamente\"}`\nRespuesta 400: Ãºltimo layout â `{error: \"No se puede eliminar el Ãºnico layout\"}`\nRespuesta 404: `{error: \"Layout no encontrado\"}`"
+            "description": "Soft-delete de un layout.\n\nRespuesta 200: `{success: true, message: \"Layout eliminado correctamente\"}`\nRespuesta 400: último layout â `{error: \"No se puede eliminar el único layout\"}`\nRespuesta 404: `{error: \"Layout no encontrado\"}`"
           }
         }
       ]
@@ -1523,7 +1523,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Supervisor\",\n  \"description\": \"Rol de supervisor de producciÃ³n\",\n  \"permissions\": [\"machines:read\", \"machines:write\"]\n}"
+              "raw": "{\n  \"name\": \"Supervisor\",\n  \"description\": \"Rol de supervisor de producción\",\n  \"permissions\": [\"machines:read\", \"machines:write\"]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/roles",
@@ -1536,7 +1536,7 @@
                 "roles"
               ]
             },
-            "description": "Crea un nuevo rol personalizado para el tenant. MÃ¡ximo 3 roles custom por tenant.\n\nRespuesta 201: {success: true, data: {id: \"custom_XXXXXX\", name, description, permissions, isSystemRole: false, isGlobal: false, tenantId, createdAt, updatedAt}}\n\nEl ID se genera automÃ¡ticamente como custom_<6 hex chars>.\nLos permisos se deduplicÃ¡n y ordenan alfabÃ©ticamente."
+            "description": "Crea un nuevo rol personalizado para el tenant. Máximo 3 roles custom por tenant.\n\nRespuesta 201: {success: true, data: {id: \"custom_XXXXXX\", name, description, permissions, isSystemRole: false, isGlobal: false, tenantId, createdAt, updatedAt}}\n\nEl ID se genera automáticamente como custom_<6 hex chars>.\nLos permisos se deduplicán y ordenan alfabéticamente."
           }
         },
         {
@@ -1576,7 +1576,7 @@
           }
         },
         {
-          "name": "Pact 3c - Create Role - LÃ­mite Alcanzado (403)",
+          "name": "Pact 3c - Create Role - Límite Alcanzado (403)",
           "request": {
             "method": "POST",
             "header": [
@@ -1595,7 +1595,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Cuarto Rol Custom\",\n  \"description\": \"Supera el lÃ­mite de 3\",\n  \"permissions\": []\n}"
+              "raw": "{\n  \"name\": \"Cuarto Rol Custom\",\n  \"description\": \"Supera el límite de 3\",\n  \"permissions\": []\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/roles",
@@ -1608,7 +1608,7 @@
                 "roles"
               ]
             },
-            "description": "Intenta crear un 4Â° rol custom cuando el tenant ya tiene 3.\n\nRespuesta 403: {success: false, error: \"se alcanzÃ³ el mÃ¡ximo de roles personalizados por tenant\"}\n\nPrerequisito: el tenant debe tener 3 roles custom activos (MaxCustomRolesPerTenant = 3)."
+            "description": "Intenta crear un 4Â° rol custom cuando el tenant ya tiene 3.\n\nRespuesta 403: {success: false, error: \"se alcanzó el máximo de roles personalizados por tenant\"}\n\nPrerequisito: el tenant debe tener 3 roles custom activos (MaxCustomRolesPerTenant = 3)."
           }
         },
         {
@@ -1631,7 +1631,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Supervisor Senior\",\n  \"description\": \"DescripciÃ³n actualizada\",\n  \"permissions\": [\"machines:read\", \"machines:write\", \"users:read\"]\n}"
+              "raw": "{\n  \"name\": \"Supervisor Senior\",\n  \"description\": \"Descripción actualizada\",\n  \"permissions\": [\"machines:read\", \"machines:write\", \"users:read\"]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/roles/{{role_id}}",
@@ -1645,7 +1645,7 @@
                 "{{role_id}}"
               ]
             },
-            "description": "Actualiza nombre, descripciÃ³n y permisos de un rol personalizado.\n\nRespuesta 200: {success: true, data: {...rol actualizado con updatedAt nuevo}}\nRespuesta 403: intento de modificar rol del sistema\nRespuesta 404: rol no encontrado\nRespuesta 409: nombre duplicado en el tenant\n\nSolo roles custom pueden actualizarse. Los roles del sistema (isSystemRole=true) devuelven 403."
+            "description": "Actualiza nombre, descripción y permisos de un rol personalizado.\n\nRespuesta 200: {success: true, data: {...rol actualizado con updatedAt nuevo}}\nRespuesta 403: intento de modificar rol del sistema\nRespuesta 404: rol no encontrado\nRespuesta 409: nombre duplicado en el tenant\n\nSolo roles custom pueden actualizarse. Los roles del sistema (isSystemRole=true) devuelven 403."
           }
         },
         {
@@ -1674,7 +1674,7 @@
                 "{{role_id}}"
               ]
             },
-            "description": "Elimina (soft delete) un rol personalizado sin asignaciones activas.\n\nRespuesta 200: {success: true, data: {id: \"custom_XXXXXX\"}}\n\nEl rol no se borra fÃ­sicamente â se establece deleted_at. Si el rol tiene usuarios asignados activamente en user_tenant_roles, devuelve 409."
+            "description": "Elimina (soft delete) un rol personalizado sin asignaciones activas.\n\nRespuesta 200: {success: true, data: {id: \"custom_XXXXXX\"}}\n\nEl rol no se borra físicamente â se establece deleted_at. Si el rol tiene usuarios asignados activamente en user_tenant_roles, devuelve 409."
           }
         },
         {
@@ -1703,7 +1703,7 @@
                 "{{role_id}}"
               ]
             },
-            "description": "Intenta eliminar un rol que tiene usuarios asignados activamente en user_tenant_roles.\n\nRespuesta 409: {success: false, error: \"el rol tiene usuarios asignados activos\", usersAffected: N}\n\nEl campo usersAffected indica cuÃ¡ntos usuarios deben reasignarse antes de poder eliminar el rol.\n\nPrerequisito: el rol debe tener al menos 1 entrada activa en user_tenant_roles."
+            "description": "Intenta eliminar un rol que tiene usuarios asignados activamente en user_tenant_roles.\n\nRespuesta 409: {success: false, error: \"el rol tiene usuarios asignados activos\", usersAffected: N}\n\nEl campo usersAffected indica cuántos usuarios deben reasignarse antes de poder eliminar el rol.\n\nPrerequisito: el rol debe tener al menos 1 entrada activa en user_tenant_roles."
           }
         },
         {
@@ -1766,11 +1766,11 @@
                 "alarm-rules"
               ]
             },
-            "description": "Sin token de autenticaciÃ³n â 401.\n\nRespuesta esperada:\n{success: false, error: 'UNAUTHORIZED', message: '...', status: 401}"
+            "description": "Sin token de autenticación â 401.\n\nRespuesta esperada:\n{success: false, error: 'UNAUTHORIZED', message: '...', status: 401}"
           }
         },
         {
-          "name": "Pact 2 - List Alarm Rules (200 vacÃ­o)",
+          "name": "Pact 2 - List Alarm Rules (200 vacío)",
           "request": {
             "method": "GET",
             "header": [
@@ -1794,7 +1794,7 @@
                 "alarm-rules"
               ]
             },
-            "description": "Lista todas las reglas del tenant. Respuesta vacÃ­a si no hay ninguna.\n\nRespuesta 200:\n{success: true, data: []}"
+            "description": "Lista todas las reglas del tenant. Respuesta vacía si no hay ninguna.\n\nRespuesta 200:\n{success: true, data: []}"
           }
         },
         {
@@ -1839,7 +1839,7 @@
           }
         },
         {
-          "name": "Pact 4 - Create Alarm Rule 400 (validaciÃ³n)",
+          "name": "Pact 4 - Create Alarm Rule 400 (validación)",
           "request": {
             "method": "POST",
             "header": [

@@ -953,6 +953,17 @@ components:
   # Schemas
   ########################
   schemas:
+    JWTError:
+      type: object
+      description: Formato de error retornado por el middleware JWTAuth (401) y middleware RBAC (403)
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "No autorizado"
+
     Envelope:
       type: object
       properties:
@@ -1390,7 +1401,10 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Envelope'
+            $ref: '#/components/schemas/JWTError'
+          example:
+            success: false
+            error: "No autorizado"
     Forbidden:
       description: Acción no permitida
       content:
