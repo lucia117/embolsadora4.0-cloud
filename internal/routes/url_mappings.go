@@ -40,7 +40,10 @@ import (
 	edgeDevicesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/edge_devices"
 	invitationsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/invitations"
 	logsHandler "github.com/tu-org/embolsadora-api/internal/api/handler/logs"
+	notificationsHandler "github.com/tu-org/embolsadora-api/internal/api/handler/notifications"
 	logsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/logs"
+	notificationsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/notifications"
+	appNotifications "github.com/tu-org/embolsadora-api/internal/app/notifications"
 	rolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/roles"
 	tenantsRepository "github.com/tu-org/embolsadora-api/internal/repo/pg/tenants"
 	userRolesRepository "github.com/tu-org/embolsadora-api/internal/repo/pg/user_roles"
@@ -183,4 +186,10 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	logRepository := logsRepo.New(db)
 	logService := appLogs.New(logRepository, logger)
 	logsHandler.RegisterRoutes(v1, logService)
+
+	// Notification Service (/api/v1/notifications)
+	// GET endpoints: sin RBAC adicional (cualquier usuario autenticado del tenant puede ver/gestionar sus notificaciones)
+	nRepo := notificationsRepo.New(db)
+	nService := appNotifications.New(nRepo, logger)
+	notificationsHandler.RegisterRoutes(v1, nService)
 }
