@@ -200,44 +200,49 @@ Consumer: `embolsadora-frontend` → Provider: `alarm-rules-service-api`
 
 ---
 
-### ❌ No Implementados
-
----
-
-#### `log-service-api` — 0/14 interacciones
+#### `log-service-api` — 14/14 interacciones
 
 Consumer: `embolsadora-frontend` → Provider: `log-service-api`
 
-| Método | Path | Descripción |
-|---|---|---|
-| GET | `/api/v1/logs` (con filtros) | Búsqueda con filtros |
-| GET | `/api/v1/logs` (text query) | Búsqueda por texto |
-| GET | `/api/v1/logs` (machine logs) | Filtrar por máquina |
-| GET | `/api/v1/logs` (cursor) | Paginación por cursor |
-| GET | `/api/v1/logs` (sin resultados) | Respuesta vacía |
-| GET | `/api/v1/logs/{id}` → 200 | Obtener log por ID |
-| GET | `/api/v1/logs/{id}` → 404 | Log no encontrado |
-| GET | `/api/v1/logs/{id}/context` | Contexto alrededor del log |
-| GET | `/api/v1/logs/retention` | Política de retención |
-| PATCH | `/api/v1/logs/retention` | Actualizar retención |
-| GET | `/api/v1/logs/stream` | SSE streaming |
-| GET | `/api/v1/logs/export` | Exportar logs |
-| GET | `/api/v1/logs/export` (truncado) | Export con límite excedido |
+| Método | Path | Estado | Observación |
+|---|---|---|---|
+| GET | `/api/v1/logs` (con filtros) | ✅ | Filtros: event_type, severity, machine_id, from/to, q |
+| GET | `/api/v1/logs` (text query) | ✅ | Full-text search via tsvector |
+| GET | `/api/v1/logs` (machine logs) | ✅ | Filtro machine_id con aislamiento tenant |
+| GET | `/api/v1/logs` (cursor) | ✅ | Paginación keyset por (created_at, id) codificado en base64 |
+| GET | `/api/v1/logs` (sin resultados) | ✅ | `data: []` con 200 |
+| GET | `/api/v1/logs/{id}` → 200 | ✅ | Todos los campos incluyendo metadata JSONB |
+| GET | `/api/v1/logs/{id}` → 404 | ✅ | NOT_FOUND si inexistente o de otro tenant |
+| GET | `/api/v1/logs/{id}/context` | ✅ | Ventana before/anchor/after configurable |
+| GET | `/api/v1/logs/retention` | ✅ | Retorna política o default 90 días |
+| PATCH | `/api/v1/logs/retention` | ✅ | Requiere permiso admin |
+| GET | `/api/v1/logs/stream` | ✅ | SSE con heartbeat cada 30s |
+| GET | `/api/v1/logs/export` | ✅ | JSON/CSV con truncated flag |
+| GET | `/api/v1/logs/export` (truncado) | ✅ | `truncated: true, total_available: N` |
+| GET | `/api/v1/logs` → 401 | ✅ | Sin JWT → UNAUTHORIZED |
+
+> Implementado en `009-log-service`: migración 000015 (log_entries + log_retention_policies + índices FTS), domain + repo (cursor keyset) + service (SSE hub) + 6 handlers + Postman collection 14 Pacts.
 
 ---
 
-#### `notification-service-api` — 0/6 interacciones
+#### `notification-service-api` — 6/6 interacciones
 
 Consumer: `embolsadora-frontend` → Provider: `notification-service-api`
 
-| Método | Path | Descripción |
-|---|---|---|
-| GET | `/api/v1/notifications` | Listar notificaciones |
-| GET | `/api/v1/notifications/count` | Conteo sin leer |
-| GET | `/api/v1/notifications/{id}` | Detalle de notificación |
-| POST | `/api/v1/notifications/{id}/ack` | Acknowledger notificación |
-| POST | `/api/v1/notifications/{id}/close` | Cerrar notificación |
-| GET | `/api/v1/alarm-rules` | Listar reglas (usado en context) |
+| Método | Path | Estado | Observación |
+|---|---|---|---|
+| GET | `/api/v1/notifications` | ✅ | Paginación limit/offset, filtros status y severity |
+| GET | `/api/v1/notifications/count` | ✅ | Conteo de `status='unread'` del tenant |
+| GET | `/api/v1/notifications/{id}` | ✅ | 200 si existe y pertenece al tenant, 404 si no |
+| POST | `/api/v1/notifications/{id}/ack` | ✅ | Idempotente: unread→acknowledged, acknowledged/closed→sin cambio |
+| POST | `/api/v1/notifications/{id}/close` | ✅ | Idempotente: cualquier estado→closed |
+| GET | `/api/v1/alarm-rules` | ✅ | Ya implementado en 008-alarm-rules; verificado en quickstart |
+
+> Implementado en `010-notification-service`: migración 000016 (notifications table + índices), domain + repo (Ack/Close idempotentes) + service + 5 handlers + wiring en url_mappings.go.
+
+---
+
+### ❌ No Implementados
 
 ---
 
@@ -288,13 +293,13 @@ Consumer: `embolsadora-frontend` → Provider: `reports-service-api`
 
 | # | Servicio | Interacciones | Prioridad | Justificación |
 |---|---|---|---|---|
-| 1 | `log-service-api` | 14 | 🔴 Alta | Observabilidad activa — alto valor para operadores |
-| 2 | `notification-service-api` | 6 | 🟡 Media | Depende de alarm-rules (ya implementado) |
-| 3 | `permissions-service-api` | 10 | 🟡 Media | RBAC dinámico, actualmente estático en código |
-| 4 | `user-service-api-roles-extension` (completar) | 1 | 🟠 Media-baja | Solo falta POST /users con rol inicial |
-| 5 | `reports-service-api` | 16 | 🔵 Baja | Generación async compleja, mayor esfuerzo |
+| ~~1~~ | ~~`log-service-api`~~ | ~~14~~ | ~~✅ Done (009)~~ | — |
+| ~~2~~ | ~~`notification-service-api`~~ | ~~6~~ | ~~✅ Done (010)~~ | — |
+| 1 | `permissions-service-api` | 10 | 🟡 Media | RBAC dinámico, actualmente estático en código |
+| 2 | `user-service-api-roles-extension` (completar) | 1 | 🟠 Media-baja | Solo falta POST /users con rol inicial |
+| 3 | `reports-service-api` | 16 | 🔵 Baja | Generación async compleja, mayor esfuerzo |
 
-**Total interacciones pendientes**: ~60 de 149 (excluyendo 5 N/A Supabase)
+**Total interacciones pendientes**: ~27 de 149 (excluyendo 5 N/A Supabase)
 
 ---
 

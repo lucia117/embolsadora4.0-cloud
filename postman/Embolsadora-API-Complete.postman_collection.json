@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "embolsadora-api-master-collection",
     "name": "Embolsadora API - Complete Collection",
-    "description": "Master collection for Embolsadora 4.0 Cloud API\n\nConsolidated endpoints across all features:\n- Auth (Supabase JWT)\n- Invitations CRUD\n- Tenants management\n- Users CRUD\n- User Role Assignments\n- Edge Device Management (Complete US1-US9)\n- Dashboard Layouts (Complete US1-US5)\n- Roles Management (7 Pact interactions)\n\n**Base URL:** `{{baseUrl}}` = http://localhost:8080\n\n**Authentication:** Bearer JWT Token (usar POST Login para obtenerlo)\n**Multi-tenant:** `X-Tenant-ID: {{tenant_uuid}}` header requerido en la mayoría de endpoints\n\n**Dashboard Layout Endpoints (005-dashboard-layouts):**\n- US1: List Layouts - GET /api/v1/dashboard-layouts\n- US2: Create Layout - POST /api/v1/dashboard-layouts\n- US3: Get Layout - GET /api/v1/dashboard-layouts/:layoutId\n- US4: Update Layout - PUT /api/v1/dashboard-layouts/:layoutId\n- US5: Delete Layout - DELETE /api/v1/dashboard-layouts/:layoutId\n- Headers: Authorization + X-Tenant-ID (UUID) requeridos\n\n**Edge Device Endpoints (All 9 User Stories Implemented):**\n- US1: List Devices - GET /api/tenants/:tenantId/edge-devices\n- US2: Create Device - POST /api/tenants/:tenantId/edge-devices\n- US3: Get Device - GET /api/tenants/:tenantId/edge-devices/:deviceId\n- US4: Update Device - PUT /api/tenants/:tenantId/edge-devices/:deviceId\n- US5: Enable/Disable - POST /api/tenants/:tenantId/edge-devices/:deviceId/enable, /disable\n- US6: Status Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/status\n- US7: Health Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/health-check\n- US8: Telemetry - GET /api/tenants/:tenantId/edge-devices/:deviceId/telemetry\n- US9: Events - GET /api/tenants/:tenantId/edge-devices/:deviceId/events\n- Alarm Rules (008-alarm-rules) — CRUD completo con 10 Pact interactions (GET list, GET by id, POST, PATCH, DELETE + errores 401/404/400)",
+    "description": "Master collection for Embolsadora 4.0 Cloud API\n\nConsolidated endpoints across all features:\n- Auth (Supabase JWT)\n- Invitations CRUD\n- Tenants management\n- Users CRUD\n- User Role Assignments\n- Edge Device Management (Complete US1-US9)\n- Dashboard Layouts (Complete US1-US5)\n- Roles Management (7 Pact interactions)\n\n**Base URL:** `{{baseUrl}}` = http://localhost:8080\n\n**Authentication:** Bearer JWT Token (usar POST Login para obtenerlo)\n**Multi-tenant:** `X-Tenant-ID: {{tenant_uuid}}` header requerido en la mayoría de endpoints\n\n**Dashboard Layout Endpoints (005-dashboard-layouts):**\n- US1: List Layouts - GET /api/v1/dashboard-layouts\n- US2: Create Layout - POST /api/v1/dashboard-layouts\n- US3: Get Layout - GET /api/v1/dashboard-layouts/:layoutId\n- US4: Update Layout - PUT /api/v1/dashboard-layouts/:layoutId\n- US5: Delete Layout - DELETE /api/v1/dashboard-layouts/:layoutId\n- Headers: Authorization + X-Tenant-ID (UUID) requeridos\n\n**Edge Device Endpoints (All 9 User Stories Implemented):**\n- US1: List Devices - GET /api/tenants/:tenantId/edge-devices\n- US2: Create Device - POST /api/tenants/:tenantId/edge-devices\n- US3: Get Device - GET /api/tenants/:tenantId/edge-devices/:deviceId\n- US4: Update Device - PUT /api/tenants/:tenantId/edge-devices/:deviceId\n- US5: Enable/Disable - POST /api/tenants/:tenantId/edge-devices/:deviceId/enable, /disable\n- US6: Status Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/status\n- US7: Health Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/health-check\n- US8: Telemetry - GET /api/tenants/:tenantId/edge-devices/:deviceId/telemetry\n- US9: Events - GET /api/tenants/:tenantId/edge-devices/:deviceId/events\n- Alarm Rules (008-alarm-rules) â CRUD completo con 10 Pact interactions (GET list, GET by id, POST, PATCH, DELETE + errores 401/404/400)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -995,7 +995,7 @@
                 "dashboard-layouts"
               ]
             },
-            "description": "Crea un nuevo layout para el (tenant, user).\n\nRespuesta 200: `{success, data: {...}}`\nRespuesta 403: límite de 3 layouts alcanzado → `{error: \"LIMIT_REACHED\"}`\nRespuesta 409: nombre duplicado → `{error: \"DUPLICATE_NAME\"}`"
+            "description": "Crea un nuevo layout para el (tenant, user).\n\nRespuesta 200: `{success, data: {...}}`\nRespuesta 403: límite de 3 layouts alcanzado â `{error: \"LIMIT_REACHED\"}`\nRespuesta 409: nombre duplicado â `{error: \"DUPLICATE_NAME\"}`"
           }
         },
         {
@@ -1126,7 +1126,7 @@
                 "{{layout_id}}"
               ]
             },
-            "description": "Soft-delete de un layout.\n\nRespuesta 200: `{success: true, message: \"Layout eliminado correctamente\"}`\nRespuesta 400: último layout → `{error: \"No se puede eliminar el único layout\"}`\nRespuesta 404: `{error: \"Layout no encontrado\"}`"
+            "description": "Soft-delete de un layout.\n\nRespuesta 200: `{success: true, message: \"Layout eliminado correctamente\"}`\nRespuesta 400: último layout â `{error: \"No se puede eliminar el único layout\"}`\nRespuesta 404: `{error: \"Layout no encontrado\"}`"
           }
         }
       ]
@@ -1608,7 +1608,7 @@
                 "roles"
               ]
             },
-            "description": "Intenta crear un 4° rol custom cuando el tenant ya tiene 3.\n\nRespuesta 403: {success: false, error: \"se alcanzó el máximo de roles personalizados por tenant\"}\n\nPrerequisito: el tenant debe tener 3 roles custom activos (MaxCustomRolesPerTenant = 3)."
+            "description": "Intenta crear un 4Â° rol custom cuando el tenant ya tiene 3.\n\nRespuesta 403: {success: false, error: \"se alcanzó el máximo de roles personalizados por tenant\"}\n\nPrerequisito: el tenant debe tener 3 roles custom activos (MaxCustomRolesPerTenant = 3)."
           }
         },
         {
@@ -1649,7 +1649,7 @@
           }
         },
         {
-          "name": "Pact 5 - Delete Role - Éxito (200)",
+          "name": "Pact 5 - Delete Role - Ãxito (200)",
           "request": {
             "method": "DELETE",
             "header": [
@@ -1674,7 +1674,7 @@
                 "{{role_id}}"
               ]
             },
-            "description": "Elimina (soft delete) un rol personalizado sin asignaciones activas.\n\nRespuesta 200: {success: true, data: {id: \"custom_XXXXXX\"}}\n\nEl rol no se borra físicamente — se establece deleted_at. Si el rol tiene usuarios asignados activamente en user_tenant_roles, devuelve 409."
+            "description": "Elimina (soft delete) un rol personalizado sin asignaciones activas.\n\nRespuesta 200: {success: true, data: {id: \"custom_XXXXXX\"}}\n\nEl rol no se borra físicamente â se establece deleted_at. Si el rol tiene usuarios asignados activamente en user_tenant_roles, devuelve 409."
           }
         },
         {
@@ -1766,7 +1766,7 @@
                 "alarm-rules"
               ]
             },
-            "description": "Sin token de autenticación → 401.\n\nRespuesta esperada:\n{success: false, error: 'UNAUTHORIZED', message: '...', status: 401}"
+            "description": "Sin token de autenticación â 401.\n\nRespuesta esperada:\n{success: false, error: 'UNAUTHORIZED', message: '...', status: 401}"
           }
         },
         {
@@ -1867,7 +1867,7 @@
                 "alarm-rules"
               ]
             },
-            "description": "Body con campos faltantes → 400 VALIDATION_ERROR.\n\nRespuesta 400:\n{success: false, error: 'VALIDATION_ERROR', message: '...', status: 400}",
+            "description": "Body con campos faltantes â 400 VALIDATION_ERROR.\n\nRespuesta 400:\n{success: false, error: 'VALIDATION_ERROR', message: '...', status: 400}",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Regla incompleta\",\n  \"operator\": \"gt\",\n  \"threshold\": 50.0\n}",
@@ -1962,7 +1962,7 @@
                 "00000000-0000-0000-0000-000000000000"
               ]
             },
-            "description": "ID inexistente → 404 NOT_FOUND.\n\nRespuesta 404:\n{success: false, error: 'NOT_FOUND', message: 'regla de alarma no encontrada', status: 404}"
+            "description": "ID inexistente â 404 NOT_FOUND.\n\nRespuesta 404:\n{success: false, error: 'NOT_FOUND', message: 'regla de alarma no encontrada', status: 404}"
           }
         },
         {
@@ -2037,7 +2037,7 @@
                 "00000000-0000-0000-0000-000000000000"
               ]
             },
-            "description": "ID inexistente en update → 404 NOT_FOUND.\n\nRespuesta 404:\n{success: false, error: 'NOT_FOUND', message: 'regla de alarma no encontrada', status: 404}",
+            "description": "ID inexistente en update â 404 NOT_FOUND.\n\nRespuesta 404:\n{success: false, error: 'NOT_FOUND', message: 'regla de alarma no encontrada', status: 404}",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"threshold\": 90.0\n}",
@@ -2104,7 +2104,217 @@
                 "00000000-0000-0000-0000-000000000000"
               ]
             },
-            "description": "ID inexistente en delete → 404 NOT_FOUND.\n\nRespuesta 404:\n{success: false, error: 'NOT_FOUND', message: 'regla de alarma no encontrada', status: 404}"
+            "description": "ID inexistente en delete â 404 NOT_FOUND.\n\nRespuesta 404:\n{success: false, error: 'NOT_FOUND', message: 'regla de alarma no encontrada', status: 404}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "GET /notifications — lista (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /notifications — sin auth (401)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /notifications/count — conteo no leídas (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/count",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "count"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /notifications/:id — detalle (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/{{notification_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "{{notification_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /notifications/:id — inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/00000000-0000-0000-0000-000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "00000000-0000-0000-0000-000000000000"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /notifications/:id/ack — primera vez (200)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/{{notification_id}}/ack",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "{{notification_id}}",
+                "ack"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /notifications/:id/ack — idempotente (200)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/{{notification_id}}/ack",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "{{notification_id}}",
+                "ack"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /notifications/:id/close — (200)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/{{notification_id}}/close",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "{{notification_id}}",
+                "close"
+              ]
+            }
           }
         }
       ]
@@ -2127,13 +2337,13 @@
       "key": "tenant_id",
       "value": "550e8400-e29b-41d4-a716-446655440001",
       "type": "string",
-      "description": "Tenant UUID — usado en X-Tenant-ID header (dashboard layouts, users, etc.) y en path params de edge devices"
+      "description": "Tenant UUID â usado en X-Tenant-ID header (dashboard layouts, users, etc.) y en path params de edge devices"
     },
     {
       "key": "tenant_uuid",
       "value": "550e8400-e29b-41d4-a716-446655440000",
       "type": "string",
-      "description": "Tenant UUID — used in X-Tenant-ID header for users/roles endpoints"
+      "description": "Tenant UUID â used in X-Tenant-ID header for users/roles endpoints"
     },
     {
       "key": "tenantId",
@@ -2187,19 +2397,24 @@
       "key": "invitation_id",
       "value": "00000000-0000-0000-0000-000000000000",
       "type": "string",
-      "description": "Invitation UUID — reemplazar con el id devuelto por POST Create Invitation"
+      "description": "Invitation UUID â reemplazar con el id devuelto por POST Create Invitation"
     },
     {
       "key": "layout_id",
       "value": "00000000-0000-0000-0000-000000000000",
       "type": "string",
-      "description": "Dashboard Layout UUID — reemplazar con el id devuelto por POST Create Layout"
+      "description": "Dashboard Layout UUID â reemplazar con el id devuelto por POST Create Layout"
     },
     {
       "key": "alarm_rule_id",
       "value": "00000000-0000-0000-0000-000000000000",
       "type": "string",
-      "description": "Alarm Rule UUID — reemplazar con el id devuelto por POST Create Alarm Rule"
+      "description": "Alarm Rule UUID â reemplazar con el id devuelto por POST Create Alarm Rule"
+    },
+    {
+      "key": "notification_id",
+      "value": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "type": "string"
     }
   ]
 }
