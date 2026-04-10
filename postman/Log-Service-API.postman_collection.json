@@ -1,0 +1,451 @@
+{
+  "info": {
+    "name": "Log Service API — Pact Interactions",
+    "description": "14 Pact interactions for the Log Service API (009-log-service). Validates all contracts defined in specs/009-log-service/quickstart.md.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "log-service-api-v1"
+  },
+  "variable": [
+    { "key": "baseUrl",   "value": "http://localhost:8080/api/v1" },
+    { "key": "jwt_token", "value": "<replace_with_jwt_token>" },
+    { "key": "tenant_id", "value": "550e8400-e29b-41d4-a716-446655440001" },
+    { "key": "log_id",    "value": "<replace_with_existing_log_id>" },
+    { "key": "machine_id",         "value": "<replace_with_machine_uuid>" },
+    { "key": "jwt_token_no_admin", "value": "<replace_with_non_admin_jwt>" },
+    { "key": "cursor",             "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Pact 1 — List Logs 401 (sin auth)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/logs", "host": ["{{baseUrl}}"], "path": ["logs"] }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"] }
+      }]
+    },
+    {
+      "name": "Pact 2 — List Logs con filtros (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/logs?severity=warning&event_type=alarm_triggered",
+          "host": ["{{baseUrl}}"],
+          "path": ["logs"],
+          "query": [
+            { "key": "severity",   "value": "warning" },
+            { "key": "event_type", "value": "alarm_triggered" }
+          ]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Status 200', () => pm.response.to.have.status(200));",
+          "const body = pm.response.json();",
+          "pm.test('Has data array', () => pm.expect(body.data).to.be.an('array'));",
+          "pm.test('Has total', () => pm.expect(body.total).to.be.a('number'));"
+        ]}
+      }]
+    },
+    {
+      "name": "Pact 3 — List Logs búsqueda por texto (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/logs?q=Temperatura",
+          "host": ["{{baseUrl}}"],
+          "path": ["logs"],
+          "query": [{ "key": "q", "value": "Temperatura" }]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Status 200', () => pm.response.to.have.status(200));",
+          "const body = pm.response.json();",
+          "pm.test('Has data array', () => pm.expect(body.data).to.be.an('array'));"
+        ]}
+      }]
+    },
+    {
+      "name": "Pact 4 — List Logs por máquina (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/logs?machine_id={{machine_id}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["logs"],
+          "query": [{ "key": "machine_id", "value": "{{machine_id}}" }]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Status 200', () => pm.response.to.have.status(200));",
+          "const body = pm.response.json();",
+          "pm.test('Has data array', () => pm.expect(body.data).to.be.an('array'));"
+        ]}
+      }]
+    },
+    {
+      "name": "Pact 5 — List Logs paginación por cursor (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/logs?limit=2",
+          "host": ["{{baseUrl}}"],
+          "path": ["logs"],
+          "query": [{ "key": "limit", "value": "2" }]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Status 200', () => pm.response.to.have.status(200));",
+          "const body = pm.response.json();",
+          "pm.test('Has next_cursor when results >= limit', () => {",
+          "  if (body.data.length === 2) pm.expect(body.next_cursor).to.not.be.null;",
+          "});",
+          "if (body.next_cursor) pm.collectionVariables.set('cursor', body.next_cursor);"
+        ]}
+      }]
+    },
+    {
+      "name": "Pact 5b — List Logs siguiente página con cursor (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/logs?cursor={{cursor}}&limit=2",
+          "host": ["{{baseUrl}}"],
+          "path": ["logs"],
+          "query": [
+            { "key": "cursor", "value": "{{cursor}}" },
+            { "key": "limit",  "value": "2" }
+          ]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Status 200', () => pm.response.to.have.status(200));",
+          "const body = pm.response.json();",
+          "pm.test('Has data array', () => pm.expect(body.data).to.be.an('array'));"
+        ]}
+      }]
+    },
+    {
+      "name": "Pact 6 — List Logs sin resultados (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/logs?event_type=system&from=2000-01-01T00:00:00Z&to=2000-01-02T00:00:00Z",
+          "host": ["{{baseUrl}}"],
+          "path": ["logs"],
+          "query": [
+            { "key": "event_type", "value": "system" },
+            { "key": "from",       "value": "2000-01-01T00:00:00Z" },
+            { "key": "to",         "value": "2000-01-02T00:00:00Z" }
+          ]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Status 200', () => pm.response.to.have.status(200));",
+          "const body = pm.response.json();",
+          "pm.test('Empty data', () => pm.expect(body.data).to.eql([]));",
+          "pm.test('Total is 0', () => pm.expect(body.total).to.eql(0));",
+          "pm.test('next_cursor is null', () => pm.expect(body.next_cursor).to.be.null);"
+        ]}
+      }]
+    },
+    {
+      "name": "Pact 7 — Get Log por ID (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/logs/{{log_id}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["logs", "{{log_id}}"]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Status 200', () => pm.response.to.have.status(200));",
+          "const body = pm.response.json();",
+          "pm.test('Has id', () => pm.expect(body.id).to.be.a('string'));",
+          "pm.test('Has message', () => pm.expect(body.message).to.be.a('string'));"
+        ]}
+      }]
+    },
+    {
+      "name": "Pact 8 — Get Log por ID inexistente (404)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/logs/00000000-0000-0000-0000-000000000000",
+          "host": ["{{baseUrl}}"],
+          "path": ["logs", "00000000-0000-0000-0000-000000000000"]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Status 404', () => pm.response.to.have.status(404));",
+          "const body = pm.response.json();",
+          "pm.test('Error NOT_FOUND', () => pm.expect(body.error).to.eql('NOT_FOUND'));"
+        ]}
+      }]
+    },
+    {
+      "name": "Pact 9 — Get Log Context (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/logs/{{log_id}}/context?window_size=3",
+          "host": ["{{baseUrl}}"],
+          "path": ["logs", "{{log_id}}", "context"],
+          "query": [{ "key": "window_size", "value": "3" }]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Status 200', () => pm.response.to.have.status(200));",
+          "const body = pm.response.json();",
+          "pm.test('Has before array', () => pm.expect(body.before).to.be.an('array'));",
+          "pm.test('Has anchor', () => pm.expect(body.anchor).to.be.an('object'));",
+          "pm.test('Has after array', () => pm.expect(body.after).to.be.an('array'));"
+        ]}
+      }]
+    },
+    {
+      "name": "Pact 10 — Get Retention Policy (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/logs/retention",
+          "host": ["{{baseUrl}}"],
+          "path": ["logs", "retention"]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Status 200', () => pm.response.to.have.status(200));",
+          "const body = pm.response.json();",
+          "pm.test('Has tenant_id', () => pm.expect(body.tenant_id).to.be.a('string'));",
+          "pm.test('Has retention_days', () => pm.expect(body.retention_days).to.be.a('number'));"
+        ]}
+      }]
+    },
+    {
+      "name": "Pact 11 — Update Retention Policy (200) [requiere logs:admin]",
+      "description": "El token JWT debe pertenecer a un usuario con permiso logs:admin. Sin ese permiso retorna 403.",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Authorization",  "value": "Bearer {{jwt_token}}", "description": "Token con permiso logs:admin" },
+          { "key": "X-Tenant-ID",    "value": "{{tenant_id}}" },
+          { "key": "Content-Type",   "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"retention_days\": 30}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/logs/retention",
+          "host": ["{{baseUrl}}"],
+          "path": ["logs", "retention"]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Status 200', () => pm.response.to.have.status(200));",
+          "const body = pm.response.json();",
+          "pm.test('retention_days updated', () => pm.expect(body.retention_days).to.eql(30));"
+        ]}
+      }]
+    },
+    {
+      "name": "Pact 11b — Update Retention sin permiso (403)",
+      "description": "Usuario sin logs:admin recibe 403 Forbidden.",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Authorization",  "value": "Bearer {{jwt_token_no_admin}}", "description": "Token sin logs:admin" },
+          { "key": "X-Tenant-ID",    "value": "{{tenant_id}}" },
+          { "key": "Content-Type",   "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"retention_days\": 30}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/logs/retention",
+          "host": ["{{baseUrl}}"],
+          "path": ["logs", "retention"]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Status 403', () => pm.response.to.have.status(403));"
+        ]}
+      }]
+    },
+    {
+      "name": "Extra — List Logs from > to (400)",
+      "description": "Rango de fechas invertido debe retornar 400 BAD_REQUEST.",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/logs?from=2026-01-02T00:00:00Z&to=2026-01-01T00:00:00Z",
+          "host": ["{{baseUrl}}"],
+          "path": ["logs"],
+          "query": [
+            { "key": "from", "value": "2026-01-02T00:00:00Z" },
+            { "key": "to",   "value": "2026-01-01T00:00:00Z" }
+          ]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Status 400', () => pm.response.to.have.status(400));",
+          "const body = pm.response.json();",
+          "pm.test('Error BAD_REQUEST', () => pm.expect(body.error).to.eql('BAD_REQUEST'));",
+          "pm.test('Mensaje from > to', () => pm.expect(body.message).to.include('from'));"
+        ]}
+      }]
+    },
+    {
+      "name": "Pact 12 — Stream SSE (establecer conexión)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" },
+          { "key": "Accept",        "value": "text/event-stream" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/logs/stream",
+          "host": ["{{baseUrl}}"],
+          "path": ["logs", "stream"]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Status 200', () => pm.response.to.have.status(200));",
+          "pm.test('Content-Type is event-stream', () => {",
+          "  pm.expect(pm.response.headers.get('Content-Type')).to.include('text/event-stream');",
+          "});"
+        ]}
+      }]
+    },
+    {
+      "name": "Pact 13 — Export Logs normal (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/logs/export?severity=warning",
+          "host": ["{{baseUrl}}"],
+          "path": ["logs", "export"],
+          "query": [{ "key": "severity", "value": "warning" }]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Status 200', () => pm.response.to.have.status(200));",
+          "const body = pm.response.json();",
+          "pm.test('Has data array', () => pm.expect(body.data).to.be.an('array'));",
+          "pm.test('Has truncated flag', () => pm.expect(body.truncated).to.be.a('boolean'));",
+          "pm.test('Not truncated', () => pm.expect(body.truncated).to.eql(false));",
+          "pm.test('Has exported_count', () => pm.expect(body.exported_count).to.be.a('number'));",
+          "pm.test('Has total_available', () => pm.expect(body.total_available).to.be.a('number'));"
+        ]}
+      }]
+    },
+    {
+      "name": "Pact 14 — Export Logs truncado (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tenant-ID",   "value": "{{tenant_id}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/logs/export",
+          "host": ["{{baseUrl}}"],
+          "path": ["logs", "export"]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Status 200', () => pm.response.to.have.status(200));",
+          "const body = pm.response.json();",
+          "pm.test('Has data array', () => pm.expect(body.data).to.be.an('array'));",
+          "pm.test('Has truncated flag', () => pm.expect(body.truncated).to.be.a('boolean'));",
+          "// Note: truncated=true only when >50k logs exist for this tenant"
+        ]}
+      }]
+    }
+  ]
+}
