@@ -30,6 +30,9 @@ func (s *Service) List(ctx context.Context, tenantID uuid.UUID, params notifRepo
 	if params.Limit > 100 {
 		params.Limit = 100
 	}
+	if params.Offset < 0 {
+		params.Offset = 0
+	}
 
 	items, total, err := s.repo.List(ctx, tenantID, params)
 	if err != nil {

@@ -49,15 +49,30 @@
 
 ## Decisión 5: Idempotencia de ack/close
 
-**Decisión**: Implementar con `UPDATE ... SET status = $1, ... WHERE id = $2 AND tenant_id = $3` sin condición de estado previo. Retornar la notificación en su estado actual siempre que exista.
+**Decisión**: Implementar con expresiones `CASE WHEN` en el SQL del UPDATE para aplicar transiciones de estado condicionalmente sin romper el estado actual si ya está en un estado terminal.
 
-**Rationale**: Simplifica la lógica del repositorio. La idempotencia queda garantizada porque siempre se aplica el mismo `SET status = 'acknowledged'` independientemente del estado actual. Si la notificación está `closed` y se hace ack, el UPDATE no cambia nada (PostgreSQL aplica el SET pero el valor ya es lo que había), y se retorna el estado actual.
+**Rationale**: Evita race conditions y simplifica el repositorio al eliminar la necesidad de SELECT previo. Las reglas de transición:
+- `ack`: `unread → acknowledged`. Si ya está `acknowledged` o `closed`, el UPDATE no modifica el estado ni el timestamp (CASE no aplica el SET).
+- `close`: `any → closed`. El `closed_at` solo se escribe si el estado actual NO es `closed` (CASE protege el timestamp original).
+
+**Implementación en repo**:
+```sql
+-- Ack (idempotente: solo transiciona desde 'unread')
+UPDATE notifications
+SET status          = CASE WHEN status = 'unread' THEN 'acknowledged' ELSE status END,
+    acknowledged_at = CASE WHEN status = 'unread' THEN NOW() ELSE acknowledged_at END
+WHERE id = $1 AND tenant_id = $2
+
+-- Close (idempotente: closed_at preserva el timestamp original)
+UPDATE notifications
+SET status    = 'closed',
+    closed_at = CASE WHEN status != 'closed' THEN NOW() ELSE closed_at END
+WHERE id = $1 AND tenant_id = $2
+```
 
 **Alternativas consideradas**:
-- `UPDATE ... WHERE status = 'unread'` (solo transiciona si está en estado correcto): descartado porque rompe idempotencia — fallaría si se llama dos veces.
+- `UPDATE ... WHERE status = 'unread'` (solo transiciona si está en estado correcto): descartado porque con `0 rows affected` no podríamos distinguir entre "no existe" y "ya estaba acknowledged".
 - Verificar estado antes de UPDATE con SELECT: introduce race condition sin beneficio real.
-
-**Nota de implementación**: Para close, el estado `closed` no puede revertirse. Para ack de una notificación `closed`, se hace UPDATE y se retorna el estado actual (closed), ya que el SET `status = 'acknowledged'` no modifica una notificación que ya está `closed` — pero en realidad sí la modificaría. Por lo tanto, la lógica correcta es: si el estado actual ya es `closed`, no aplicar el UPDATE del ack (solo retornar). Si es `acknowledged`, el ack es no-op. Ver implementación en service.
 
 ---
 

@@ -58,7 +58,7 @@ curl -s -X GET "$BASE_URL/notifications" \
   -H "X-Tenant-ID: $TENANT_ID" | jq .
 ```
 
-**Esperado**: `401 UNAUTHORIZED` con `{ error: "...", code: "UNAUTHORIZED" }`
+**Esperado**: `401 UNAUTHORIZED` con `{ "success": false, "error": "No autorizado" }`
 
 ---
 

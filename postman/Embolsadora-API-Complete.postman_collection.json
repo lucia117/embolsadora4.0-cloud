@@ -2113,7 +2113,7 @@
       "name": "Notifications",
       "item": [
         {
-          "name": "GET /notifications  lista (200)",
+          "name": "GET /notifications — lista (200)",
           "request": {
             "method": "GET",
             "header": [
@@ -2138,7 +2138,7 @@
           }
         },
         {
-          "name": "GET /notifications  sin auth (401)",
+          "name": "GET /notifications — sin auth (401)",
           "request": {
             "method": "GET",
             "header": [
@@ -2159,7 +2159,7 @@
           }
         },
         {
-          "name": "GET /notifications/count  conteo no leídas (200)",
+          "name": "GET /notifications/count — conteo no leídas (200)",
           "request": {
             "method": "GET",
             "header": [
@@ -2185,7 +2185,7 @@
           }
         },
         {
-          "name": "GET /notifications/:id  detalle (200)",
+          "name": "GET /notifications/:id — detalle (200)",
           "request": {
             "method": "GET",
             "header": [
@@ -2211,7 +2211,7 @@
           }
         },
         {
-          "name": "GET /notifications/:id  inexistente (404)",
+          "name": "GET /notifications/:id — inexistente (404)",
           "request": {
             "method": "GET",
             "header": [
@@ -2237,7 +2237,7 @@
           }
         },
         {
-          "name": "POST /notifications/:id/ack  primera vez (200)",
+          "name": "POST /notifications/:id/ack — primera vez (200)",
           "request": {
             "method": "POST",
             "header": [
@@ -2264,7 +2264,7 @@
           }
         },
         {
-          "name": "POST /notifications/:id/ack  idempotente (200)",
+          "name": "POST /notifications/:id/ack — idempotente (200)",
           "request": {
             "method": "POST",
             "header": [
@@ -2291,7 +2291,7 @@
           }
         },
         {
-          "name": "POST /notifications/:id/close  (200)",
+          "name": "POST /notifications/:id/close — (200)",
           "request": {
             "method": "POST",
             "header": [
