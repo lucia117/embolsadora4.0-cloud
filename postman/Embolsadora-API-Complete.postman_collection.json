@@ -2127,7 +2127,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/notifications",
+              "raw": "{{baseUrl}}/api/v1/notifications",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2148,7 +2148,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/notifications",
+              "raw": "{{baseUrl}}/api/v1/notifications",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2173,7 +2173,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/notifications/count",
+              "raw": "{{baseUrl}}/api/v1/notifications/count",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2199,7 +2199,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/notifications/{{notification_id}}",
+              "raw": "{{baseUrl}}/api/v1/notifications/{{notification_id}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2225,7 +2225,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/notifications/00000000-0000-0000-0000-000000000000",
+              "raw": "{{baseUrl}}/api/v1/notifications/00000000-0000-0000-0000-000000000000",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2251,7 +2251,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/notifications/{{notification_id}}/ack",
+              "raw": "{{baseUrl}}/api/v1/notifications/{{notification_id}}/ack",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2278,7 +2278,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/notifications/{{notification_id}}/ack",
+              "raw": "{{baseUrl}}/api/v1/notifications/{{notification_id}}/ack",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2305,7 +2305,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/notifications/{{notification_id}}/close",
+              "raw": "{{baseUrl}}/api/v1/notifications/{{notification_id}}/close",
               "host": [
                 "{{baseUrl}}"
               ],
