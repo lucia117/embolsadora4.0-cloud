@@ -74,6 +74,13 @@ func HandleError(c *gin.Context, err error) {
 			Status:  http.StatusBadRequest,
 		})
 
+	case errors.Is(err, domain.ErrInvalidRoleID):
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "INVALID_ROLE",
+			Message: "The specified role does not exist",
+			Status:  http.StatusBadRequest,
+		})
+
 	case errors.Is(err, domain.ErrNoActiveAssignment):
 		c.JSON(http.StatusNotFound, ErrorResponse{
 			Error:   "NO_ACTIVE_ASSIGNMENT",

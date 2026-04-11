@@ -1,0 +1,199 @@
+openapi: 3.0.3
+info:
+  title: User Service API — Create User with Initial Role
+  description: |
+    Extensión del endpoint POST /users para asignar un rol activo al usuario
+    en el momento de su creación. Satisface la interacción Pact pendiente de
+    `user-service-api-roles-extension`.
+  version: 1.2.0
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+
+security:
+  - BearerAuth: []
+
+paths:
+  /users:
+    post:
+      summary: Crear usuario con rol inicial activo
+      description: |
+        Crea un usuario en el tenant y le asigna un rol activo en `user_tenant_roles`
+        en una única transacción atómica.
+
+        El campo `role` acepta cualquier `roles.id` válido:
+        - Roles de sistema: `"admin"`, `"operario"`, `"cliente_admin"`, `"cliente_operario"`
+        - Roles custom del tenant: UUID string
+
+        El UTR resultante queda con `status = 'active'` y `assigned_by` = UUID del admin autenticado.
+      operationId: createUserWithRole
+      tags:
+        - Users
+      parameters:
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: UUID del tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+            examples:
+              rol_sistema:
+                summary: Crear usuario con rol del sistema
+                value:
+                  firstName: "Juan"
+                  lastName: "Pérez"
+                  email: "juan@ejemplo.com"
+                  role: "admin"
+              rol_custom:
+                summary: Crear usuario con rol custom (UUID)
+                value:
+                  firstName: "María"
+                  lastName: "García"
+                  email: "maria@ejemplo.com"
+                  role: "550e8400-e29b-41d4-a716-446655440099"
+                  image: "https://ejemplo.com/avatar.jpg"
+      responses:
+        "201":
+          description: Usuario creado con rol activo asignado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+              example:
+                id: "550e8400-e29b-41d4-a716-446655440001"
+                firstName: "Juan"
+                lastName: "Pérez"
+                email: "juan@ejemplo.com"
+                role: "admin"
+                tenantId: "550e8400-e29b-41d4-a716-446655440000"
+                image: null
+                createdAt: "2026-04-11T10:00:00Z"
+                updatedAt: "2026-04-11T10:00:00Z"
+                deletedAt: null
+        "400":
+          description: Validación fallida o rol inexistente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                rol_invalido:
+                  summary: role no existe en tabla roles
+                  value:
+                    error: "INVALID_ROLE"
+                    message: "el rol especificado no existe"
+                    status: 400
+                validacion:
+                  summary: Campos requeridos faltantes
+                  value:
+                    error: "VALIDATION_ERROR"
+                    message: "firstName is required"
+                    status: 400
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "409":
+          description: Email ya registrado en el tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "EMAIL_TAKEN"
+                message: "el email ya está registrado en este tenant"
+                status: 409
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    CreateUserRequest:
+      type: object
+      required:
+        - firstName
+        - lastName
+        - email
+        - role
+      properties:
+        firstName:
+          type: string
+          maxLength: 100
+        lastName:
+          type: string
+          maxLength: 100
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          description: |
+            ID del rol a asignar. Puede ser un rol del sistema ("admin", "operario",
+            "cliente_admin", "cliente_operario") o el UUID de un rol custom del tenant.
+        image:
+          type: string
+          nullable: true
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+        tenantId:
+          type: string
+          format: uuid
+        image:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        status:
+          type: integer
+
+  responses:
+    Unauthorized:
+      description: Token JWT faltante o inválido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "UNAUTHORIZED"
+            message: "token de autenticación requerido"
+            status: 401

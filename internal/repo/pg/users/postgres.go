@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/tu-org/embolsadora-api/internal/domain"
 	"github.com/tu-org/embolsadora-api/internal/domain/users"
 )
 
@@ -111,6 +112,68 @@ func (r *PostgresRepository) Create(ctx context.Context, user *users.User) (*use
 			return nil, users.ErrEmailTaken
 		}
 		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	return created, nil
+}
+
+// CreateWithRole inserts a user and an active UTR atomically in a single transaction.
+func (r *PostgresRepository) CreateWithRole(ctx context.Context, user *users.User, utr *domain.UserTenantRole) (*users.User, error) {
+	if err := user.Validate(); err != nil {
+		return nil, fmt.Errorf("%w: %v", users.ErrValidation, err)
+	}
+
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	now := time.Now().UTC()
+	user.CreatedAt = now
+	user.UpdatedAt = now
+	user.DeletedAt = nil
+
+	userQuery := `
+		INSERT INTO users (tenant_id, first_name, last_name, email, role, image, created_at, updated_at, deleted_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		RETURNING id, tenant_id, first_name, last_name, email, role, image, created_at, updated_at, deleted_at
+	`
+	row := tx.QueryRow(ctx, userQuery,
+		user.TenantID, user.FirstName, user.LastName, user.Email, user.Role, user.Image,
+		user.CreatedAt, user.UpdatedAt, user.DeletedAt,
+	)
+	created, err := scanUser(row)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil, users.ErrEmailTaken
+		}
+		return nil, fmt.Errorf("failed to insert user: %w", err)
+	}
+
+	utrQuery := `
+		INSERT INTO user_tenant_roles (id, user_id, tenant_id, role_id, status, assigned_by, assigned_at, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+	`
+	_, err = tx.Exec(ctx, utrQuery,
+		utr.ID, created.ID, utr.TenantID, utr.RoleID, string(utr.Status), utr.AssignedBy, utr.AssignedAt,
+	)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			switch pgErr.Code {
+			case "23503": // foreign key violation
+				return nil, domain.ErrInvalidRoleID
+			case "23505": // unique violation (active UTR already exists)
+				return nil, domain.ErrUserAlreadyHasActiveRole
+			}
+		}
+		return nil, fmt.Errorf("failed to insert user_tenant_role: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return created, nil

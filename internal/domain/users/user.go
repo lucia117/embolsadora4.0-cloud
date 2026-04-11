@@ -98,9 +98,7 @@ func (u *User) ValidateRole() error {
 	if u.Role == "" {
 		return fmt.Errorf("role is required")
 	}
-	if u.Role != RoleAdmin && u.Role != RoleUser {
-		return fmt.Errorf("role must be 'admin' or 'user'")
-	}
+	// accepts any non-empty roles.id; FK in user_tenant_roles enforces existence
 	return nil
 }
 

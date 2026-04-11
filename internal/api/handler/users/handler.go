@@ -203,9 +203,19 @@ func (h *Handler) UpdateUserStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, userToResponse(user))
 }
 
-// CreateUser handles POST /api/v1/users - create a new user
+// CreateUser handles POST /api/v1/users - create a new user with active role assignment
 func (h *Handler) CreateUser(c *gin.Context) {
 	tenantID := c.GetString("tenant_id") // Set by middleware
+
+	callerUUID := platform.UserID(c.Request.Context())
+	if callerUUID == nil {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error:   "UNAUTHORIZED",
+			Message: "Authenticated user identity not available",
+			Status:  http.StatusUnauthorized,
+		})
+		return
+	}
 
 	var req dto.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -218,15 +228,16 @@ func (h *Handler) CreateUser(c *gin.Context) {
 		return
 	}
 
-	h.logger.Debug("create user request", zap.String("tenant_id", tenantID), zap.String("email", req.Email))
+	h.logger.Debug("create user request", zap.String("tenant_id", tenantID), zap.String("email", req.Email), zap.String("role", req.Role))
 
 	cmd := &domainUsers.CreateUserCommand{
-		TenantID:  tenantID,
-		FirstName: req.FirstName,
-		LastName:  req.LastName,
-		Email:     req.Email,
-		Role:      req.Role,
-		Image:     req.Image,
+		TenantID:   tenantID,
+		FirstName:  req.FirstName,
+		LastName:   req.LastName,
+		Email:      req.Email,
+		Role:       req.Role,
+		Image:      req.Image,
+		AssignedBy: callerUUID.String(),
 	}
 
 	user, err := h.service.CreateUser(c.Request.Context(), tenantID, cmd)
