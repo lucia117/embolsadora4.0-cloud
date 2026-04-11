@@ -98,13 +98,28 @@ func (u *User) ValidateRole() error {
 	if u.Role == "" {
 		return fmt.Errorf("role is required")
 	}
-	if u.Role != RoleAdmin && u.Role != RoleUser {
-		return fmt.Errorf("role must be 'admin' or 'user'")
+	if len(u.Role) > 50 {
+		return fmt.Errorf("role must be at most 50 characters")
 	}
+	// accepts any non-empty roles.id (max 50 chars, matching VARCHAR(50) column)
 	return nil
 }
 
 // IsAdmin returns true if user has admin role
 func (u *User) IsAdmin() bool {
 	return u.Role == RoleAdmin
+}
+
+// UserWithRoles is a User augmented with the role assigned in the tenant.
+// Only populated when include=roles is requested.
+type UserWithRoles struct {
+	User
+	Roles []AssignedRole
+}
+
+// AssignedRole holds the summary of a role assigned to a user in the tenant.
+type AssignedRole struct {
+	ID          string
+	Name        string
+	Permissions []string
 }

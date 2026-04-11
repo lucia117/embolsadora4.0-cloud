@@ -107,41 +107,47 @@ func (r *MongoSubmodelRepository) ListByShell(ctx context.Context, tenantID uuid
 }
 
 // UpsertElement inserts or replaces the SubmodelElement identified by its IDShort.
-// It reads the current submodel, updates the matching element in memory, and writes back atomically.
+// Uses atomic MongoDB operations: positional $ to update an existing element,
+// $push to insert a new one — no read-modify-write race condition.
 func (r *MongoSubmodelRepository) UpsertElement(ctx context.Context, tenantID uuid.UUID, submodelID string, element aas.SubmodelElement) error {
 	start := time.Now()
 
-	sm, err := r.GetByID(ctx, tenantID, submodelID)
-	if err != nil {
-		return err
+	// Step 1: try to update an existing element by IDShort (atomic via positional operator).
+	filterUpdate := bson.D{
+		{Key: "_id", Value: submodelID},
+		{Key: "tenantId", Value: tenantID},
+		{Key: "submodelElements.idShort", Value: element.IDShort},
 	}
-
-	found := false
-	for i, el := range sm.SubmodelElements {
-		if el.IDShort == element.IDShort {
-			sm.SubmodelElements[i] = element
-			found = true
-			break
-		}
-	}
-	if !found {
-		sm.SubmodelElements = append(sm.SubmodelElements, element)
-	}
-
-	filter := bson.D{{Key: "_id", Value: submodelID}, {Key: "tenantId", Value: tenantID}}
 	update := bson.D{{Key: "$set", Value: bson.D{
-		{Key: "submodelElements", Value: sm.SubmodelElements},
+		{Key: "submodelElements.$", Value: element},
 		{Key: "updatedAt", Value: time.Now().UTC()},
 	}}}
-
-	res, err := r.col.UpdateOne(ctx, filter, update)
+	res, err := r.col.UpdateOne(ctx, filterUpdate, update)
 	if err != nil {
 		telemetry.MongoOperationErrors.WithLabelValues(collectionName, "upsert_element").Inc()
 		return mapError(err)
 	}
+
 	if res.MatchedCount == 0 {
-		return domain.ErrNotFound
+		// Step 2: element not found — push it atomically.
+		filterPush := bson.D{
+			{Key: "_id", Value: submodelID},
+			{Key: "tenantId", Value: tenantID},
+		}
+		push := bson.D{
+			{Key: "$push", Value: bson.D{{Key: "submodelElements", Value: element}}},
+			{Key: "$set", Value: bson.D{{Key: "updatedAt", Value: time.Now().UTC()}}},
+		}
+		res2, err := r.col.UpdateOne(ctx, filterPush, push)
+		if err != nil {
+			telemetry.MongoOperationErrors.WithLabelValues(collectionName, "upsert_element").Inc()
+			return mapError(err)
+		}
+		if res2.MatchedCount == 0 {
+			return domain.ErrNotFound
+		}
 	}
+
 	telemetry.MongoOperationDuration.WithLabelValues(collectionName, "upsert_element").Observe(time.Since(start).Seconds())
 	return nil
 }

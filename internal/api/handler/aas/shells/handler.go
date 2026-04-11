@@ -35,6 +35,10 @@ func RegisterRoutes(group *gin.RouterGroup, repo aas.ShellRepository) {
 
 // List handles GET /api/v1/aas/shells
 func (h *Handler) List(c *gin.Context) {
+	if h.repo == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "mongo unavailable"})
+		return
+	}
 	tenantID, ok := parseTenantID(c)
 	if !ok {
 		return
@@ -68,6 +72,10 @@ type createRequest struct {
 
 // Create handles POST /api/v1/aas/shells
 func (h *Handler) Create(c *gin.Context) {
+	if h.repo == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "mongo unavailable"})
+		return
+	}
 	tenantID, ok := parseTenantID(c)
 	if !ok {
 		return
@@ -108,6 +116,10 @@ func (h *Handler) Create(c *gin.Context) {
 
 // Get handles GET /api/v1/aas/shells/:id
 func (h *Handler) Get(c *gin.Context) {
+	if h.repo == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "mongo unavailable"})
+		return
+	}
 	tenantID, ok := parseTenantID(c)
 	if !ok {
 		return
@@ -136,6 +148,10 @@ type updateRequest struct {
 
 // Update handles PUT /api/v1/aas/shells/:id
 func (h *Handler) Update(c *gin.Context) {
+	if h.repo == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "mongo unavailable"})
+		return
+	}
 	tenantID, ok := parseTenantID(c)
 	if !ok {
 		return
@@ -168,6 +184,10 @@ func (h *Handler) Update(c *gin.Context) {
 
 // Delete handles DELETE /api/v1/aas/shells/:id
 func (h *Handler) Delete(c *gin.Context) {
+	if h.repo == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "mongo unavailable"})
+		return
+	}
 	tenantID, ok := parseTenantID(c)
 	if !ok {
 		return

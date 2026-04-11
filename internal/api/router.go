@@ -54,7 +54,7 @@ type Config struct{}
 func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 	// Users - All /users routes share a single group with tenant middleware to avoid
 	// wildcard conflicts between groups (e.g., /users/:id vs /users/:id/roles).
-	userService := appUsers.NewService(deps.UserRepo, deps.Logger)
+	userService := appUsers.NewService(deps.UserRepo, deps.UserRoleRepo, deps.Logger)
 	uh := userhandlers.NewHandler(userService, deps.Logger)
 
 	getUserRolesUseCase := ucGetUserRoles.NewUseCase(deps.UserRoleRepo)
@@ -63,15 +63,18 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 	userRoutes := g.Group("")
 	userRoutes.Use(middleware.ExtractTenantID())
 
-	// Read operations (no RBAC required)
+	// Read operations (no RBAC required — ver DEUDA-TECNICA.md: "RBAC en GET /users")
+	// NOTE: /users/pending MUST be registered before /users/:id to avoid Gin treating "pending" as :id
+	userRoutes.GET("/users/pending", middleware.RBACCheck("users:read"), uh.ListPendingUsers)
 	userRoutes.GET("/users", uh.ListUsers)
 	userRoutes.GET("/users/:id", uh.GetUser)
 	userRoutes.GET("/users/:id/roles", getUserRolesHandler.Handle)
 
 	// Write operations (admin only)
-	userRoutes.POST("/users", middleware.RequireRole("admin"), uh.CreateUser)
-	userRoutes.PATCH("/users/:id", middleware.RequireRole("admin"), uh.UpdateUser)
-	userRoutes.DELETE("/users/:id", middleware.RequireRole("admin"), uh.DeleteUser)
+	userRoutes.POST("/users", middleware.RBACCheck("users:write"), uh.CreateUser)
+	userRoutes.PATCH("/users/:id", middleware.RBACCheck("users:write"), uh.UpdateUser)
+	userRoutes.PATCH("/users/:id/status", middleware.RBACCheck("users:write"), uh.UpdateUserStatus)
+	userRoutes.DELETE("/users/:id", middleware.RBACCheck("users:write"), uh.DeleteUser)
 
 	// Machines
 	g.GET("/machines", ListMachines)

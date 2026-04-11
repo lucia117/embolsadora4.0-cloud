@@ -10,10 +10,10 @@ postman/export-*.json
 # Environment variables
 .env
 
-# MacOS
+# MacOS specific files
 .DS_Store
 
-# Claude Code local settings
+# Claude Code — local settings (machine-specific paths, not for version control)
 .claude/settings.local.json
 
 # Local docs and specs (not for tracking)

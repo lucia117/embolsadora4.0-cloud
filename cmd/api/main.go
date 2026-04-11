@@ -2,7 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -54,7 +60,6 @@ func main() {
 			log.Printf("WARN mongo disabled — connection failed: %v", err)
 		} else {
 			mongoClient = mc
-			defer mongoClient.Disconnect(context.Background())
 			log.Println("MongoDB connection established")
 		}
 	} else {
@@ -83,8 +88,35 @@ func main() {
 
 	routes.RegisterURLMappings(r, db, cfg, redisClient, mongoClient)
 
-	log.Printf("Starting server on :%s", cfg.HTTP.Port)
-	if err := r.Run(":" + cfg.HTTP.Port); err != nil {
-		log.Fatalf("Server error: %v", err)
+	srv := &http.Server{
+		Addr:    ":" + cfg.HTTP.Port,
+		Handler: r,
+	}
+
+	go func() {
+		log.Printf("Starting server on :%s", cfg.HTTP.Port)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("Server error: %v", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("Shutting down...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("HTTP server shutdown error: %v", err)
+	}
+
+	if mongoClient != nil {
+		dCtx, dCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer dCancel()
+		if err := mongoClient.Disconnect(dCtx); err != nil {
+			log.Printf("MongoDB disconnect error: %v", err)
+		}
 	}
 }

@@ -14,9 +14,9 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- Create indexes for efficient queries
-CREATE INDEX idx_users_tenant_deleted ON users(tenant_id, deleted_at);
-CREATE INDEX idx_users_tenant_email ON users(tenant_id, email);
-CREATE INDEX idx_users_deleted_at ON users(deleted_at);
+CREATE INDEX IF NOT EXISTS idx_users_tenant_deleted ON users(tenant_id, deleted_at);
+CREATE INDEX IF NOT EXISTS idx_users_tenant_email ON users(tenant_id, email);
+CREATE INDEX IF NOT EXISTS idx_users_deleted_at ON users(deleted_at);
 
 -- Create trigger to auto-update updated_at on row modification
 CREATE OR REPLACE FUNCTION update_users_updated_at()

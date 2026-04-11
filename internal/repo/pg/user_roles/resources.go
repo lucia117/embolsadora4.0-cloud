@@ -47,6 +47,15 @@ const (
 		RETURNING id, user_id, tenant_id, role_id, status, assigned_by, assigned_at, created_at, updated_at
 	`
 
+	// UpdateStatusQuery changes the status of a UTR by (user_id, tenant_id).
+	// Does not affect 'pending' assignments (those are managed via invitation flow).
+	UpdateStatusQuery = `
+		UPDATE user_tenant_roles
+		SET status = $1, updated_at = NOW()
+		WHERE user_id = $2 AND tenant_id = $3 AND status != 'pending'
+		RETURNING id, user_id, tenant_id, role_id, status, assigned_by, assigned_at, created_at, updated_at
+	`
+
 	// FindByUserQuery retrieves all UTR assignments for a user across all tenants,
 	// joining tenants and roles tables to include display names.
 	FindByUserQuery = `

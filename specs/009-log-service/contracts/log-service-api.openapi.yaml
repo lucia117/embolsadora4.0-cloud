@@ -1,0 +1,506 @@
+openapi: 3.0.3
+info:
+  title: Log Service API
+  version: 1.0.0
+  description: |
+    API de logs de eventos operacionales para la plataforma Embolsadora 4.0.
+    Provee consulta, detalle, contexto, streaming, exportación y gestión de retención de logs.
+
+    Todos los endpoints requieren autenticación JWT Bearer y operan dentro del tenant
+    identificado por el token. Los logs son inmutables desde esta API (solo lectura, excepto retención).
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Desarrollo local
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Logs
+    description: Consulta y streaming de eventos del sistema
+  - name: Retention
+    description: Gestión de política de retención de logs
+
+paths:
+
+  ########################
+  # Logs — List
+  ########################
+  /logs:
+    get:
+      tags: [Logs]
+      summary: Listar logs del tenant con filtros y paginación por cursor
+      description: |
+        Retorna logs del tenant autenticado ordenados por `created_at DESC`.
+        Soporta filtros combinables y paginación keyset via cursor.
+      parameters:
+        - name: event_type
+          in: query
+          schema:
+            type: string
+            enum: [alarm_triggered, alarm_resolved, device_connected, device_disconnected, device_state_changed, user_action, system]
+          description: Filtrar por tipo de evento
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [info, warning, critical, error]
+          description: Filtrar por severidad
+        - name: machine_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filtrar por máquina
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Fecha de inicio del rango (ISO 8601)
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Fecha de fin del rango (ISO 8601)
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Búsqueda de texto libre en el campo message
+        - name: cursor
+          in: query
+          schema:
+            type: string
+          description: Cursor opaco de paginación obtenido de respuesta anterior
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Cantidad máxima de resultados por página
+      responses:
+        '200':
+          description: Lista de logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogListResponse'
+              examples:
+                conFiltros:
+                  summary: Lista con filtros aplicados
+                  value:
+                    data:
+                      - id: "550e8400-e29b-41d4-a716-446655440001"
+                        tenant_id: "550e8400-e29b-41d4-a716-446655440000"
+                        created_at: "2026-04-07T10:00:00Z"
+                        severity: "warning"
+                        event_type: "alarm_triggered"
+                        source_id: "660e8400-e29b-41d4-a716-446655440001"
+                        machine_id: "770e8400-e29b-41d4-a716-446655440001"
+                        message: "Temperatura supera umbral de 80°C"
+                        metadata: { "threshold": 80, "current_value": 85.3 }
+                    next_cursor: "eyJjcmVhdGVkX2F0IjoiMjAyNi0wNC0wN1QxMDowMDowMFoiLCJpZCI6IjU1MGU4NDAwIn0="
+                    total: 42
+                sinResultados:
+                  summary: Lista vacía
+                  value:
+                    data: []
+                    next_cursor: null
+                    total: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  ########################
+  # Logs — Export
+  ########################
+  /logs/export:
+    get:
+      tags: [Logs]
+      summary: Exportar logs filtrados
+      description: |
+        Exporta logs del tenant con los mismos filtros que el listado.
+        Si el resultado supera el límite máximo (50.000), retorna los primeros N registros
+        con `truncated: true`.
+      parameters:
+        - name: event_type
+          in: query
+          schema:
+            type: string
+            enum: [alarm_triggered, alarm_resolved, device_connected, device_disconnected, device_state_changed, user_action, system]
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [info, warning, critical, error]
+        - name: machine_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv]
+            default: json
+          description: Formato de exportación
+      responses:
+        '200':
+          description: Exportación completada (normal o truncada)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogExportResponse'
+              examples:
+                normal:
+                  summary: Exportación normal
+                  value:
+                    data: []
+                    truncated: false
+                    exported_count: 523
+                    total_available: 523
+                truncado:
+                  summary: Exportación truncada
+                  value:
+                    data: []
+                    truncated: true
+                    exported_count: 50000
+                    total_available: 87432
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  ########################
+  # Logs — Stream (SSE)
+  ########################
+  /logs/stream:
+    get:
+      tags: [Logs]
+      summary: Streaming de nuevos eventos en tiempo real (SSE)
+      description: |
+        Abre una conexión Server-Sent Events (SSE) que entrega cada nuevo evento
+        del tenant en tiempo real. Envía heartbeat cada 30 segundos si no hay eventos.
+      parameters:
+        - name: event_type
+          in: query
+          schema:
+            type: string
+        - name: severity
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Conexión SSE establecida
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: 'Formato: "data: {LogEntry JSON}\n\n" o "event: heartbeat\ndata: \n\n"'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  ########################
+  # Logs — Retention
+  ########################
+  /logs/retention:
+    get:
+      tags: [Retention]
+      summary: Obtener política de retención del tenant
+      responses:
+        '200':
+          description: Política de retención actual
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetentionResponse'
+              example:
+                tenant_id: "550e8400-e29b-41d4-a716-446655440000"
+                retention_days: 90
+                next_purge_at: "2026-04-08T00:00:00Z"
+                updated_at: "2026-03-01T12:00:00Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    patch:
+      tags: [Retention]
+      summary: Actualizar política de retención del tenant
+      description: Requiere permiso `logs:admin`. Los logs más antiguos que el nuevo límite serán eliminados en la próxima purga.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRetentionRequest'
+            example:
+              retention_days: 30
+      responses:
+        '200':
+          description: Política actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetentionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  ########################
+  # Logs — By ID
+  ########################
+  /logs/{id}:
+    get:
+      tags: [Logs]
+      summary: Obtener log por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Log encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  ########################
+  # Logs — Context
+  ########################
+  /logs/{id}/context:
+    get:
+      tags: [Logs]
+      summary: Obtener ventana de logs alrededor de un evento
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: window_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+          description: Cantidad de eventos antes y después del log referenciado
+      responses:
+        '200':
+          description: Ventana de contexto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogContextResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    LogEntry:
+      type: object
+      required: [id, tenant_id, created_at, severity, event_type, message, metadata]
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        severity:
+          type: string
+          enum: [info, warning, critical, error]
+        event_type:
+          type: string
+          enum: [alarm_triggered, alarm_resolved, device_connected, device_disconnected, device_state_changed, user_action, system]
+        source_id:
+          type: string
+          format: uuid
+          nullable: true
+        machine_id:
+          type: string
+          format: uuid
+          nullable: true
+        message:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+
+    LogListResponse:
+      type: object
+      required: [data, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogEntry'
+        next_cursor:
+          type: string
+          nullable: true
+          description: Cursor para obtener la siguiente página. Null si no hay más resultados.
+        total:
+          type: integer
+          description: Total de registros que coinciden con los filtros aplicados
+
+    LogExportResponse:
+      type: object
+      required: [data, truncated, exported_count, total_available]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogEntry'
+        truncated:
+          type: boolean
+          description: true si el resultado fue truncado por límite máximo
+        exported_count:
+          type: integer
+          description: Cantidad de registros incluidos en esta respuesta
+        total_available:
+          type: integer
+          description: Total de registros que coinciden con los filtros (antes del truncado)
+
+    LogContextResponse:
+      type: object
+      required: [before, anchor, after]
+      properties:
+        before:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogEntry'
+          description: Eventos anteriores al anchor, orden cronológico
+        anchor:
+          $ref: '#/components/schemas/LogEntry'
+        after:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogEntry'
+          description: Eventos posteriores al anchor, orden cronológico
+
+    RetentionResponse:
+      type: object
+      required: [tenant_id, retention_days, next_purge_at, updated_at]
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        retention_days:
+          type: integer
+          minimum: 1
+        next_purge_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UpdateRetentionRequest:
+      type: object
+      required: [retention_days]
+      properties:
+        retention_days:
+          type: integer
+          minimum: 1
+          maximum: 3650
+          description: Días de retención (máximo 10 años)
+
+    ErrorResponse:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+        message:
+          type: string
+        status:
+          type: integer
+
+  responses:
+    Unauthorized:
+      description: Token JWT ausente o inválido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: UNAUTHORIZED
+            message: token JWT requerido
+            status: 401
+    Forbidden:
+      description: Sin permiso para esta operación
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: FORBIDDEN
+            status: 403
+    NotFound:
+      description: Log no encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: NOT_FOUND
+            status: 404
+    BadRequest:
+      description: Parámetros inválidos
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: BAD_REQUEST
+            message: el parámetro 'from' debe ser anterior a 'to'
+            status: 400
