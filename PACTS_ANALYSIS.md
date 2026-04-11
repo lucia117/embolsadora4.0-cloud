@@ -1,6 +1,7 @@
 # Análisis de Contratos Pact — Embolsadora API
 
 > **Generado**: 2026-03-24
+> **Última actualización**: 2026-04-10
 > **Rama analizada**: `develop`
 > **Fuente de contratos**: `embolsadora-frontend/pacts/` (13 archivos)
 > **Total de interacciones Pact**: 149
@@ -13,11 +14,11 @@
 |---|---|
 | Archivos Pact | 13 |
 | Interacciones totales | 149 |
-| Servicios completamente implementados | 8 |
+| Servicios completamente implementados | 9 |
 | Servicios parcialmente implementados | 1 |
-| Servicios no implementados | 4 |
+| Servicios no implementados | 3 |
 | Interacciones N/A (Supabase maneja) | 5 |
-| Cobertura estimada | ~54% |
+| Cobertura estimada | ~61% |
 
 ---
 
@@ -242,6 +243,27 @@ Consumer: `embolsadora-frontend` → Provider: `notification-service-api`
 
 ---
 
+#### `permissions-service-api` — 10/10 interacciones
+
+Consumer: `embolsadora-frontend` → Provider: `permissions-service-api`
+
+| Método | Path | Estado | Observación |
+|---|---|---|---|
+| GET | `/api/v1/permissions` | ✅ | Lista permisos sistema + custom del tenant; sistema siempre incluidos |
+| POST | `/api/v1/permissions` → 201 | ✅ | Crea permiso custom; UUID generado en service; `isSystemPermission: false` |
+| POST | `/api/v1/permissions` → 400 | ✅ | Validación: nombre < 3 chars → `errors[].path = "name"` |
+| GET | `/api/v1/permissions/{id}` → 200 | ✅ | Funciona para permisos sistema y custom; filtra por `tenant_id` (custom) o `is_system_permission=TRUE` (sistema) |
+| GET | `/api/v1/permissions/{id}` → 404 | ✅ | ID inexistente → NOT_FOUND |
+| PUT | `/api/v1/permissions/{id}` → 200 | ✅ | Actualiza custom; retorna datos actualizados con updatedAt renovado |
+| PUT | `/api/v1/permissions/{id}` → 403 | ✅ | Permiso de sistema → `"Cannot modify system permissions"` |
+| DELETE | `/api/v1/permissions/{id}` → 200 | ✅ | Elimina custom permanentemente; `{"success": true}` |
+| DELETE | `/api/v1/permissions/{id}` → 403 | ✅ | Permiso de sistema → `"Cannot delete system permissions"` |
+| GET | `/api/v1/permissions` → 401 | ✅ | Sin JWT → UNAUTHORIZED |
+
+> Implementado en `011-permissions-management`: migración 000017 (permissions table + seed 17 permisos de sistema), domain + repo (List/GetByID/Delete con aislamiento multi-tenant; Update con guarda `is_system_permission=FALSE`) + service (validación, guards IsSystemPermission, tenant propagado a todas las operaciones) + handler (5 endpoints, DTOs, error mapping, Prometheus en todos los handlers con label `operation`) + Postman collection 10 Pacts.
+
+---
+
 ### ❌ No Implementados
 
 ---
@@ -295,11 +317,11 @@ Consumer: `embolsadora-frontend` → Provider: `reports-service-api`
 |---|---|---|---|---|
 | ~~1~~ | ~~`log-service-api`~~ | ~~14~~ | ~~✅ Done (009)~~ | — |
 | ~~2~~ | ~~`notification-service-api`~~ | ~~6~~ | ~~✅ Done (010)~~ | — |
-| 1 | `permissions-service-api` | 10 | 🟡 Media | RBAC dinámico, actualmente estático en código |
-| 2 | `user-service-api-roles-extension` (completar) | 1 | 🟠 Media-baja | Solo falta POST /users con rol inicial |
-| 3 | `reports-service-api` | 16 | 🔵 Baja | Generación async compleja, mayor esfuerzo |
+| ~~1~~ | ~~`permissions-service-api`~~ | ~~10~~ | ~~✅ Done (011)~~ | — |
+| 1 | `user-service-api-roles-extension` (completar) | 1 | 🟠 Media-baja | Solo falta POST /users con rol inicial |
+| 2 | `reports-service-api` | 16 | 🔵 Baja | Generación async compleja, mayor esfuerzo |
 
-**Total interacciones pendientes**: ~27 de 149 (excluyendo 5 N/A Supabase)
+**Total interacciones pendientes**: ~17 de 149 (excluyendo 5 N/A Supabase)
 
 ---
 
