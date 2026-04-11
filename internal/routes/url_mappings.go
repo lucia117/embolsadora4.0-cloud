@@ -41,10 +41,13 @@ import (
 	invitationsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/invitations"
 	logsHandler "github.com/tu-org/embolsadora-api/internal/api/handler/logs"
 	notificationsHandler "github.com/tu-org/embolsadora-api/internal/api/handler/notifications"
+	permissionsHandler "github.com/tu-org/embolsadora-api/internal/api/handler/permissions"
 	logsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/logs"
 	notificationsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/notifications"
 	appNotifications "github.com/tu-org/embolsadora-api/internal/app/notifications"
+	permissionsApp "github.com/tu-org/embolsadora-api/internal/app/permissions"
 	rolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/roles"
+	permissionsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/permissions"
 	tenantsRepository "github.com/tu-org/embolsadora-api/internal/repo/pg/tenants"
 	userRolesRepository "github.com/tu-org/embolsadora-api/internal/repo/pg/user_roles"
 	usersRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/users"
@@ -192,4 +195,17 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	nRepo := notificationsRepo.New(db)
 	nService := appNotifications.New(nRepo, logger)
 	notificationsHandler.RegisterRoutes(v1, nService)
+
+	// Permissions Service (/api/v1/permissions)
+	// GET /permissions y GET /permissions/:id — sin RBAC adicional (cualquier usuario autenticado puede consultar)
+	// POST/PUT/DELETE — requieren permiso users:write (solo administradores)
+	pRepo := permissionsRepo.NewPostgresRepository(db)
+	pService := permissionsApp.NewService(pRepo, logger)
+	pHandler := permissionsHandler.NewHandler(pService, logger)
+	permissionsWriteGroup := v1.Group("", apimw.RBACCheck("users:write"))
+	v1.GET("/permissions", pHandler.ListPermissions)
+	v1.GET("/permissions/:id", pHandler.GetPermission)
+	permissionsWriteGroup.POST("/permissions", pHandler.CreatePermission)
+	permissionsWriteGroup.PUT("/permissions/:id", pHandler.UpdatePermission)
+	permissionsWriteGroup.DELETE("/permissions/:id", pHandler.DeletePermission)
 }
