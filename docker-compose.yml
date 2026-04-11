@@ -39,6 +39,39 @@ services:
     networks:
       - embolsadora_network
 
+  mongo:
+    image: mongo:7
+    container_name: embolsadora_mongo
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    restart: unless-stopped
+    networks:
+      - embolsadora_network
+
+  test:
+    image: golang:1.24-alpine
+    container_name: embolsadora_test
+    working_dir: /app
+    volumes:
+      - .:/app
+      - /tmp/go-mod-cache:/go/pkg/mod
+    environment:
+      DATABASE_URL: postgres://embolsadora_user:embolsadora_password@db:5432/embolsadora_dev?sslmode=disable
+      REDIS_URL: redis://:embolsadora_redis_pass@redis:6379/0
+      MONGO_TEST_URI: mongodb://mongo:27017
+    depends_on:
+      db:
+        condition: service_healthy
+      mongo:
+        condition: service_started
+    networks:
+      - embolsadora_network
+    profiles:
+      - test
+    command: sh -c "go test ./... -v -count=1"
+
   api:
     build: 
       context: .
@@ -49,16 +82,21 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      mongo:
+        condition: service_started
     environment:
       APP_ENV: development
       PORT: 8080
       DATABASE_URL: postgres://embolsadora_user:embolsadora_password@db:5432/embolsadora_dev?sslmode=disable
       REDIS_URL: redis://:embolsadora_redis_pass@redis:6379/0
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: embolsadora_dev
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_JWKS_URL: ${SUPABASE_JWKS_URL}
       SUPABASE_JWT_ISSUER: ${SUPABASE_JWT_ISSUER}
       SUPABASE_JWT_AUDIENCE: ${SUPABASE_JWT_AUDIENCE:-authenticated}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
       INVITATION_RATE_LIMIT_PER_HOUR: ${INVITATION_RATE_LIMIT_PER_HOUR:-20}
     ports:
@@ -76,3 +114,4 @@ networks:
 volumes:
   postgres_data:
   redis_data:
+  mongo_data:

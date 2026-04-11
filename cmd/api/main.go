@@ -8,10 +8,12 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.uber.org/zap"
 
 	apimw "github.com/tu-org/embolsadora-api/internal/api/middleware"
 	"github.com/tu-org/embolsadora-api/internal/config"
+	platformmongo "github.com/tu-org/embolsadora-api/internal/platform/mongo"
 	"github.com/tu-org/embolsadora-api/internal/routes"
 )
 
@@ -44,6 +46,21 @@ func main() {
 	}
 	log.Println("Database connection established")
 
+	// MongoDB connection (optional — server starts without it)
+	var mongoClient *mongo.Client
+	if cfg.Mongo.URI != "" {
+		mc, err := platformmongo.Connect(context.Background(), cfg.Mongo)
+		if err != nil {
+			log.Printf("WARN mongo disabled — connection failed: %v", err)
+		} else {
+			mongoClient = mc
+			defer mongoClient.Disconnect(context.Background())
+			log.Println("MongoDB connection established")
+		}
+	} else {
+		log.Println("WARN mongo disabled — MONGO_URI not set")
+	}
+
 	// Redis connection (optional — rate limiting fails open if unavailable)
 	var redisClient *redis.Client
 	if cfg.Redis.URL != "" {
@@ -64,7 +81,7 @@ func main() {
 	r.Use(apimw.Logger())
 	r.Use(apimw.CORS())
 
-	routes.RegisterURLMappings(r, db, cfg, redisClient)
+	routes.RegisterURLMappings(r, db, cfg, redisClient, mongoClient)
 
 	log.Printf("Starting server on :%s", cfg.HTTP.Port)
 	if err := r.Run(":" + cfg.HTTP.Port); err != nil {
