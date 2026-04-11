@@ -54,7 +54,11 @@ func main() {
 
 	// MongoDB connection (optional — server starts without it)
 	var mongoClient *mongo.Client
-	if cfg.Mongo.URI != "" {
+	if cfg.Mongo.URI == "" {
+		log.Println("WARN mongo disabled — MONGO_URI not set")
+	} else if cfg.Mongo.DB == "" {
+		log.Println("WARN mongo disabled — MONGO_DB not set")
+	} else {
 		mc, err := platformmongo.Connect(context.Background(), cfg.Mongo)
 		if err != nil {
 			log.Printf("WARN mongo disabled — connection failed: %v", err)
@@ -62,8 +66,6 @@ func main() {
 			mongoClient = mc
 			log.Println("MongoDB connection established")
 		}
-	} else {
-		log.Println("WARN mongo disabled — MONGO_URI not set")
 	}
 
 	// Redis connection (optional — rate limiting fails open if unavailable)

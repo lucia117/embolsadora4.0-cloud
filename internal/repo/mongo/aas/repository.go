@@ -128,6 +128,9 @@ func (r *MongoShellRepository) ListByTenant(ctx context.Context, tenantID uuid.U
 	if limit <= 0 {
 		limit = 100
 	}
+	if offset < 0 {
+		offset = 0
+	}
 	filter := bson.D{{Key: "tenantId", Value: tenantID}}
 
 	total, err := r.col.CountDocuments(ctx, filter)

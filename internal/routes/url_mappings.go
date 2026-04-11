@@ -36,6 +36,7 @@ import (
 	consumers "github.com/tu-org/embolsadora-api/internal/consumers"
 	consumermw "github.com/tu-org/embolsadora-api/internal/consumers/middleware"
 	handlerShells "github.com/tu-org/embolsadora-api/internal/api/handler/aas/shells"
+	"github.com/tu-org/embolsadora-api/internal/domain/aas"
 	aasRepo "github.com/tu-org/embolsadora-api/internal/repo/mongo/aas"
 	"github.com/tu-org/embolsadora-api/internal/platform/edgeclient"
 	"github.com/tu-org/embolsadora-api/internal/platform/supabase"
@@ -139,20 +140,24 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 
 	// ── AAS Shells (MongoDB) ──────────────────────────────────────────────────
 	var consumerDeps consumers.Deps
+	var shellRepo aas.ShellRepository // nil when Mongo is unavailable
 	if mongoClient != nil {
 		mongoDB := mongoClient.Database(cfg.Mongo.DB)
-		shellRepo, err := aasRepo.New(mongoDB)
+		repo, err := aasRepo.New(mongoDB)
 		if err != nil {
-			log.Fatalf("failed to initialize AAS shell repository: %v", err)
+			log.Printf("WARN: failed to initialize AAS shell repository; Mongo-backed routes disabled: %v", err)
+		} else {
+			shellRepo = repo
+			consumerDeps.ShellRepo = repo
 		}
-		handlerShells.RegisterRoutes(v1, shellRepo)
-		consumerDeps.ShellRepo = shellRepo
 	}
+	// Always register AAS routes — handler returns 503 when shellRepo == nil
+	handlerShells.RegisterRoutes(v1, shellRepo)
 
 	// ── Consumer surface (IoT devices, etc.) ──────────────────────────────────
 	c1 := r.Group(
 		"/api/v1/consumers",
-		consumermw.APIKeyAuth(),
+		consumermw.APIKeyAuth(consumerDeps.APIKeys),
 		consumermw.RateLimit(),
 		consumermw.Idempotency(),
 		consumermw.NoCORS(),
@@ -246,7 +251,8 @@ func postgresStatus(ctx context.Context, db *pgxpool.Pool) gin.H {
 		return gin.H{"status": "disabled"}
 	}
 	if err := db.Ping(ctx); err != nil {
-		return gin.H{"status": "degraded", "error": err.Error()}
+		log.Printf("postgres health check failed: %v", err)
+		return gin.H{"status": "degraded"}
 	}
 	return gin.H{"status": "ok"}
 }
@@ -256,7 +262,8 @@ func redisStatus(ctx context.Context, client *redis.Client) gin.H {
 		return gin.H{"status": "disabled"}
 	}
 	if err := client.Ping(ctx).Err(); err != nil {
-		return gin.H{"status": "degraded", "error": err.Error()}
+		log.Printf("redis health check failed: %v", err)
+		return gin.H{"status": "degraded"}
 	}
 	return gin.H{"status": "ok"}
 }
@@ -266,7 +273,8 @@ func mongoStatus(ctx context.Context, client *mongo.Client) gin.H {
 		return gin.H{"status": "disabled"}
 	}
 	if err := client.Ping(ctx, nil); err != nil {
-		return gin.H{"status": "degraded", "error": err.Error()}
+		log.Printf("mongo health check failed: %v", err)
+		return gin.H{"status": "degraded"}
 	}
 	return gin.H{"status": "ok"}
 }

@@ -22,6 +22,9 @@ func RegisterConsumerRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 	// Device heartbeat
 	g.POST("/heartbeat", Heartbeat)
 
-	// AAS shell read — IoT device fetches its own digital twin (API key auth, no JWT)
-	g.GET("/shells/:id", GetShell(deps))
+	// AAS shell read — IoT device fetches its own digital twin (API key auth, no JWT).
+	// Only registered when APIKeys is configured; otherwise the route is not exposed (fail-secure).
+	if deps.APIKeys != nil {
+		g.GET("/shells/:id", GetShell(deps))
+	}
 }

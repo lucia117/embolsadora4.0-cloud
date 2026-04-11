@@ -78,6 +78,9 @@ func (r *MongoSubmodelRepository) ListByShell(ctx context.Context, tenantID uuid
 	if limit <= 0 {
 		limit = 100
 	}
+	if offset < 0 {
+		offset = 0
+	}
 	filter := bson.D{{Key: "tenantId", Value: tenantID}, {Key: "shellId", Value: shellID}}
 
 	total, err := r.col.CountDocuments(ctx, filter)
@@ -129,10 +132,12 @@ func (r *MongoSubmodelRepository) UpsertElement(ctx context.Context, tenantID uu
 	}
 
 	if res.MatchedCount == 0 {
-		// Step 2: element not found — push it atomically.
+		// Step 2: element not found — push it only when no element with the same IDShort
+		// exists yet. The $ne guard prevents duplicates under concurrent inserts.
 		filterPush := bson.D{
 			{Key: "_id", Value: submodelID},
 			{Key: "tenantId", Value: tenantID},
+			{Key: "submodelElements.idShort", Value: bson.D{{Key: "$ne", Value: element.IDShort}}},
 		}
 		push := bson.D{
 			{Key: "$push", Value: bson.D{{Key: "submodelElements", Value: element}}},
@@ -144,7 +149,18 @@ func (r *MongoSubmodelRepository) UpsertElement(ctx context.Context, tenantID uu
 			return mapError(err)
 		}
 		if res2.MatchedCount == 0 {
-			return domain.ErrNotFound
+			// Either the submodel doesn't exist, or a concurrent request already inserted
+			// the element (race window between step 1 and step 2). Retry step 1 once to
+			// distinguish both cases: if it now matches, the race is resolved; otherwise
+			// the submodel truly doesn't exist.
+			retryRes, err := r.col.UpdateOne(ctx, filterUpdate, update)
+			if err != nil {
+				telemetry.MongoOperationErrors.WithLabelValues(collectionName, "upsert_element").Inc()
+				return mapError(err)
+			}
+			if retryRes.MatchedCount == 0 {
+				return domain.ErrNotFound
+			}
 		}
 	}
 

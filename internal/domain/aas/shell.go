@@ -9,27 +9,27 @@ import (
 
 // AssetAdministrationShell is the digital twin of a physical machine asset.
 type AssetAdministrationShell struct {
-	ID            string         `bson:"_id"`
-	TenantID      uuid.UUID      `bson:"tenantId"`
-	GlobalAssetID string         `bson:"globalAssetId"`
-	AssetKind     string         `bson:"assetKind"`
-	AssetType     string         `bson:"assetType"`
-	Description   *string        `bson:"description,omitempty"`
-	Administration *Administration `bson:"administration,omitempty"`
-	SubmodelRefs  []SubmodelRef  `bson:"submodelRefs"`
-	CreatedAt     time.Time      `bson:"createdAt"`
-	UpdatedAt     time.Time      `bson:"updatedAt"`
+	ID             string          `bson:"_id"                       json:"id"`
+	TenantID       uuid.UUID       `bson:"tenantId"                  json:"tenantId"`
+	GlobalAssetID  string          `bson:"globalAssetId"             json:"globalAssetId"`
+	AssetKind      string          `bson:"assetKind"                 json:"assetKind"`
+	AssetType      string          `bson:"assetType"                 json:"assetType"`
+	Description    *string         `bson:"description,omitempty"     json:"description,omitempty"`
+	Administration *Administration `bson:"administration,omitempty"  json:"administration,omitempty"`
+	SubmodelRefs   []SubmodelRef   `bson:"submodelRefs"              json:"submodelRefs"`
+	CreatedAt      time.Time       `bson:"createdAt"                 json:"createdAt"`
+	UpdatedAt      time.Time       `bson:"updatedAt"                 json:"updatedAt"`
 }
 
 // Administration holds version information for the shell.
 type Administration struct {
-	Version  string `bson:"version"`
-	Revision string `bson:"revision"`
+	Version  string `bson:"version"  json:"version"`
+	Revision string `bson:"revision" json:"revision"`
 }
 
 // SubmodelRef is a reference to a submodel by its server-assigned ID.
 type SubmodelRef struct {
-	SubmodelID string `bson:"submodelId"`
+	SubmodelID string `bson:"submodelId" json:"submodelId"`
 }
 
 // ShellUpdate contains the fields that can be modified in an update operation.
