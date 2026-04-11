@@ -853,7 +853,7 @@
           "response": []
         },
         {
-          "name": "POST Create User with Role — 409 EMAIL_TAKEN (013 Pact)",
+          "name": "POST Create User with Role — 409 DUPLICATE_EMAIL (013 Pact)",
           "request": {
             "method": "POST",
             "header": [

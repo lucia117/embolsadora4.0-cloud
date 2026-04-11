@@ -127,7 +127,7 @@ curl -X POST "$BASE_URL/users" \
 **Respuesta esperada (409)**:
 ```json
 {
-  "error": "EMAIL_TAKEN",
+  "error": "DUPLICATE_EMAIL",
   "message": "el email ya está registrado en este tenant",
   "status": 409
 }

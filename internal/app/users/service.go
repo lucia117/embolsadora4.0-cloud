@@ -89,11 +89,11 @@ func (s *Service) CreateUser(ctx context.Context, tenantID string, cmd *domainUs
 
 	tenantUUID, err := uuid.Parse(tenantID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid tenant_id: %w", err)
+		return nil, fmt.Errorf("%w: invalid tenant_id: %v", domainUsers.ErrValidation, err)
 	}
 	assignedByUUID, err := uuid.Parse(cmd.AssignedBy)
 	if err != nil {
-		return nil, fmt.Errorf("invalid assigned_by: %w", err)
+		return nil, fmt.Errorf("%w: invalid assigned_by: %v", domainUsers.ErrValidation, err)
 	}
 
 	user := &domainUsers.User{

@@ -5,7 +5,7 @@ type CreateUserRequest struct {
 	FirstName string  `json:"firstName" binding:"required,max=100"`
 	LastName  string  `json:"lastName" binding:"required,max=100"`
 	Email     string  `json:"email" binding:"required,email"`
-	Role      string  `json:"role" binding:"required"`
+	Role      string  `json:"role" binding:"required,max=50"`
 	Image     *string `json:"image"`
 }
 

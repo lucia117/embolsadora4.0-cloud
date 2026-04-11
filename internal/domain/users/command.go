@@ -39,6 +39,12 @@ func (c *CreateUserCommand) Validate() error {
 	if c.Role == "" {
 		return fmt.Errorf("role is required")
 	}
+	if len(c.Role) > 50 {
+		return fmt.Errorf("role must be at most 50 characters")
+	}
+	if c.AssignedBy == "" {
+		return fmt.Errorf("assigned_by is required")
+	}
 	return nil
 }
 

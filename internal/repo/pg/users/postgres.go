@@ -163,10 +163,14 @@ func (r *PostgresRepository) CreateWithRole(ctx context.Context, user *users.Use
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
 			switch pgErr.Code {
-			case "23503": // foreign key violation
-				return nil, domain.ErrInvalidRoleID
-			case "23505": // unique violation (active UTR already exists)
-				return nil, domain.ErrUserAlreadyHasActiveRole
+			case "23503": // foreign key violation — only map role_id FK
+				if pgErr.ConstraintName == "user_tenant_roles_role_id_fkey" {
+					return nil, domain.ErrInvalidRoleID
+				}
+			case "23505": // unique violation — only map the active-UTR partial index
+				if pgErr.ConstraintName == "idx_utr_active_unique" {
+					return nil, domain.ErrUserAlreadyHasActiveRole
+				}
 			}
 		}
 		return nil, fmt.Errorf("failed to insert user_tenant_role: %w", err)

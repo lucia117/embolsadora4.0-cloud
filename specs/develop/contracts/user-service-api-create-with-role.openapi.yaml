@@ -106,7 +106,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error: "EMAIL_TAKEN"
+                error: "DUPLICATE_EMAIL"
                 message: "el email ya está registrado en este tenant"
                 status: 409
 
