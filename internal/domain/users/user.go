@@ -98,9 +98,10 @@ func (u *User) ValidateRole() error {
 	if u.Role == "" {
 		return fmt.Errorf("role is required")
 	}
-	if u.Role != RoleAdmin && u.Role != RoleUser {
-		return fmt.Errorf("role must be 'admin' or 'user'")
+	if len(u.Role) > 50 {
+		return fmt.Errorf("role must be at most 50 characters")
 	}
+	// accepts any non-empty roles.id (max 50 chars, matching VARCHAR(50) column)
 	return nil
 }
 

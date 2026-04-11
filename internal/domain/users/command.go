@@ -4,12 +4,13 @@ import "fmt"
 
 // CreateUserCommand represents a user creation request
 type CreateUserCommand struct {
-	TenantID  string
-	FirstName string
-	LastName  string
-	Email     string
-	Role      string
-	Image     *string // optional
+	TenantID   string
+	FirstName  string
+	LastName   string
+	Email      string
+	Role       string  // any valid roles.id (system or custom)
+	Image      *string // optional
+	AssignedBy string  // UUID of the admin creating the user
 }
 
 // Validate checks command validity
@@ -38,8 +39,11 @@ func (c *CreateUserCommand) Validate() error {
 	if c.Role == "" {
 		return fmt.Errorf("role is required")
 	}
-	if c.Role != RoleAdmin && c.Role != RoleUser {
-		return fmt.Errorf("role must be 'admin' or 'user'")
+	if len(c.Role) > 50 {
+		return fmt.Errorf("role must be at most 50 characters")
+	}
+	if c.AssignedBy == "" {
+		return fmt.Errorf("assigned_by is required")
 	}
 	return nil
 }
@@ -70,11 +74,7 @@ func (c *UpdateUserCommand) Validate() error {
 	if c.LastName != nil && len(*c.LastName) > 100 {
 		return fmt.Errorf("last_name must be at most 100 characters")
 	}
-	if c.Role != nil {
-		if *c.Role != RoleAdmin && *c.Role != RoleUser {
-			return fmt.Errorf("role must be 'admin' or 'user'")
-		}
-	}
+	// role accepts any valid roles.id; FK in user_tenant_roles enforces existence
 
 	return nil
 }

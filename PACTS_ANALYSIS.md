@@ -14,11 +14,11 @@
 |---|---|
 | Archivos Pact | 13 |
 | Interacciones totales | 149 |
-| Servicios completamente implementados | 9 |
-| Servicios parcialmente implementados | 1 |
+| Servicios completamente implementados | 10 |
+| Servicios parcialmente implementados | 0 |
 | Servicios no implementados | 3 |
 | Interacciones N/A (Supabase maneja) | 5 |
-| Cobertura estimada | ~61% |
+| Cobertura estimada | ~89% |
 
 ---
 
@@ -168,7 +168,7 @@ Consumer: `embolsadora-frontend-bff` → Provider: `user-service-api`
 | Método | Path Pact | Estado | Observación |
 |---|---|---|---|
 | GET | `/api/v1/users/{id}?include=roles` | ✅ | `include=roles` implementado via JOIN con UTR + roles; campo `roles: []` en response (007) |
-| POST | `/api/v1/users` con rol inicial | ❌ | Create user existe, pero la asignación de rol inicial no está implementada |
+| POST | `/api/v1/users` con rol inicial | ✅ | CreateWithRole: usuario + UTR activo en una sola transacción pgx (013) |
 | POST | `/api/v1/users/register` | 🚫 N/A | El registro de usuarios es via invitaciones (Supabase Admin API) — no existe auto-registro |
 | POST | `/api/v1/users/verify-email` | 🚫 N/A | Verificación de email es 100% Supabase, no pasa por este backend |
 | PATCH | `/api/v1/users/{id}/status` | ✅ | Actualiza UTR.status (active/inactive→revoked/suspended); guard anti-auto-desactivación (007) |
@@ -318,10 +318,10 @@ Consumer: `embolsadora-frontend` → Provider: `reports-service-api`
 | ~~1~~ | ~~`log-service-api`~~ | ~~14~~ | ~~✅ Done (009)~~ | — |
 | ~~2~~ | ~~`notification-service-api`~~ | ~~6~~ | ~~✅ Done (010)~~ | — |
 | ~~1~~ | ~~`permissions-service-api`~~ | ~~10~~ | ~~✅ Done (011)~~ | — |
-| 1 | `user-service-api-roles-extension` (completar) | 1 | 🟠 Media-baja | Solo falta POST /users con rol inicial |
-| 2 | `reports-service-api` | 16 | 🔵 Baja | Generación async compleja, mayor esfuerzo |
+| ~~1~~ | ~~`user-service-api-roles-extension` (completar)~~ | ~~1~~ | ~~✅ Done (013)~~ | — |
+| 1 | `reports-service-api` | 16 | 🔵 Baja — **en pausa** | Generación async compleja, mayor esfuerzo |
 
-**Total interacciones pendientes**: ~17 de 149 (excluyendo 5 N/A Supabase)
+**Total interacciones pendientes**: ~16 de 149 (excluyendo 5 N/A Supabase)
 
 ---
 

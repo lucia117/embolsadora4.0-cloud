@@ -807,6 +807,72 @@
             "description": "List users pending activation (UTR status=pending) in tenant (007 - GET pending Pact)"
           },
           "response": []
+        },
+        {
+          "name": "POST Create User with Role — 201 happy path (013 Pact)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+              { "key": "X-Tenant-ID", "value": "{{tenant_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Juan\",\n  \"lastName\": \"Pérez\",\n  \"email\": \"juan.perez@ejemplo.com\",\n  \"role\": \"operario\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users",
+              "host": ["{{base_url}}"],
+              "path": ["users"]
+            },
+            "description": "Creates user + active UTR in one transaction. Expects 201 + user in response. Verify user_tenant_roles has status='active'. (013 Pact)"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Create User with Role — 400 INVALID_ROLE (013 Pact)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+              { "key": "X-Tenant-ID", "value": "{{tenant_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Test\",\n  \"lastName\": \"User\",\n  \"email\": \"test.invalid@ejemplo.com\",\n  \"role\": \"rol_inexistente\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users",
+              "host": ["{{base_url}}"],
+              "path": ["users"]
+            },
+            "description": "Role does not exist in roles table → FK violation → 400 INVALID_ROLE. User must NOT be created (rollback). (013 Pact)"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Create User with Role — 409 DUPLICATE_EMAIL (013 Pact)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+              { "key": "X-Tenant-ID", "value": "{{tenant_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Otro\",\n  \"lastName\": \"User\",\n  \"email\": \"juan.perez@ejemplo.com\",\n  \"role\": \"operario\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users",
+              "host": ["{{base_url}}"],
+              "path": ["users"]
+            },
+            "description": "Same email already registered in tenant → 409 DUPLICATE_EMAIL. Run after the happy path request. (013 Pact)"
+          },
+          "response": []
         }
       ]
     },

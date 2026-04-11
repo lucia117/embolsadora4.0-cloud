@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	domain "github.com/tu-org/embolsadora-api/internal/domain"
@@ -79,14 +80,22 @@ func (s *Service) GetUserWithRoles(ctx context.Context, tenantID, userID string)
 	return uwr, nil
 }
 
-// CreateUser creates a new user in a tenant
+// CreateUser creates a new user in a tenant with an active role assignment.
 func (s *Service) CreateUser(ctx context.Context, tenantID string, cmd *domainUsers.CreateUserCommand) (*domainUsers.User, error) {
 	if err := cmd.Validate(); err != nil {
 		s.logger.Warn("invalid create user command", zap.String("tenant_id", tenantID), zap.Error(err))
 		return nil, fmt.Errorf("%w: %v", domainUsers.ErrValidation, err)
 	}
 
-	// Create domain object
+	tenantUUID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid tenant_id: %v", domainUsers.ErrValidation, err)
+	}
+	assignedByUUID, err := uuid.Parse(cmd.AssignedBy)
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid assigned_by: %v", domainUsers.ErrValidation, err)
+	}
+
 	user := &domainUsers.User{
 		TenantID:  tenantID,
 		FirstName: cmd.FirstName,
@@ -96,19 +105,36 @@ func (s *Service) CreateUser(ctx context.Context, tenantID string, cmd *domainUs
 		Image:     cmd.Image,
 	}
 
-	s.logger.Debug("creating user", zap.String("tenant_id", tenantID), zap.String("email", cmd.Email))
+	now := time.Now().UTC()
+	utr := &domain.UserTenantRole{
+		ID:         uuid.New(),
+		TenantID:   tenantUUID,
+		RoleID:     &cmd.Role,
+		Status:     domain.UserRoleStatusActive,
+		AssignedBy: &assignedByUUID,
+		AssignedAt: &now,
+	}
 
-	created, err := s.repo.Create(ctx, user)
+	s.logger.Debug("creating user with role", zap.String("tenant_id", tenantID), zap.String("email", cmd.Email), zap.String("role", cmd.Role))
+
+	created, err := s.repo.CreateWithRole(ctx, user, utr)
 	if err != nil {
-		if errors.Is(err, domainUsers.ErrEmailTaken) {
+		switch {
+		case errors.Is(err, domainUsers.ErrEmailTaken):
 			s.logger.Warn("email already taken", zap.String("tenant_id", tenantID), zap.String("email", cmd.Email))
-			return nil, err
+		case errors.Is(err, domain.ErrInvalidRoleID):
+			s.logger.Warn("invalid role id on user creation", zap.String("tenant_id", tenantID), zap.String("role", cmd.Role))
+		default:
+			s.logger.Error("failed to create user", zap.String("tenant_id", tenantID), zap.String("email", cmd.Email), zap.Error(err))
 		}
-		s.logger.Error("failed to create user", zap.String("tenant_id", tenantID), zap.String("email", cmd.Email), zap.Error(err))
 		return nil, err
 	}
 
-	s.logger.Info("user created", zap.String("tenant_id", tenantID), zap.String("user_id", created.ID), zap.String("email", cmd.Email))
+	s.logger.Info("user created with role",
+		zap.String("tenant_id", tenantID),
+		zap.String("user_id", created.ID),
+		zap.String("email", cmd.Email),
+		zap.String("role", cmd.Role))
 	return created, nil
 }
 

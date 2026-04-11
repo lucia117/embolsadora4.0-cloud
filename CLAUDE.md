@@ -104,6 +104,7 @@ specs/                       — feature specs, plans, tasks
 - T034: `migrate -path migrations/ -database $DATABASE_URL up 1` (migration 005)
 - T048: Run `specs/002-supabase-auth-backend/quickstart.md` curl commands against local server
 - T051: Benchmark `GET /api/v1/me` P95 < 300ms
+- 013: `migrate -path migrations/ -database $DATABASE_URL up 1` (migration 018 — drop users_role_check)
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->
