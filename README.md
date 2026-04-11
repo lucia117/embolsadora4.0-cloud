@@ -20,15 +20,9 @@ Repositorio Go 1.24+ con arquitectura clean/hexagonal para el monitoreo de máqu
 
 ## Requisitos
 
-- Go 1.24+ (requerido por el proyecto)
-- Docker y Docker Compose (para levantar Postgres/Redis y la API)
-- VS Code (opcional) con extensión Go para depurar
-- Make (opcional, para usar los comandos del Makefile)
-
-## Comandos básicos
-
-- `make docker`: levanta dependencias locales (db, redis, api) con `docker-compose.dev.yml`.
-- `make run`: ejecuta la API localmente (`go run ./cmd/api`).
+- **Docker y Docker Compose** — único requisito para levantar el stack completo
+- Go **no** se instala en el host; todos los comandos `go` se ejecutan dentro de contenedores Docker
+- VS Code (opcional) con extensión Go para navegar el código
 
 ## Estructura
 
@@ -43,123 +37,122 @@ Ver carpetas principales:
 - `docker-compose.dev.yml` Stack local (db, redis, api)
 - `Makefile` (targets utilitarios, opcional si tenés make)
 
-## Inicialización del módulo Go
+## Levantar el proyecto con Docker Compose
 
-Si abrís el repo por primera vez:
+El stack completo incluye PostgreSQL, Redis, MongoDB y la API Go — todo orquestado con `docker compose`.
 
-```powershell
-# Dentro de la carpeta del proyecto
-# (ya configurado el module a github.com/tu-org/embolsadora-api)
+### 1. Configurar variables de entorno
 
-# Normalizar dependencias
-go mod tidy
+Copiar el archivo de ejemplo y completar los valores de Supabase:
+
+```bash
+cp .env.example .env
 ```
 
-## Ejecutar la API en local (sin Docker)
+Editar `.env` y reemplazar los placeholders de Supabase:
 
-```powershell
-# Desde la raíz del repo
-go run ./cmd/api
+```env
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_JWKS_URL=https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json
+SUPABASE_JWT_ISSUER=https://<project-ref>.supabase.co/auth/v1
+SUPABASE_SERVICE_ROLE_KEY=<obtener del dashboard: Settings → API → service_role>
+SUPABASE_ANON_KEY=<obtener del dashboard: Settings → API → anon>
 ```
 
-Endpoint de salud:
+El resto de las variables (Postgres, Redis, MongoDB) ya tienen valores por defecto en el archivo.
 
-- `GET http://localhost:8080/ping` → 200 "pong"
+### 2. Levantar todos los servicios
 
-Endpoints disponibles:
+```bash
+# Primera vez: construir imagen de la API y levantar todo
+docker compose up --build -d
 
-- `/api/v1/users` (GET, POST) — listado y creación de usuarios
-- `/api/v1/users/:id` (GET, PATCH, DELETE) — gestión individual de usuarios
-- `/api/v1/users/:id/roles` (GET) — roles de un usuario
-- `/api/v1/user-roles` (GET, POST) — asignaciones de rol
-- `/api/v1/user-roles/bulk` (POST) — asignación masiva
-- `/api/v1/user-roles/:id` (PUT, DELETE) — actualización y revocación
-- `/api/v1/tenants` (GET, POST) — listado y creación de tenants
-- `/api/v1/tenants/:id` (GET, PATCH, DELETE) — gestión individual de tenants
-- `/api/v1/machines` (GET, POST) — listado y creación de máquinas
-- `/api/v1/consumers/events` (POST) — ingesta batch de eventos
-- `/api/v1/consumers/heartbeat` (POST) — heartbeat de dispositivo
-
-## Ejecutar con Docker Compose
-
-### Prerequisitos
-
-1. Docker y Docker Compose instalados
-2. Tener el archivo `docker-compose.yml` o `docker-compose.dev.yml` en la raíz del proyecto
-3. Tener el `Dockerfile` configurado correctamente
-
-### Levantar los servicios
-
-Para levantar Postgres, Redis y la API por primera vez:
-
-```powershell
-# Construir las imágenes desde cero
-docker-compose -f docker-compose.yml build --no-cache
-
-# Levantar todos los servicios
-docker-compose -f docker-compose.yml up
+# Verificar que los contenedores están corriendo
+docker compose ps
 ```
 
-Para levantar los servicios en segundo plano (modo detached):
+Servicios que levanta:
 
-```powershell
-docker-compose -f docker-compose.yml up -d
+| Servicio | Puerto | Descripción |
+|---|---|---|
+| `api` | `8080` | API Go (Gin) |
+| `db` | `5432` | PostgreSQL 16 |
+| `redis` | `6379` | Redis 7 |
+| `mongo` | `27017` | MongoDB 7 |
+
+### 3. Aplicar migraciones de base de datos
+
+Una vez que los contenedores están corriendo, aplicar las migraciones de Postgres:
+
+```bash
+docker run --rm \
+  --network embolsadora4.0-cloud_embolsadora_network \
+  -v $(pwd)/migrations:/migrations \
+  migrate/migrate \
+  -path /migrations \
+  -database "postgres://embolsadora_user:embolsadora_password@db:5432/embolsadora_dev?sslmode=disable" \
+  up
 ```
 
-### Detener los servicios
+### 4. Verificar que todo está funcionando
 
-```powershell
-# Detener los contenedores
-docker-compose -f docker-compose.yml down
-
-# Detener y eliminar volúmenes (elimina datos de la BD)
-docker-compose -f docker-compose.yml down -v
+```bash
+curl http://localhost:8080/ping
 ```
 
-### Ver logs
+Respuesta esperada con los tres stores healthy:
 
-```powershell
-# Ver logs de todos los servicios
-docker-compose -f docker-compose.yml logs -f
+```json
+{
+  "postgres": { "status": "ok" },
+  "redis":    { "status": "ok" },
+  "mongo":    { "status": "ok" }
+}
+```
+
+### Comandos útiles
+
+```bash
+# Ver logs en tiempo real
+docker compose logs -f
 
 # Ver logs de un servicio específico
-docker-compose -f docker-compose.yml logs -f api
+docker compose logs -f api
+
+# Reconstruir solo la API (tras cambios de código)
+docker compose up --build -d api
+
+# Detener todos los servicios
+docker compose down
+
+# Detener y borrar todos los volúmenes (resetea las bases de datos)
+docker compose down -v
 ```
 
-### Variables de entorno
+### Ejecutar comandos Go (sin instalar Go en el host)
 
-El servicio `api` en `docker-compose.yml` usa las siguientes variables de entorno:
+```bash
+# Compilar
+docker run --rm \
+  -v /tmp/go-mod-cache:/go/pkg/mod \
+  -v $(pwd):/app -w /app \
+  golang:1.24-alpine \
+  sh -c "go build ./..."
 
-- `DB_URL=postgres://embolsadora_user:embolsadora_password@db:5432/embolsadora_dev?sslmode=disable`
-- `DB_HOST=db`
-- `DB_PORT=5432`
-- `DB_USER=embolsadora_user`
-- `DB_PASSWORD=embolsadora_password`
-- `DB_NAME=embolsadora_dev`
-- `REDIS_HOST=redis`
-- `REDIS_PORT=6379`
-- `REDIS_PASSWORD=embolsadora_redis_pass`
-- `APP_ENV=development`
+# Correr tests
+docker run --rm \
+  -v /tmp/go-mod-cache:/go/pkg/mod \
+  -v $(pwd):/app -w /app \
+  golang:1.24-alpine \
+  sh -c "go test ./..."
 
-### Verificar que la API está funcionando
-
-Una vez levantados los servicios, podés verificar que la API está funcionando:
-
-```powershell
-# Ping endpoint
-curl http://localhost:8080/ping
-# Debería responder: pong
+# Agregar una dependencia
+docker run --rm \
+  -v /tmp/go-mod-cache:/go/pkg/mod \
+  -v $(pwd):/app -w /app \
+  golang:1.24-alpine \
+  sh -c "go get github.com/some/package && go mod tidy"
 ```
-
-### Servicios disponibles
-
-- **API**: `http://localhost:8080`
-- **PostgreSQL**: `localhost:5432`
-  - Usuario: `embolsadora_user`
-  - Password: `embolsadora_password`
-  - Base de datos: `embolsadora_dev`
-- **Redis**: `localhost:6379`
-  - Password: `embolsadora_redis_pass`
 
 ## Run and Debug en VS Code
 
@@ -190,23 +183,24 @@ make docker   # docker compose -f docker-compose.dev.yml up --build
 make migrate  # placeholder
 ```
 
-## Colecciones Postman
+## Colecciones Postman / Bruno
 
-Las colecciones Postman están en la carpeta [`postman/`](postman/).
+Las colecciones están en [`specs/postman/`](specs/postman/). Ver [`specs/postman/TESTING_GUIDE.md`](specs/postman/TESTING_GUIDE.md) para la guía completa de uso.
 
-| Archivo | Descripción |
+| Archivo | Herramienta | Descripción |
+|---|---|---|
+| [`embolsadora-api.postman_collection.json`](specs/postman/embolsadora-api.postman_collection.json) | Postman | Colección completa: auth, tenants, usuarios, roles, AAS Shells (MongoDB), edge devices, consumers |
+| [`Embolsadora API — Local - brunoo.json`](specs/postman/Embolsadora%20API%20%E2%80%94%20Local%20-%20brunoo.json) | Bruno | Misma cobertura, compatible con Bruno runner |
+| [`Embolsadora API — Local.environment.json`](specs/postman/Embolsadora%20API%20%E2%80%94%20Local.environment.json) | Bruno | Variables de entorno para Bruno |
+
+**Variables requeridas antes de ejecutar:**
+
+| Variable | Valor |
 |---|---|
-| [`User-Management-API.postman_collection.json`](postman/User-Management-API.postman_collection.json) | CRUD completo de usuarios con ejemplos y casos de error |
-| [`user-role-assignments.postman_collection.json`](postman/user-role-assignments.postman_collection.json) | Asignación, actualización y revocación de roles |
-| [`tenants.postman_collection.json`](postman/tenants.postman_collection.json) | CRUD completo de tenants (`GET`, `POST`, `PATCH`, `DELETE`) |
-| [`User-Management-API.postman_environment.json`](postman/User-Management-API.postman_environment.json) | Variables para user management (`base_url`, `tenant_id`, `jwt_token`, `user_id`) |
-| [`env-local.postman_environment.json`](postman/env-local.postman_environment.json) | Variables de entorno para desarrollo local (`http://localhost:8080`) |
-
-**Cómo usar:**
-1. Importar el archivo de colección en Postman.
-2. Importar el ambiente local y seleccionarlo como activo.
-3. Completar la variable `token` con el JWT obtenido desde `POST /auth/login`.
-4. Ejecutar `POST Create Tenant`: el `id` del tenant creado se guarda automáticamente en la variable `{{tenantId}}` para los demás requests.
+| `tenantId` | `550e8400-e29b-41d4-a716-446655440001` (demo seed) |
+| `roleId` | `admin` |
+| `apiKey` | `dev-api-key` |
+| `bearerToken` | se llena automáticamente al ejecutar Login |
 
 ## OpenAPI y ADRs
 
@@ -216,4 +210,4 @@ Las colecciones Postman están en la carpeta [`postman/`](postman/).
 ## Notas
 
 - Los comentarios/TODOs están en inglés por consistencia técnica interna.
-- Ver `postman/README.md` y `postman/TESTING-GUIDE.md` para guías detalladas de uso y testing.
+- Ver [`specs/postman/TESTING_GUIDE.md`](specs/postman/TESTING_GUIDE.md) para la guía completa de testing manual.

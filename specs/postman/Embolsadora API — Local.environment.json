@@ -1,0 +1,65 @@
+{
+  "name": "Local",
+  "variables": [
+    {
+      "name": "baseUrl",
+      "value": "http://localhost:8080",
+      "enabled": true,
+      "secret": false
+    },
+    {
+      "name": "bearerToken",
+      "value": "",
+      "enabled": true,
+      "secret": true
+    },
+    {
+      "name": "tenantId",
+      "value": "",
+      "enabled": true,
+      "secret": false
+    },
+    {
+      "name": "tenantSlug",
+      "value": "",
+      "enabled": true,
+      "secret": false
+    },
+    {
+      "name": "apiKey",
+      "value": "dev-api-key",
+      "enabled": true,
+      "secret": false
+    },
+    {
+      "name": "shellId",
+      "value": "",
+      "enabled": true,
+      "secret": false
+    },
+    {
+      "name": "deviceId",
+      "value": "",
+      "enabled": true,
+      "secret": false
+    },
+    {
+      "name": "invitationId",
+      "value": "",
+      "enabled": true,
+      "secret": false
+    },
+    {
+      "name": "userId",
+      "value": "",
+      "enabled": true,
+      "secret": false
+    },
+    {
+      "name": "roleId",
+      "value": "",
+      "enabled": true,
+      "secret": false
+    }
+  ]
+}

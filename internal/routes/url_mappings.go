@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"time"
@@ -8,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.uber.org/zap"
 
 	api "github.com/tu-org/embolsadora-api/internal/api"
@@ -33,6 +35,9 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/config"
 	consumers "github.com/tu-org/embolsadora-api/internal/consumers"
 	consumermw "github.com/tu-org/embolsadora-api/internal/consumers/middleware"
+	handlerShells "github.com/tu-org/embolsadora-api/internal/api/handler/aas/shells"
+	"github.com/tu-org/embolsadora-api/internal/domain/aas"
+	aasRepo "github.com/tu-org/embolsadora-api/internal/repo/mongo/aas"
 	"github.com/tu-org/embolsadora-api/internal/platform/edgeclient"
 	"github.com/tu-org/embolsadora-api/internal/platform/supabase"
 	alarmRulesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/alarm_rules"
@@ -56,11 +61,9 @@ import (
 )
 
 // RegisterURLMappings configures all API routes.
-func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, redisClient *redis.Client) {
+func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, redisClient *redis.Client, mongoClient *mongo.Client) {
 	// Health check
-	r.GET("/ping", func(c *gin.Context) {
-		c.String(http.StatusOK, "pong")
-	})
+	r.GET("/ping", healthHandler(db, redisClient, mongoClient))
 
 	// Public auth
 	loginHandler := handlerLogin.NewHandler(cfg.Supabase.URL, cfg.Supabase.AnonKey)
@@ -135,16 +138,32 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 		UserRepo:     mgmtUserRepo,
 	}, api.Config{})
 
+	// ── AAS Shells (MongoDB) ──────────────────────────────────────────────────
+	var consumerDeps consumers.Deps
+	var shellRepo aas.ShellRepository // nil when Mongo is unavailable
+	if mongoClient != nil {
+		mongoDB := mongoClient.Database(cfg.Mongo.DB)
+		repo, err := aasRepo.New(mongoDB)
+		if err != nil {
+			log.Printf("WARN: failed to initialize AAS shell repository; Mongo-backed routes disabled: %v", err)
+		} else {
+			shellRepo = repo
+			consumerDeps.ShellRepo = repo
+		}
+	}
+	// Always register AAS routes — handler returns 503 when shellRepo == nil
+	handlerShells.RegisterRoutes(v1, shellRepo)
+
 	// ── Consumer surface (IoT devices, etc.) ──────────────────────────────────
 	c1 := r.Group(
 		"/api/v1/consumers",
-		consumermw.APIKeyAuth(),
+		consumermw.APIKeyAuth(consumerDeps.APIKeys),
 		consumermw.RateLimit(),
 		consumermw.Idempotency(),
 		consumermw.NoCORS(),
 		consumermw.Timeout(),
 	)
-	consumers.RegisterConsumerRoutes(c1, consumers.Deps{}, consumers.Config{})
+	consumers.RegisterConsumerRoutes(c1, consumerDeps, consumers.Config{})
 
 	// Superficie de edge devices (/api/tenants/{tenantId}/edge-devices)
 	// Esta ruta sigue el contrato del pact y es parte de la superficie ABM
@@ -208,4 +227,54 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	permissionsWriteGroup.POST("/permissions", pHandler.CreatePermission)
 	permissionsWriteGroup.PUT("/permissions/:id", pHandler.UpdatePermission)
 	permissionsWriteGroup.DELETE("/permissions/:id", pHandler.DeletePermission)
+}
+
+// healthHandler returns a Gin handler that reports the status of each backing service.
+// It always responds HTTP 200 (fail open) so that a single degraded dependency does not
+// cause the health endpoint itself to appear unavailable.
+func healthHandler(db *pgxpool.Pool, redisClient *redis.Client, mongoClient *mongo.Client) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), time.Second)
+		defer cancel()
+
+		health := gin.H{
+			"postgres": postgresStatus(ctx, db),
+			"redis":    redisStatus(ctx, redisClient),
+			"mongo":    mongoStatus(ctx, mongoClient),
+		}
+		c.JSON(http.StatusOK, health)
+	}
+}
+
+func postgresStatus(ctx context.Context, db *pgxpool.Pool) gin.H {
+	if db == nil {
+		return gin.H{"status": "disabled"}
+	}
+	if err := db.Ping(ctx); err != nil {
+		log.Printf("postgres health check failed: %v", err)
+		return gin.H{"status": "degraded"}
+	}
+	return gin.H{"status": "ok"}
+}
+
+func redisStatus(ctx context.Context, client *redis.Client) gin.H {
+	if client == nil {
+		return gin.H{"status": "disabled"}
+	}
+	if err := client.Ping(ctx).Err(); err != nil {
+		log.Printf("redis health check failed: %v", err)
+		return gin.H{"status": "degraded"}
+	}
+	return gin.H{"status": "ok"}
+}
+
+func mongoStatus(ctx context.Context, client *mongo.Client) gin.H {
+	if client == nil {
+		return gin.H{"status": "disabled"}
+	}
+	if err := client.Ping(ctx, nil); err != nil {
+		log.Printf("mongo health check failed: %v", err)
+		return gin.H{"status": "degraded"}
+	}
+	return gin.H{"status": "ok"}
 }

@@ -1,0 +1,1870 @@
+{
+  "info": {
+    "name": "Embolsadora API — Local",
+    "description": "Colección completa para probar la API en local (http://localhost:8080).\n\nFlujo inicial:\n1. Ejecutar **Auth / Login** → el token se guarda automáticamente en `bearerToken`.\n2. Ejecutar **Me / Get Me** → si el usuario tiene tenant asignado, `tenantId` se guarda automáticamente.\n3. Si no tiene tenant: setear `tenantId` manualmente en las variables de entorno.\n4. El resto de los requests usan `{{bearerToken}}` y `{{tenantId}}` automáticamente.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"],
+              "query": [],
+              "variable": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@test.com\",\n  \"password\": \"Test1234!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 200', () => { expect(res.status).to.equal(200); });",
+                  "const body = res.body;",
+                  "if (body.access_token) {",
+                  "  bru.setEnvVar('bearerToken', body.access_token);",
+                  "  console.log('Token guardado en bearerToken');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/change-password",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "change-password"],
+              "query": [],
+              "variable": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"new_password\": \"nueva-password-segura\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 200 o 204', () => { expect(res.status).to.be.oneOf([200, 204]); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth — Casos de Error",
+      "item": [
+        {
+          "name": "Request con token inválido (401)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer token.invalido.aqui",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "me"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 401', () => { expect(res.status).to.equal(401); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Request sin X-Tenant-ID (400)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invitations",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "invitations"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 400', () => { expect(res.status).to.equal(400); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Request sin token (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "me"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 401', () => { expect(res.status).to.equal(401); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "AAS Shells (MongoDB)",
+      "item": [
+        {
+          "name": "Create Shell — Conflict (mismo globalAssetId)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/aas/shells",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "aas", "shells"],
+              "query": [],
+              "variable": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"globalAssetId\": \"urn:example:machine:001\",\n  \"assetKind\": \"Instance\",\n  \"assetType\": \"BolagsacoEmbolsadora\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 409 Conflict', () => { expect(res.status).to.equal(409); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Shell",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/aas/shells",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "aas", "shells"],
+              "query": [],
+              "variable": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"globalAssetId\": \"urn:example:machine:{{$timestamp}}\",\n  \"assetKind\": \"Instance\",\n  \"assetType\": \"BolagsacoEmbolsadora\",\n  \"description\": \"Máquina de prueba\",\n  \"administration\": {\n    \"version\": \"1\",\n    \"revision\": \"0\"\n  },\n  \"submodelRefs\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 201', () => { expect(res.status).to.equal(201); });",
+                  "const body = res.body;",
+                  "if (body.ID) bru.setEnvVar('shellId', body.ID);",
+                  "test('Tiene ID', () => { expect(body).to.have.property('ID'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Shell",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/aas/shells/{{shellId}}",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "aas", "shells", "{{shellId}}"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 200', () => { expect(res.status).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Shell",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/aas/shells/{{shellId}}",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "aas", "shells", "{{shellId}}"],
+              "query": [],
+              "variable": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Descripción actualizada\",\n  \"assetKind\": \"Instance\",\n  \"assetType\": \"BolagsacoEmbolsadoraV2\",\n  \"administration\": {\n    \"version\": \"1\",\n    \"revision\": \"1\"\n  },\n  \"submodelRefs\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 200', () => { expect(res.status).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Shell",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/aas/shells/{{shellId}}",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "aas", "shells", "{{shellId}}"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 204', () => { expect(res.status).to.equal(204); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Shell — Not Found",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/aas/shells/urn:does-not-exist",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "aas", "shells", "urn:does-not-exist"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 404', () => { expect(res.status).to.equal(404); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Shells — Sin X-Tenant-ID (400)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/aas/shells",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "aas", "shells"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 400', () => { expect(res.status).to.equal(400); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Shells",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/aas/shells?limit=20&offset=0",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "aas", "shells"],
+              "query": [
+                { "key": "limit", "value": "20" },
+                { "key": "offset", "value": "0" }
+              ],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 200', () => { expect(res.status).to.equal(200); });",
+                  "const body = res.body;",
+                  "test('Tiene data y total', () => {",
+                  "  expect(body).to.have.property('data');",
+                  "  expect(body).to.have.property('total');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Consumers (API Key)",
+      "item": [
+        {
+          "name": "Get Shell (consumer)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "IoT device fetches its own AAS shell (digital twin) using an API key instead of JWT.",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/consumers/shells/{{shellId}}",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "consumers", "shells", "{{shellId}}"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 200', () => { expect(res.status).to.equal(200); });",
+                  "const body = res.body;",
+                  "test('Tiene ID', () => { expect(body).to.have.property('ID'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Shell — Not Found (consumer)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/consumers/shells/urn:does-not-exist",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "consumers", "shells", "urn:does-not-exist"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 404', () => { expect(res.status).to.equal(404); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Edge Devices",
+      "item": [
+        {
+          "name": "Create Device — edgeType inválido (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/tenants/{{tenantSlug}}/edge-devices",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tenants", "{{tenantSlug}}", "edge-devices"],
+              "query": [],
+              "variable": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bad Device\",\n  \"machineId\": \"MACHINE-BAD\",\n  \"edgeType\": \"TIPO_INVALIDO\",\n  \"raspberryBaseUrl\": \"http://192.168.1.100:8080\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 400', () => { expect(res.status).to.equal(400); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Device",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/tenants/{{tenantSlug}}/edge-devices",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tenants", "{{tenantSlug}}", "edge-devices"],
+              "query": [],
+              "variable": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Raspberry Pi #1\",\n  \"machineId\": \"MACHINE-001\",\n  \"edgeType\": \"RASPBERRY_PLC\",\n  \"raspberryBaseUrl\": \"http://192.168.1.100:8080\",\n  \"description\": \"Dispositivo de prueba local\",\n  \"plcAddress\": \"192.168.1.200\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 201', () => { expect(res.status).to.equal(201); });",
+                  "const body = res.body;",
+                  "if (body.data && body.data.id) bru.setVar('deviceId', body.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Disable Device",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/tenants/{{tenantSlug}}/edge-devices/{{deviceId}}/disable",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tenants", "{{tenantSlug}}", "edge-devices", "{{deviceId}}", "disable"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 200', () => { expect(res.status).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Enable Device",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/tenants/{{tenantSlug}}/edge-devices/{{deviceId}}/enable",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tenants", "{{tenantSlug}}", "edge-devices", "{{deviceId}}", "enable"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 200', () => { expect(res.status).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Device",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/tenants/{{tenantSlug}}/edge-devices/{{deviceId}}",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tenants", "{{tenantSlug}}", "edge-devices", "{{deviceId}}"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 200', () => { expect(res.status).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Telemetry",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/tenants/{{tenantSlug}}/edge-devices/{{deviceId}}/telemetry",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tenants", "{{tenantSlug}}", "edge-devices", "{{deviceId}}", "telemetry"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 200', () => { expect(res.status).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/tenants/{{tenantSlug}}/edge-devices/{{deviceId}}/health-check",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tenants", "{{tenantSlug}}", "edge-devices", "{{deviceId}}", "health-check"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 200', () => { expect(res.status).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Devices",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/tenants/{{tenantSlug}}/edge-devices",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tenants", "{{tenantSlug}}", "edge-devices"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 200', () => { expect(res.status).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/tenants/{{tenantSlug}}/edge-devices/{{deviceId}}/events",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tenants", "{{tenantSlug}}", "edge-devices", "{{deviceId}}", "events"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 200', () => { expect(res.status).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Status Check",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/tenants/{{tenantSlug}}/edge-devices/{{deviceId}}/status",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tenants", "{{tenantSlug}}", "edge-devices", "{{deviceId}}", "status"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 200', () => { expect(res.status).to.equal(200); });",
+                  "const body = res.body;",
+                  "test('Tiene checkType', () => { expect(body).to.have.nested.property('data.checkType'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Device",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/tenants/{{tenantSlug}}/edge-devices/{{deviceId}}",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tenants", "{{tenantSlug}}", "edge-devices", "{{deviceId}}"],
+              "query": [],
+              "variable": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Raspberry Pi #1 (actualizado)\",\n  \"description\": \"Descripción actualizada\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Invitations",
+      "item": [
+        {
+          "name": "Create Invitation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invitations",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "invitations"],
+              "query": [],
+              "variable": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"invitado.test@example.com\",\n  \"role_id\": \"{{roleId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 201', () => { expect(res.status).to.equal(201); });",
+                  "const body = res.body;",
+                  "if (body.id) bru.setVar('invitationId', body.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Invitations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invitations",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "invitations"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 200', () => { expect(res.status).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resend Invitation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invitations/{{invitationId}}/resend",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "invitations", "{{invitationId}}", "resend"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 200 o 204', () => { expect(res.status).to.be.oneOf([200, 204]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Revoke Invitation",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invitations/{{invitationId}}",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "invitations", "{{invitationId}}"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 200 o 204', () => { expect(res.status).to.be.oneOf([200, 204]); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Ping",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/ping",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["ping"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 200', () => { expect(res.status).to.equal(200); });",
+                  "test('postgres ok', () => {",
+                  "  const body = res.body;",
+                  "  expect(body.postgres.status).to.eql('ok');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Me",
+      "item": [
+        {
+          "name": "Get Me",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "me"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 200', () => { expect(res.status).to.equal(200); });",
+                  "const body = res.body;",
+                  "test('Tiene user.id', () => { expect(body.user).to.have.property('id'); });",
+                  "// Auto-guardar tenantId si el usuario tiene tenant asignado",
+                  "if (body.tenant && body.tenant.id) {",
+                  "  bru.setVar('tenantId', body.tenant.id);",
+                  "  console.log('tenantId guardado desde /me: ' + body.tenant.id);",
+                  "} else {",
+                  "  console.warn('Sin tenant en /me — setear tenantId manualmente en variables de entorno');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Tenants",
+      "item": [
+        {
+          "name": "Create Tenant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tenants"],
+              "query": [],
+              "variable": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Tenant de prueba\",\n  \"slug\": \"{{newTenantSlug}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "bru.setVar('newTenantSlug', 'prueba-' + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 201', () => { expect(res.status).to.equal(201); });",
+                  "const body = res.body;",
+                  "if (body.id) bru.setVar('tenantId', body.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Tenant",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tenants", "{{tenantId}}"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 200 o 204', () => { expect(res.status).to.be.oneOf([200, 204]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Tenant",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tenants", "{{tenantId}}"],
+              "query": [],
+              "variable": []
+            }
+          }
+        },
+        {
+          "name": "List Tenants",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tenants"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 200', () => { expect(res.status).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Tenant",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tenants", "{{tenantId}}"],
+              "query": [],
+              "variable": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Tenant actualizado\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users"],
+              "query": [],
+              "variable": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Juan\",\n  \"lastName\": \"Pérez\",\n  \"email\": \"{{testEmail}}\",\n  \"role\": \"user\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "bru.setVar('testEmail', 'user.' + Date.now() + '@example.com');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 201', () => { expect(res.status).to.equal(201); });",
+                  "const body = res.body;",
+                  "if (body.id) bru.setVar('userId', body.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userId}}",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "{{userId}}"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 204', () => { expect(res.status).to.equal(204); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Force Password Change",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userId}}/force-password-change",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "{{userId}}", "force-password-change"],
+              "query": [],
+              "variable": []
+            }
+          }
+        },
+        {
+          "name": "Get User Roles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userId}}/roles",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "{{userId}}", "roles"],
+              "query": [],
+              "variable": []
+            }
+          }
+        },
+        {
+          "name": "Get User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userId}}",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "{{userId}}"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 200', () => { expect(res.status).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users"],
+              "query": [],
+              "variable": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "test('Status 200', () => { expect(res.status).to.equal(200); });",
+                  "const body = res.body;",
+                  "if (body.data && body.data.length > 0) {",
+                  "  bru.setVar('userId', body.data[0].id);",
+                  "  console.log('userId guardado desde List Users: ' + body.data[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "disabled": false,
+                "type": "default"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}",
+                "disabled": false,
+                "type": "default"
+              }
+            ],
+            "auth": { "type": "noauth" },
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userId}}",
+              "protocol": "",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "{{userId}}"],
+              "query": [],
+              "variable": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Juan actualizado\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

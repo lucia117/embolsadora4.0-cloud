@@ -36,6 +36,11 @@ type SupabaseConfig struct {
 	InviteRateLimitHour int
 }
 
+type MongoConfig struct {
+	URI string
+	DB  string
+}
+
 type ObservabilityConfig struct {
 	LogLevel string
 }
@@ -44,6 +49,7 @@ type Config struct {
 	HTTP          HTTPConfig
 	DB            DBConfig
 	Redis         RedisConfig
+	Mongo         MongoConfig
 	Supabase      SupabaseConfig
 	Observability ObservabilityConfig
 }
@@ -72,6 +78,10 @@ func Load() (*Config, error) {
 		},
 		Redis: RedisConfig{
 			URL: getEnv("REDIS_URL", ""),
+		},
+		Mongo: MongoConfig{
+			URI: getEnv("MONGO_URI", ""),
+			DB:  getEnv("MONGO_DB", ""),
 		},
 		Supabase: SupabaseConfig{
 			JWKSUrl:             require("SUPABASE_JWKS_URL"),
