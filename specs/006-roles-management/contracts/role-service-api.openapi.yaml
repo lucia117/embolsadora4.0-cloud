@@ -1,0 +1,389 @@
+openapi: "3.0.3"
+info:
+  title: Role Service API
+  description: API para gestión de roles por tenant. Soporta roles del sistema (solo lectura) y roles personalizados (CRUD).
+  version: "1.0.0"
+
+servers:
+  - url: http://localhost:8080
+    description: Entorno local
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    TenantIDHeader:
+      name: X-Tenant-ID
+      in: header
+      required: true
+      description: UUID del tenant activo
+      schema:
+        type: string
+        format: uuid
+    RoleID:
+      name: id
+      in: path
+      required: true
+      description: ID del rol (string slug para roles del sistema, custom_XXXXXX para personalizados)
+      schema:
+        type: string
+
+  schemas:
+    Role:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "custom_3a9f12"
+        name:
+          type: string
+          example: "Supervisor"
+        description:
+          type: string
+          example: "Acceso de solo lectura a dashboards y alertas"
+        permissions:
+          type: array
+          items:
+            type: string
+          example: ["machines:read", "users:read"]
+        isSystemRole:
+          type: boolean
+          example: false
+        isGlobal:
+          type: boolean
+          example: false
+        tenantId:
+          type: string
+          nullable: true
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - permissions
+        - isSystemRole
+        - isGlobal
+        - createdAt
+        - updatedAt
+
+    RoleSuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/Role"
+      required: [success, data]
+
+    RoleListSuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Role"
+      required: [success, data]
+
+    CreateRoleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          example: "Supervisor"
+        description:
+          type: string
+          maxLength: 500
+          example: "Acceso de solo lectura a dashboards y alertas"
+        permissions:
+          type: array
+          items:
+            type: string
+          example: ["machines:read", "users:read"]
+      required:
+        - name
+
+    UpdateRoleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          example: "Supervisor"
+        description:
+          type: string
+          maxLength: 500
+        permissions:
+          type: array
+          items:
+            type: string
+      required:
+        - name
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "NOT_FOUND"
+        message:
+          type: string
+          example: "El rol no existe"
+      required: [success, error]
+
+    ConflictWithAffectedResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "ROLE_HAS_ASSIGNMENTS"
+        usersAffected:
+          type: integer
+          example: 3
+      required: [success, error, usersAffected]
+
+paths:
+  /api/v1/roles:
+    get:
+      summary: Listar roles del tenant
+      description: Devuelve los roles del sistema (globales) más los roles personalizados del tenant activo.
+      parameters:
+        - $ref: "#/components/parameters/TenantIDHeader"
+      responses:
+        "200":
+          description: Lista de roles
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleListSuccessResponse"
+              example:
+                success: true
+                data:
+                  - id: "admin"
+                    name: "Admin"
+                    description: ""
+                    permissions: ["users:read", "users:write", "machines:read"]
+                    isSystemRole: true
+                    isGlobal: true
+                    tenantId: null
+                    createdAt: "2026-01-01T00:00:00Z"
+                    updatedAt: "2026-01-01T00:00:00Z"
+                  - id: "custom_3a9f12"
+                    name: "Supervisor"
+                    description: "Acceso de solo lectura"
+                    permissions: ["machines:read"]
+                    isSystemRole: false
+                    isGlobal: false
+                    tenantId: "550e8400-e29b-41d4-a716-446655440001"
+                    createdAt: "2026-04-03T10:00:00Z"
+                    updatedAt: "2026-04-03T10:00:00Z"
+        "401":
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      summary: Crear rol personalizado
+      parameters:
+        - $ref: "#/components/parameters/TenantIDHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRoleRequest"
+      responses:
+        "201":
+          description: Rol creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleSuccessResponse"
+        "400":
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Límite de roles alcanzado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: "LIMIT_REACHED"
+                message: "Se alcanzó el máximo de 3 roles personalizados por tenant"
+        "409":
+          description: Nombre duplicado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: "DUPLICATE_NAME"
+                message: "Ya existe un rol con ese nombre en este tenant"
+
+  /api/v1/roles/{id}:
+    get:
+      summary: Obtener rol por ID
+      parameters:
+        - $ref: "#/components/parameters/TenantIDHeader"
+        - $ref: "#/components/parameters/RoleID"
+      responses:
+        "200":
+          description: Rol encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleSuccessResponse"
+        "401":
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Rol no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: "NOT_FOUND"
+                message: "El rol no existe"
+
+    put:
+      summary: Actualizar rol personalizado
+      parameters:
+        - $ref: "#/components/parameters/TenantIDHeader"
+        - $ref: "#/components/parameters/RoleID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRoleRequest"
+      responses:
+        "200":
+          description: Rol actualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleSuccessResponse"
+        "400":
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: No se puede modificar un rol del sistema
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: "SYSTEM_ROLE"
+                message: "Los roles del sistema no pueden modificarse"
+        "404":
+          description: Rol no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Nombre duplicado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      summary: Eliminar rol personalizado
+      parameters:
+        - $ref: "#/components/parameters/TenantIDHeader"
+        - $ref: "#/components/parameters/RoleID"
+      responses:
+        "200":
+          description: Rol eliminado exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        "401":
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: No se puede eliminar un rol del sistema
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: "SYSTEM_ROLE"
+                message: "Los roles del sistema no pueden eliminarse"
+        "404":
+          description: Rol no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: El rol tiene usuarios asignados
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConflictWithAffectedResponse"
+              example:
+                success: false
+                error: "ROLE_HAS_ASSIGNMENTS"
+                usersAffected: 3

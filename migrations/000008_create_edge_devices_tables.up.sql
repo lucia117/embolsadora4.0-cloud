@@ -1,5 +1,5 @@
 -- Create edge_devices table
-CREATE TABLE edge_devices (
+CREATE TABLE IF NOT EXISTS edge_devices (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id           UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name                VARCHAR(255) NOT NULL,
@@ -22,8 +22,8 @@ CREATE TABLE edge_devices (
 );
 
 -- Indexes for edge_devices
-CREATE INDEX idx_edge_devices_tenant_id ON edge_devices (tenant_id);
-CREATE INDEX idx_edge_devices_tenant_status ON edge_devices (tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_edge_devices_tenant_id ON edge_devices (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_edge_devices_tenant_status ON edge_devices (tenant_id, status);
 
 -- Auto-update trigger for updated_at
 CREATE OR REPLACE FUNCTION update_edge_devices_updated_at()
@@ -34,12 +34,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_edge_devices_updated_at ON edge_devices;
 CREATE TRIGGER trg_edge_devices_updated_at
     BEFORE UPDATE ON edge_devices
     FOR EACH ROW EXECUTE FUNCTION update_edge_devices_updated_at();
 
 -- Create device_events table
-CREATE TABLE device_events (
+CREATE TABLE IF NOT EXISTS device_events (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     device_id       UUID NOT NULL REFERENCES edge_devices(id) ON DELETE CASCADE,
     tenant_id       UUID NOT NULL,
@@ -54,6 +55,6 @@ CREATE TABLE device_events (
 );
 
 -- Indexes for device_events
-CREATE INDEX idx_device_events_device_id ON device_events (device_id);
-CREATE INDEX idx_device_events_tenant_id ON device_events (tenant_id);
-CREATE INDEX idx_device_events_device_checked_at ON device_events (device_id, checked_at DESC);
+CREATE INDEX IF NOT EXISTS idx_device_events_device_id ON device_events (device_id);
+CREATE INDEX IF NOT EXISTS idx_device_events_tenant_id ON device_events (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_device_events_device_checked_at ON device_events (device_id, checked_at DESC);

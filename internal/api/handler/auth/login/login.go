@@ -52,6 +52,10 @@ func (h *Handler) Handle(c *gin.Context) {
 	}
 	defer resp.Body.Close()
 
-	respBody, _ := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to read supabase response"})
+		return
+	}
 	c.Data(resp.StatusCode, "application/json", respBody)
 }

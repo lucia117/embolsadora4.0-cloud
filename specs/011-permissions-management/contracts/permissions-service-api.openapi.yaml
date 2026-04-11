@@ -1,0 +1,430 @@
+openapi: 3.0.3
+info:
+  title: Permissions Service API
+  description: |
+    API para la gestión del catálogo de permisos del sistema de control de acceso.
+    Soporta permisos de sistema (inmutables, globales) y permisos custom (creados por tenant).
+
+    Todos los endpoints requieren autenticación JWT Bearer.
+    Las mutaciones (POST/PUT/DELETE) requieren rol admin.
+  version: 1.0.0
+  contact:
+    name: Embolsadora API Team
+
+servers:
+  - url: /api/v1
+    description: Servidor principal
+
+tags:
+  - name: permissions
+    description: Gestión del catálogo de permisos
+
+paths:
+  /permissions:
+    get:
+      summary: Listar permisos
+      description: |
+        Retorna la lista completa de permisos disponibles para el tenant autenticado.
+        Incluye todos los permisos de sistema (globales, isSystemPermission=true) más
+        los permisos custom creados por el propio tenant (isSystemPermission=false).
+        Los permisos de sistema aparecen primero, ordenados por nombre. Los custom van después.
+      operationId: listPermissions
+      tags: [permissions]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de permisos obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Permission'
+              examples:
+                withSystemAndCustom:
+                  summary: Permisos de sistema y custom
+                  value:
+                    - id: perm_dashboard
+                      name: View Dashboard
+                      section: dashboard
+                      description: Access to main dashboard and widgets
+                      isSystemPermission: true
+                    - id: perm_alerts
+                      name: View Alerts
+                      section: alerts
+                      description: Access to alerts and notification center
+                      isSystemPermission: true
+                    - id: "550e8400-e29b-41d4-a716-446655440000"
+                      name: Export Production Data
+                      section: analytics
+                      description: Allows exporting raw production data for external analysis
+                      isSystemPermission: false
+                      createdAt: "2026-04-10T10:00:00Z"
+                      updatedAt: "2026-04-10T10:00:00Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      summary: Crear permiso custom
+      description: |
+        Crea un nuevo permiso personalizado para el tenant del usuario autenticado.
+        Solo usuarios con rol admin pueden crear permisos.
+        Los permisos de sistema no pueden crearse vía esta API.
+      operationId: createPermission
+      tags: [permissions]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePermissionRequest'
+            examples:
+              valid:
+                summary: Solicitud válida
+                value:
+                  name: Export Production Data
+                  section: analytics
+                  description: Allows exporting raw production data for external analysis
+      responses:
+        '201':
+          description: Permiso custom creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionFull'
+              examples:
+                created:
+                  value:
+                    id: "550e8400-e29b-41d4-a716-446655440000"
+                    name: Export Production Data
+                    section: analytics
+                    description: Allows exporting raw production data for external analysis
+                    isSystemPermission: false
+                    createdAt: "2026-04-10T10:00:00Z"
+                    updatedAt: "2026-04-10T10:00:00Z"
+        '400':
+          description: Error de validación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                nameTooShort:
+                  summary: Nombre demasiado corto
+                  value:
+                    error: Validation failed
+                    errors:
+                      - path: name
+                        message: name must be at least 3 characters
+                missingSection:
+                  summary: Sección ausente
+                  value:
+                    error: Validation failed
+                    errors:
+                      - path: section
+                        message: section is required
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /permissions/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: |
+          ID del permiso. Para permisos de sistema: formato `perm_<nombre>` (ej: `perm_dashboard`).
+          Para permisos custom: UUID v4.
+        schema:
+          type: string
+        example: perm_dashboard
+
+    get:
+      summary: Obtener permiso por ID
+      description: Retorna los detalles completos de un permiso específico (de sistema o custom).
+      operationId: getPermission
+      tags: [permissions]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Permiso encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionFull'
+              examples:
+                systemPermission:
+                  summary: Permiso de sistema
+                  value:
+                    id: perm_dashboard
+                    name: View Dashboard
+                    section: dashboard
+                    description: Access to main dashboard and widgets
+                    isSystemPermission: true
+                customPermission:
+                  summary: Permiso custom
+                  value:
+                    id: "550e8400-e29b-41d4-a716-446655440000"
+                    name: Export Production Data
+                    section: analytics
+                    description: Allows exporting raw production data for external analysis
+                    isSystemPermission: false
+                    createdAt: "2026-04-10T10:00:00Z"
+                    updatedAt: "2026-04-10T10:00:00Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      summary: Actualizar permiso custom
+      description: |
+        Actualiza el nombre, sección y descripción de un permiso custom.
+        Los permisos de sistema no pueden modificarse (HTTP 403).
+        Solo usuarios con rol admin pueden actualizar permisos.
+      operationId: updatePermission
+      tags: [permissions]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePermissionRequest'
+            examples:
+              valid:
+                value:
+                  name: Export Production Data (Updated)
+                  section: analytics
+                  description: Allows exporting raw production and quality data
+      responses:
+        '200':
+          description: Permiso custom actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionFull'
+              examples:
+                updated:
+                  value:
+                    id: "550e8400-e29b-41d4-a716-446655440000"
+                    name: Export Production Data (Updated)
+                    section: analytics
+                    description: Allows exporting raw production and quality data
+                    isSystemPermission: false
+                    createdAt: "2026-04-10T10:00:00Z"
+                    updatedAt: "2026-04-10T11:00:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Intento de modificar un permiso de sistema
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                systemPermission:
+                  value:
+                    error: Cannot modify system permissions
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Eliminar permiso custom
+      description: |
+        Elimina permanentemente un permiso custom.
+        Los permisos de sistema no pueden eliminarse (HTTP 403).
+        La eliminación es permanente (no soft-delete).
+        Solo usuarios con rol admin pueden eliminar permisos.
+      operationId: deletePermission
+      tags: [permissions]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Permiso custom eliminado exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Intento de eliminar un permiso de sistema
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                systemPermission:
+                  value:
+                    error: Cannot delete system permissions
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT obtenido via Supabase Auth
+
+  schemas:
+    Permission:
+      type: object
+      description: Permiso (versión compacta, sin timestamps para permisos de sistema)
+      required: [id, name, section, description, isSystemPermission]
+      properties:
+        id:
+          type: string
+          description: ID único del permiso
+          example: perm_dashboard
+        name:
+          type: string
+          description: Nombre legible del permiso
+          minLength: 3
+          example: View Dashboard
+        section:
+          type: string
+          description: Sección funcional de la aplicación
+          example: dashboard
+        description:
+          type: string
+          description: Descripción del permiso
+          example: Access to main dashboard and widgets
+        isSystemPermission:
+          type: boolean
+          description: TRUE para permisos de sistema inmutables, FALSE para permisos custom
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp de creación (solo presente en permisos custom)
+          example: "2026-04-10T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp de última actualización (solo presente en permisos custom)
+          example: "2026-04-10T10:00:00Z"
+
+    PermissionFull:
+      allOf:
+        - $ref: '#/components/schemas/Permission'
+      description: Permiso con todos los campos (incluyendo timestamps para custom)
+
+    CreatePermissionRequest:
+      type: object
+      required: [name, section, description]
+      properties:
+        name:
+          type: string
+          description: Nombre del permiso. Mínimo 3 caracteres.
+          minLength: 3
+          example: Export Production Data
+        section:
+          type: string
+          description: Sección funcional a la que pertenece el permiso
+          minLength: 1
+          example: analytics
+        description:
+          type: string
+          description: Descripción del permiso
+          minLength: 1
+          example: Allows exporting raw production data for external analysis
+
+    UpdatePermissionRequest:
+      type: object
+      required: [name, section, description]
+      properties:
+        name:
+          type: string
+          description: Nuevo nombre del permiso. Mínimo 3 caracteres.
+          minLength: 3
+          example: Export Production Data (Updated)
+        section:
+          type: string
+          description: Nueva sección funcional
+          minLength: 1
+          example: analytics
+        description:
+          type: string
+          description: Nueva descripción del permiso
+          minLength: 1
+          example: Allows exporting raw production and quality data
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          example: Permission not found
+
+    ValidationError:
+      type: object
+      required: [error, errors]
+      properties:
+        error:
+          type: string
+          example: Validation failed
+        errors:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [path, message]
+            properties:
+              path:
+                type: string
+                example: name
+              message:
+                type: string
+                example: name must be at least 3 characters
+
+  responses:
+    Unauthorized:
+      description: Token JWT ausente o inválido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Unauthorized
+
+    Forbidden:
+      description: El usuario no tiene permisos para esta operación
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Forbidden
+
+    NotFound:
+      description: Permiso no encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Permission not found
+
+    BadRequest:
+      description: Solicitud inválida
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'

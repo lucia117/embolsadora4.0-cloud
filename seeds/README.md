@@ -8,8 +8,6 @@ Esta carpeta contiene scripts SQL para cargar datos de prueba/demostración en l
 Carga datos de prueba para:
 - **3 usuarios** con diferentes roles y tenants
 - **3 asignaciones de roles** (user_tenant_roles)
-- **3 sesiones activas**
-- **3 tokens de reset de contraseña**
 
 #### Usuarios incluidos:
 | Email | Nombre | Rol | Tenant |
@@ -51,8 +49,6 @@ Si necesitas eliminar los datos insertados y reiniciar:
 
 ```sql
 -- Eliminar en orden (respetar foreign keys)
-DELETE FROM password_reset_tokens WHERE token LIKE 'reset_%';
-DELETE FROM sessions WHERE token LIKE 'token_%';
 DELETE FROM user_tenant_roles WHERE user_id IN (
   SELECT id FROM users WHERE email LIKE '%.com'
 );
@@ -66,28 +62,21 @@ Para confirmar que los datos fueron insertados correctamente:
 ```sql
 SELECT 'users' as tabla, COUNT(*) as registros FROM users
 UNION ALL
-SELECT 'user_tenant_roles', COUNT(*) FROM user_tenant_roles
-UNION ALL
-SELECT 'sessions', COUNT(*) FROM sessions
-UNION ALL
-SELECT 'password_reset_tokens', COUNT(*) FROM password_reset_tokens;
+SELECT 'user_tenant_roles', COUNT(*) FROM user_tenant_roles;
 ```
 
 Debería mostrar:
 ```
        tabla         | registros
------------------------+-----------
- password_reset_tokens |         3
- sessions              |         3
- user_tenant_roles     |         3
- users                 |         3
+---------------------+-----------
+ users               |         3
+ user_tenant_roles   |         3
 ```
 
 ## Notas
 
 - Los IDs de tenants (`550e8400-e29b-41d4-a716-446655440001` y `550e8400-e29b-41d4-a716-446655440002`) deben existir en la tabla `tenants`
 - Los roles (`admin`, `operario`) deben existir en la tabla `roles`
-- Las sesiones expiran en 24 horas
-- Los tokens de reset expiran en 1 hora
 - Ejecuta después de las migraciones, antes de los tests
+- La autenticación es manejada por Supabase Auth — este seed no crea sesiones ni tokens
 
