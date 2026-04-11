@@ -252,7 +252,7 @@ Consumer: `embolsadora-frontend` → Provider: `permissions-service-api`
 | GET | `/api/v1/permissions` | ✅ | Lista permisos sistema + custom del tenant; sistema siempre incluidos |
 | POST | `/api/v1/permissions` → 201 | ✅ | Crea permiso custom; UUID generado en service; `isSystemPermission: false` |
 | POST | `/api/v1/permissions` → 400 | ✅ | Validación: nombre < 3 chars → `errors[].path = "name"` |
-| GET | `/api/v1/permissions/{id}` → 200 | ✅ | Funciona para permisos sistema y custom; no filtra por tenant |
+| GET | `/api/v1/permissions/{id}` → 200 | ✅ | Funciona para permisos sistema y custom; filtra por `tenant_id` (custom) o `is_system_permission=TRUE` (sistema) |
 | GET | `/api/v1/permissions/{id}` → 404 | ✅ | ID inexistente → NOT_FOUND |
 | PUT | `/api/v1/permissions/{id}` → 200 | ✅ | Actualiza custom; retorna datos actualizados con updatedAt renovado |
 | PUT | `/api/v1/permissions/{id}` → 403 | ✅ | Permiso de sistema → `"Cannot modify system permissions"` |
@@ -260,7 +260,7 @@ Consumer: `embolsadora-frontend` → Provider: `permissions-service-api`
 | DELETE | `/api/v1/permissions/{id}` → 403 | ✅ | Permiso de sistema → `"Cannot delete system permissions"` |
 | GET | `/api/v1/permissions` → 401 | ✅ | Sin JWT → UNAUTHORIZED |
 
-> Implementado en `011-permissions-management`: migración 000017 (permissions table + seed 17 permisos de sistema), domain + repo (List con multi-tenant, GetByID sin filtro tenant) + service (validación, guards IsSystemPermission) + handler (5 endpoints, DTOs, error mapping) + Prometheus metrics + Postman collection 10 Pacts.
+> Implementado en `011-permissions-management`: migración 000017 (permissions table + seed 17 permisos de sistema), domain + repo (List/GetByID/Delete con aislamiento multi-tenant; Update con guarda `is_system_permission=FALSE`) + service (validación, guards IsSystemPermission, tenant propagado a todas las operaciones) + handler (5 endpoints, DTOs, error mapping, Prometheus en todos los handlers con label `operation`) + Postman collection 10 Pacts.
 
 ---
 

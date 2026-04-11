@@ -33,9 +33,9 @@ func (s *Service) ListPermissions(ctx context.Context, tenantID uuid.UUID) ([]*d
 	return perms, nil
 }
 
-// GetPermission devuelve un permiso por su ID (de sistema o custom).
-func (s *Service) GetPermission(ctx context.Context, id string) (*domain.Permission, error) {
-	p, err := s.repo.GetByID(ctx, id)
+// GetPermission devuelve un permiso por su ID (de sistema o custom del tenant).
+func (s *Service) GetPermission(ctx context.Context, id string, tenantID uuid.UUID) (*domain.Permission, error) {
+	p, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		if err != domain.ErrPermissionNotFound {
 			s.logger.Error("error obteniendo permiso", zap.String("permission_id", id), zap.Error(err))
@@ -68,7 +68,7 @@ func (s *Service) CreatePermission(ctx context.Context, tenantID uuid.UUID, name
 	}
 
 	// Leer el permiso recién creado para obtener los timestamps generados por la BD
-	created, err := s.repo.GetByID(ctx, id)
+	created, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		s.logger.Error("error leyendo permiso recién creado", zap.String("permission_id", id), zap.Error(err))
 		return nil, err
@@ -78,10 +78,10 @@ func (s *Service) CreatePermission(ctx context.Context, tenantID uuid.UUID, name
 	return created, nil
 }
 
-// UpdatePermission actualiza nombre, sección y descripción de un permiso custom.
+// UpdatePermission actualiza nombre, sección y descripción de un permiso custom del tenant.
 // Retorna ErrPermissionIsSystem si se intenta modificar un permiso de sistema.
-func (s *Service) UpdatePermission(ctx context.Context, id, name, section, description string) (*domain.Permission, error) {
-	p, err := s.repo.GetByID(ctx, id)
+func (s *Service) UpdatePermission(ctx context.Context, id string, tenantID uuid.UUID, name, section, description string) (*domain.Permission, error) {
+	p, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func (s *Service) UpdatePermission(ctx context.Context, id, name, section, descr
 		return nil, err
 	}
 
-	updated, err := s.repo.GetByID(ctx, id)
+	updated, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		s.logger.Error("error leyendo permiso actualizado", zap.String("permission_id", id), zap.Error(err))
 		return nil, err
@@ -112,10 +112,10 @@ func (s *Service) UpdatePermission(ctx context.Context, id, name, section, descr
 	return updated, nil
 }
 
-// DeletePermission elimina permanentemente un permiso custom.
+// DeletePermission elimina permanentemente un permiso custom del tenant.
 // Retorna ErrPermissionIsSystem si se intenta eliminar un permiso de sistema.
-func (s *Service) DeletePermission(ctx context.Context, id string) error {
-	err := s.repo.Delete(ctx, id)
+func (s *Service) DeletePermission(ctx context.Context, id string, tenantID uuid.UUID) error {
+	err := s.repo.Delete(ctx, id, tenantID)
 	if err != nil {
 		if err != domain.ErrPermissionNotFound && err != domain.ErrPermissionIsSystem {
 			s.logger.Error("error eliminando permiso", zap.String("permission_id", id), zap.Error(err))

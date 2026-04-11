@@ -161,7 +161,7 @@
 - [x] T027 [P] Crear `postman/Permissions-API.postman_collection.json` con los 10 Pact scenarios del `quickstart.md`: lista con sistema, create válido, create nombre corto → 400, get por id, get inexistente → 404, update custom, update sistema → 403, delete custom, delete sistema → 403, get sin auth → 401
 - [ ] T028 Ejecutar el checklist completo del `quickstart.md` (los 10 scenarios de verificación Pact) contra el servidor local y confirmar que todos pasan
 - [ ] T029 Verificar aislamiento multi-tenant con quickstart.md paso 6: permiso custom de tenant A no visible para tenant B
-- [x] T030 Actualizar `PACTS_ANALYSIS.md`: marcar `permissions-service-api` como ✅ completado (11 interacciones), actualizar métricas de cobertura (de ~54% a ~60%)
+- [x] T030 Actualizar `PACTS_ANALYSIS.md`: marcar `permissions-service-api` como ✅ completado (10 interacciones), actualizar métricas de cobertura (de ~54% a ~61%)
 
 **Checkpoint final**: Los 10 Pact scenarios pasan, observabilidad activa, `PACTS_ANALYSIS.md` actualizado. Feature lista para PR.
 

@@ -13,10 +13,10 @@ import (
 // Repository define las operaciones de persistencia para permisos.
 type Repository interface {
 	List(ctx context.Context, tenantID uuid.UUID) ([]*domain.Permission, error)
-	GetByID(ctx context.Context, id string) (*domain.Permission, error)
+	GetByID(ctx context.Context, id string, tenantID uuid.UUID) (*domain.Permission, error)
 	Create(ctx context.Context, p *domain.Permission) error
 	Update(ctx context.Context, p *domain.Permission) error
-	Delete(ctx context.Context, id string) error
+	Delete(ctx context.Context, id string, tenantID uuid.UUID) error
 }
 
 // PostgresRepository implementa Repository usando PostgreSQL.
@@ -62,14 +62,15 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID) ([]*d
 }
 
 // GetByID devuelve un permiso por su ID.
-// No filtra por tenant: permite acceder a permisos de sistema (tenant_id NULL) sin requerir tenant_id.
-func (r *PostgresRepository) GetByID(ctx context.Context, id string) (*domain.Permission, error) {
+// Para permisos de sistema (is_system_permission=TRUE) no aplica filtro de tenant.
+// Para permisos custom, solo devuelve el permiso si pertenece al tenant indicado.
+func (r *PostgresRepository) GetByID(ctx context.Context, id string, tenantID uuid.UUID) (*domain.Permission, error) {
 	query := `
 		SELECT id, name, section, description, is_system_permission, tenant_id, created_at, updated_at
 		FROM permissions
-		WHERE id = $1
+		WHERE id = $1 AND (is_system_permission = TRUE OR tenant_id = $2)
 	`
-	row := r.pool.QueryRow(ctx, query, id)
+	row := r.pool.QueryRow(ctx, query, id, tenantID)
 	p, err := scanPermission(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -93,11 +94,12 @@ func (r *PostgresRepository) Create(ctx context.Context, p *domain.Permission) e
 }
 
 // Update actualiza nombre, sección y descripción de un permiso custom existente.
+// La guarda AND is_system_permission=FALSE evita modificar permisos de sistema en BD directamente.
 func (r *PostgresRepository) Update(ctx context.Context, p *domain.Permission) error {
 	query := `
 		UPDATE permissions
 		SET name = $1, section = $2, description = $3
-		WHERE id = $4
+		WHERE id = $4 AND is_system_permission = FALSE
 	`
 	tag, err := r.pool.Exec(ctx, query, p.Name, p.Section, p.Description, p.ID)
 	if err != nil {
@@ -109,11 +111,11 @@ func (r *PostgresRepository) Update(ctx context.Context, p *domain.Permission) e
 	return nil
 }
 
-// Delete elimina permanentemente un permiso. Retorna ErrPermissionIsSystem si es de sistema,
-// ErrPermissionNotFound si no existe.
-func (r *PostgresRepository) Delete(ctx context.Context, id string) error {
-	// Verificar existencia y tipo antes de eliminar
-	p, err := r.GetByID(ctx, id)
+// Delete elimina permanentemente un permiso custom del tenant.
+// Retorna ErrPermissionIsSystem si es de sistema, ErrPermissionNotFound si no existe o no pertenece al tenant.
+func (r *PostgresRepository) Delete(ctx context.Context, id string, tenantID uuid.UUID) error {
+	// Verificar existencia y tipo antes de eliminar (con filtro de tenant)
+	p, err := r.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return err
 	}
@@ -121,9 +123,15 @@ func (r *PostgresRepository) Delete(ctx context.Context, id string) error {
 		return domain.ErrPermissionIsSystem
 	}
 
-	query := `DELETE FROM permissions WHERE id = $1`
-	_, err = r.pool.Exec(ctx, query, id)
-	return err
+	query := `DELETE FROM permissions WHERE id = $1 AND is_system_permission = FALSE AND tenant_id = $2`
+	tag, err := r.pool.Exec(ctx, query, id, tenantID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrPermissionNotFound
+	}
+	return nil
 }
 
 // scanner es una interfaz que abarca pgx.Row y pgx.Rows para reutilizar scanPermission.

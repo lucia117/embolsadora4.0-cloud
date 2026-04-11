@@ -9,9 +9,8 @@ import (
 
 // Errores de dominio para la gestión de permisos.
 var (
-	ErrPermissionNotFound         = errors.New("permiso no encontrado")
-	ErrPermissionIsSystem         = errors.New("los permisos del sistema no pueden modificarse ni eliminarse")
-	ErrPermissionValidationFailed = errors.New("datos del permiso inválidos")
+	ErrPermissionNotFound = errors.New("permiso no encontrado")
+	ErrPermissionIsSystem = errors.New("los permisos del sistema no pueden modificarse ni eliminarse")
 )
 
 // Permission representa un permiso del sistema de control de acceso.

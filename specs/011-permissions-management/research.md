@@ -26,12 +26,12 @@
 
 **Decisión**: Dos estrategias según tipo:
 - **Permisos de sistema**: IDs con prefijo fijo (`perm_dashboard`, `perm_alerts`, etc.) — exactamente como los define el contrato Pact
-- **Permisos custom**: UUID v4 generado por la BD (`gen_random_uuid()`) — consistente con el resto de entidades del proyecto
+- **Permisos custom**: UUID v4 generado en el service (`uuid.New().String()`) — el ID se asigna antes de insertar en BD
 
 **Rationale**: 
 - Los IDs de sistema deben coincidir exactamente con el contrato Pact (los tests verifican `perm_dashboard`, etc.)
 - UUID para custom evita colisiones y es el patrón estándar del proyecto
-- La BD maneja la generación automática igual que `alarm_rules`, `roles`, etc.
+- El service genera el ID (a diferencia de `alarm_rules`/`roles` que usan `gen_random_uuid()` en BD) porque se necesita el ID para hacer `GetByID` post-insert y obtener timestamps
 
 **Alternativas consideradas**:
 - **UUID para todos**: No compatible con el Pact que espera `perm_dashboard` como ID de sistema
@@ -41,17 +41,22 @@
 
 ## Decisión 3: Aislamiento multi-tenant para permisos custom
 
-**Decisión**: Las queries de listado usan `WHERE (tenant_id = $1 OR is_system_permission = TRUE)`, exactamente el mismo patrón que `roles.List()`:
+**Decisión**: Todas las operaciones de lectura/escritura aplican filtro de tenant:
+- **List**: `WHERE (tenant_id = $1 OR is_system_permission = TRUE)` — devuelve sistema globales + custom del tenant
+- **GetByID**: `WHERE id = $1 AND (is_system_permission = TRUE OR tenant_id = $2)` — permite leer sistema y custom propios
+- **Update**: guarda `AND is_system_permission = FALSE` en SQL (defensa en profundidad además del check en service)
+- **Delete**: `WHERE id = $1 AND is_system_permission = FALSE AND tenant_id = $2` + check `RowsAffected`
 
 ```sql
-SELECT id, name, section, description, is_system_permission, tenant_id, created_at, updated_at
-FROM permissions
+-- List
 WHERE (tenant_id = $1 OR is_system_permission = TRUE)
-  AND deleted_at IS NULL
 ORDER BY is_system_permission DESC, name ASC
+
+-- GetByID
+WHERE id = $1 AND (is_system_permission = TRUE OR tenant_id = $2)
 ```
 
-**Rationale**: Patrón ya validado en el proyecto (roles usa `is_global = TRUE OR tenant_id = $1`). Garantiza que permisos custom de un tenant jamás sean visibles para otro.
+**Rationale**: Patrón ya validado en el proyecto (roles usa `is_global = TRUE OR tenant_id = $1`). La tabla usa hard-delete (sin `deleted_at`), por lo que no se filtra por ese campo. El aislamiento se aplica en todas las operaciones, no solo en List.
 
 ---
 

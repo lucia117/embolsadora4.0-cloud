@@ -152,16 +152,27 @@ func (h *Handler) ListPermissions(c *gin.Context) {
 
 // GetPermission godoc
 // GET /api/v1/permissions/:id
-// Retorna un permiso específico por ID (de sistema o custom).
+// Retorna un permiso específico por ID (de sistema o custom del tenant).
 func (h *Handler) GetPermission(c *gin.Context) {
 	id := c.Param("id")
+	tenantID, ok := getTenantID(c)
+	if !ok {
+		telemetry.PermissionsRequestsTotal.WithLabelValues("get", "400").Inc()
+		return
+	}
 
-	p, err := h.service.GetPermission(c.Request.Context(), id)
+	p, err := h.service.GetPermission(c.Request.Context(), id, tenantID)
 	if err != nil {
+		status := "500"
+		if errors.Is(err, domain.ErrPermissionNotFound) {
+			status = "404"
+		}
+		telemetry.PermissionsRequestsTotal.WithLabelValues("get", status).Inc()
 		h.handlePermissionError(c, err)
 		return
 	}
 
+	telemetry.PermissionsRequestsTotal.WithLabelValues("get", "200").Inc()
 	c.JSON(http.StatusOK, toPermissionResponse(p))
 }
 
@@ -171,11 +182,13 @@ func (h *Handler) GetPermission(c *gin.Context) {
 func (h *Handler) CreatePermission(c *gin.Context) {
 	tenantID, ok := getTenantID(c)
 	if !ok {
+		telemetry.PermissionsRequestsTotal.WithLabelValues("create", "400").Inc()
 		return
 	}
 
 	var req CreatePermissionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		telemetry.PermissionsRequestsTotal.WithLabelValues("create", "400").Inc()
 		c.JSON(http.StatusBadRequest, validationErrorResponse{
 			Error:  "Validation failed",
 			Errors: []fieldError{{Path: "body", Message: "invalid JSON"}},
@@ -185,10 +198,17 @@ func (h *Handler) CreatePermission(c *gin.Context) {
 
 	p, err := h.service.CreatePermission(c.Request.Context(), tenantID, req.Name, req.Section, req.Description)
 	if err != nil {
+		status := "500"
+		var ve *permissions.ValidationError
+		if errors.As(err, &ve) {
+			status = "400"
+		}
+		telemetry.PermissionsRequestsTotal.WithLabelValues("create", status).Inc()
 		h.handlePermissionError(c, err)
 		return
 	}
 
+	telemetry.PermissionsRequestsTotal.WithLabelValues("create", "201").Inc()
 	c.JSON(http.StatusCreated, toPermissionResponse(p))
 }
 
@@ -197,9 +217,15 @@ func (h *Handler) CreatePermission(c *gin.Context) {
 // Actualiza un permiso custom. Solo admin. Los permisos de sistema retornan 403.
 func (h *Handler) UpdatePermission(c *gin.Context) {
 	id := c.Param("id")
+	tenantID, ok := getTenantID(c)
+	if !ok {
+		telemetry.PermissionsRequestsTotal.WithLabelValues("update", "400").Inc()
+		return
+	}
 
 	var req UpdatePermissionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		telemetry.PermissionsRequestsTotal.WithLabelValues("update", "400").Inc()
 		c.JSON(http.StatusBadRequest, validationErrorResponse{
 			Error:  "Validation failed",
 			Errors: []fieldError{{Path: "body", Message: "invalid JSON"}},
@@ -207,12 +233,21 @@ func (h *Handler) UpdatePermission(c *gin.Context) {
 		return
 	}
 
-	p, err := h.service.UpdatePermission(c.Request.Context(), id, req.Name, req.Section, req.Description)
+	p, err := h.service.UpdatePermission(c.Request.Context(), id, tenantID, req.Name, req.Section, req.Description)
 	if err != nil {
+		status := "500"
+		switch {
+		case errors.Is(err, domain.ErrPermissionNotFound):
+			status = "404"
+		case errors.Is(err, domain.ErrPermissionIsSystem):
+			status = "403"
+		}
+		telemetry.PermissionsRequestsTotal.WithLabelValues("update", status).Inc()
 		h.handlePermissionError(c, err)
 		return
 	}
 
+	telemetry.PermissionsRequestsTotal.WithLabelValues("update", "200").Inc()
 	c.JSON(http.StatusOK, toPermissionResponse(p))
 }
 
@@ -221,8 +256,21 @@ func (h *Handler) UpdatePermission(c *gin.Context) {
 // Elimina permanentemente un permiso custom. Solo admin. Los permisos de sistema retornan 403.
 func (h *Handler) DeletePermission(c *gin.Context) {
 	id := c.Param("id")
+	tenantID, ok := getTenantID(c)
+	if !ok {
+		telemetry.PermissionsRequestsTotal.WithLabelValues("delete", "400").Inc()
+		return
+	}
 
-	if err := h.service.DeletePermission(c.Request.Context(), id); err != nil {
+	if err := h.service.DeletePermission(c.Request.Context(), id, tenantID); err != nil {
+		status := "500"
+		switch {
+		case errors.Is(err, domain.ErrPermissionNotFound):
+			status = "404"
+		case errors.Is(err, domain.ErrPermissionIsSystem):
+			status = "403"
+		}
+		telemetry.PermissionsRequestsTotal.WithLabelValues("delete", status).Inc()
 		// Para delete de permiso de sistema, el mensaje Pact es específico
 		if errors.Is(err, domain.ErrPermissionIsSystem) {
 			c.JSON(http.StatusForbidden, errorResponse{Error: "Cannot delete system permissions"})
@@ -232,6 +280,7 @@ func (h *Handler) DeletePermission(c *gin.Context) {
 		return
 	}
 
+	telemetry.PermissionsRequestsTotal.WithLabelValues("delete", "200").Inc()
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
