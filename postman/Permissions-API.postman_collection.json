@@ -1,15 +1,9 @@
 {
   "info": {
     "name": "Permissions API — 10 Pact Scenarios",
-    "description": "Colección Postman que cubre las 10 interacciones del contrato Pact permissions-service-api.json.\nFeature: 011-permissions-management\nEndpoints: GET/POST /api/v1/permissions, GET/PUT/DELETE /api/v1/permissions/:id",
+    "description": "Colección Postman que cubre las 10 interacciones del contrato Pact permissions-service-api.json.\nFeature: 011-permissions-management\nEndpoints: GET/POST /api/v1/permissions, GET/PUT/DELETE /api/v1/permissions/:id\n\nUsar con el environment 'Embolsadora API - Local' (env-local.postman_environment.json).\nVariables requeridas: baseUrl, jwt_token, tenant_id.\nLa variable permission_id se setea automáticamente al ejecutar Pact 02.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
-  "variable": [
-    { "key": "base_url", "value": "http://localhost:8080/api/v1", "type": "string" },
-    { "key": "jwt_token", "value": "your-jwt-token-here", "type": "string" },
-    { "key": "tenant_id", "value": "your-tenant-uuid-here", "type": "string" },
-    { "key": "custom_permission_id", "value": "", "type": "string" }
-  ],
   "item": [
     {
       "name": "Pact 01 — List all permissions (200)",
@@ -21,9 +15,8 @@
               "pm.test('Status 200', () => pm.response.to.have.status(200));",
               "pm.test('Response is array', () => pm.expect(pm.response.json()).to.be.an('array'));",
               "pm.test('Has at least 17 system permissions', () => pm.expect(pm.response.json().length).to.be.at.least(17));",
-              "pm.test('perm_dashboard exists', () => {",
-              "  const perms = pm.response.json();",
-              "  const dash = perms.find(p => p.id === 'perm_dashboard');",
+              "pm.test('perm_dashboard exists with isSystemPermission=true', () => {",
+              "  const dash = pm.response.json().find(p => p.id === 'perm_dashboard');",
               "  pm.expect(dash).to.not.be.undefined;",
               "  pm.expect(dash.isSystemPermission).to.be.true;",
               "});"
@@ -38,7 +31,7 @@
           { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
           { "key": "X-Tenant-ID", "value": "{{tenant_id}}" }
         ],
-        "url": "{{base_url}}/permissions"
+        "url": "{{baseUrl}}/api/v1/permissions"
       }
     },
     {
@@ -54,7 +47,8 @@
               "pm.test('isSystemPermission is false', () => pm.expect(body.isSystemPermission).to.be.false);",
               "pm.test('Has createdAt', () => pm.expect(body.createdAt).to.be.a('string'));",
               "pm.test('Has updatedAt', () => pm.expect(body.updatedAt).to.be.a('string'));",
-              "pm.collectionVariables.set('custom_permission_id', body.id);"
+              "pm.environment.set('permission_id', body.id);",
+              "console.log('permission_id seteado:', body.id);"
             ],
             "type": "text/javascript"
           }
@@ -71,7 +65,7 @@
           "mode": "raw",
           "raw": "{\n  \"name\": \"Export Production Data\",\n  \"section\": \"analytics\",\n  \"description\": \"Allows exporting raw production data for external analysis\"\n}"
         },
-        "url": "{{base_url}}/permissions"
+        "url": "{{baseUrl}}/api/v1/permissions"
       }
     },
     {
@@ -83,9 +77,9 @@
             "exec": [
               "pm.test('Status 400', () => pm.response.to.have.status(400));",
               "const body = pm.response.json();",
-              "pm.test('Has error field', () => pm.expect(body.error).to.equal('Validation failed'));",
-              "pm.test('Has errors array', () => pm.expect(body.errors).to.be.an('array').with.length.at.least(1));",
-              "pm.test('Errors[0].path is name', () => pm.expect(body.errors[0].path).to.equal('name'));"
+              "pm.test('error = Validation failed', () => pm.expect(body.error).to.equal('Validation failed'));",
+              "pm.test('errors array present', () => pm.expect(body.errors).to.be.an('array').with.length.at.least(1));",
+              "pm.test('errors[0].path = name', () => pm.expect(body.errors[0].path).to.equal('name'));"
             ],
             "type": "text/javascript"
           }
@@ -102,7 +96,7 @@
           "mode": "raw",
           "raw": "{\n  \"name\": \"AB\",\n  \"section\": \"analytics\",\n  \"description\": \"Too short\"\n}"
         },
-        "url": "{{base_url}}/permissions"
+        "url": "{{baseUrl}}/api/v1/permissions"
       }
     },
     {
@@ -114,10 +108,11 @@
             "exec": [
               "pm.test('Status 200', () => pm.response.to.have.status(200));",
               "const body = pm.response.json();",
-              "pm.test('ID matches', () => pm.expect(body.id).to.equal('perm_dashboard'));",
-              "pm.test('isSystemPermission is true', () => pm.expect(body.isSystemPermission).to.be.true);",
+              "pm.test('id = perm_dashboard', () => pm.expect(body.id).to.equal('perm_dashboard'));",
+              "pm.test('isSystemPermission = true', () => pm.expect(body.isSystemPermission).to.be.true);",
               "pm.test('Has name', () => pm.expect(body.name).to.be.a('string'));",
-              "pm.test('Has section', () => pm.expect(body.section).to.be.a('string'));"
+              "pm.test('Has section', () => pm.expect(body.section).to.be.a('string'));",
+              "pm.test('Has description', () => pm.expect(body.description).to.be.a('string'));"
             ],
             "type": "text/javascript"
           }
@@ -129,7 +124,7 @@
           { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
           { "key": "X-Tenant-ID", "value": "{{tenant_id}}" }
         ],
-        "url": "{{base_url}}/permissions/perm_dashboard"
+        "url": "{{baseUrl}}/api/v1/permissions/perm_dashboard"
       }
     },
     {
@@ -152,7 +147,7 @@
           { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
           { "key": "X-Tenant-ID", "value": "{{tenant_id}}" }
         ],
-        "url": "{{base_url}}/permissions/nonexistent-perm"
+        "url": "{{baseUrl}}/api/v1/permissions/nonexistent-perm"
       }
     },
     {
@@ -165,7 +160,7 @@
               "pm.test('Status 200', () => pm.response.to.have.status(200));",
               "const body = pm.response.json();",
               "pm.test('Name updated', () => pm.expect(body.name).to.equal('Export Production Data (Updated)'));",
-              "pm.test('isSystemPermission is false', () => pm.expect(body.isSystemPermission).to.be.false);",
+              "pm.test('isSystemPermission = false', () => pm.expect(body.isSystemPermission).to.be.false);",
               "pm.test('Has updatedAt', () => pm.expect(body.updatedAt).to.be.a('string'));"
             ],
             "type": "text/javascript"
@@ -183,7 +178,7 @@
           "mode": "raw",
           "raw": "{\n  \"name\": \"Export Production Data (Updated)\",\n  \"section\": \"analytics\",\n  \"description\": \"Allows exporting raw production and quality data\"\n}"
         },
-        "url": "{{base_url}}/permissions/{{custom_permission_id}}"
+        "url": "{{baseUrl}}/api/v1/permissions/{{permission_id}}"
       }
     },
     {
@@ -211,7 +206,7 @@
           "mode": "raw",
           "raw": "{\n  \"name\": \"Modified Dashboard\",\n  \"section\": \"dashboard\",\n  \"description\": \"Attempting to modify a system permission\"\n}"
         },
-        "url": "{{base_url}}/permissions/perm_dashboard"
+        "url": "{{baseUrl}}/api/v1/permissions/perm_dashboard"
       }
     },
     {
@@ -222,7 +217,7 @@
           "script": {
             "exec": [
               "pm.test('Status 200', () => pm.response.to.have.status(200));",
-              "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+              "pm.test('success = true', () => pm.expect(pm.response.json().success).to.be.true);"
             ],
             "type": "text/javascript"
           }
@@ -234,7 +229,7 @@
           { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
           { "key": "X-Tenant-ID", "value": "{{tenant_id}}" }
         ],
-        "url": "{{base_url}}/permissions/{{custom_permission_id}}"
+        "url": "{{baseUrl}}/api/v1/permissions/{{permission_id}}"
       }
     },
     {
@@ -257,7 +252,7 @@
           { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
           { "key": "X-Tenant-ID", "value": "{{tenant_id}}" }
         ],
-        "url": "{{base_url}}/permissions/perm_dashboard"
+        "url": "{{baseUrl}}/api/v1/permissions/perm_dashboard"
       }
     },
     {
@@ -276,7 +271,7 @@
       "request": {
         "method": "GET",
         "header": [],
-        "url": "{{base_url}}/permissions"
+        "url": "{{baseUrl}}/api/v1/permissions"
       }
     }
   ]
