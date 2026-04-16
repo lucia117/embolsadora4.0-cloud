@@ -22,7 +22,7 @@ func GetLog(svc *appLogs.Service) gin.HandlerFunc {
 		id, err := uuid.Parse(c.Param("id"))
 		if err != nil {
 			telemetry.LogRequestsTotal.WithLabelValues("get", "400").Inc()
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "BAD_REQUEST", "message": "invalid id"})
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "BAD_REQUEST", Message: "invalid id", Status: http.StatusBadRequest})
 			return
 		}
 
@@ -30,11 +30,11 @@ func GetLog(svc *appLogs.Service) gin.HandlerFunc {
 		if err != nil {
 			if err == domain.ErrLogNotFound {
 				telemetry.LogRequestsTotal.WithLabelValues("get", "404").Inc()
-				c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "NOT_FOUND", "status": 404})
+				c.JSON(http.StatusNotFound, ErrorResponse{Error: "NOT_FOUND", Message: "log entry not found", Status: http.StatusNotFound})
 				return
 			}
 			telemetry.LogRequestsTotal.WithLabelValues("get", "500").Inc()
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "INTERNAL_ERROR"})
+			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "INTERNAL_ERROR", Message: "internal server error", Status: http.StatusInternalServerError})
 			return
 		}
 

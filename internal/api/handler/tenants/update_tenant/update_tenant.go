@@ -6,11 +6,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/tu-org/embolsadora-api/internal/api/handler/httperr"
 	"github.com/tu-org/embolsadora-api/internal/api/handler/tenants/update_tenant/models"
 	ucUpdateTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/update_tenant"
-	apperrors "github.com/tu-org/embolsadora-api/internal/core/errors"
 )
+
+type errorResponse struct {
+	Error   string `json:"error"`
+	Message string `json:"message"`
+	Status  int    `json:"status"`
+}
 
 type UpdateTenantHandler struct {
 	useCase ucUpdateTenant.UseCase
@@ -25,13 +29,13 @@ func NewUpdateTenantHandler(useCase ucUpdateTenant.UseCase) *UpdateTenantHandler
 func (h *UpdateTenantHandler) UpdateTenant(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httperr.WriteError(c, apperrors.NewBadRequest("ID de tenant inválido"))
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "BAD_REQUEST", Message: "ID de tenant inválido", Status: http.StatusBadRequest})
 		return
 	}
 
 	var req models.TenantUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httperr.WriteError(c, apperrors.NewBadRequest(err.Error()))
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "BAD_REQUEST", Message: err.Error(), Status: http.StatusBadRequest})
 		return
 	}
 
@@ -106,11 +110,11 @@ func (h *UpdateTenantHandler) UpdateTenant(c *gin.Context) {
 	tenant, err := h.useCase.Update(c.Request.Context(), id, useCaseReq)
 	if err != nil {
 		if err == ucUpdateTenant.ErrTenantNotFound {
-			httperr.WriteError(c, apperrors.NewNotFound("Tenant no encontrado"))
+			c.JSON(http.StatusNotFound, errorResponse{Error: "NOT_FOUND", Message: "Tenant no encontrado", Status: http.StatusNotFound})
 			return
 		}
 		log.Printf("error updating tenant: %v", err)
-		httperr.WriteError(c, apperrors.NewInternalServerError("Failed to update tenant"))
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: "INTERNAL_ERROR", Message: "Failed to update tenant", Status: http.StatusInternalServerError})
 		return
 	}
 

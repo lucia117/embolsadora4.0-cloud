@@ -6,10 +6,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/tu-org/embolsadora-api/internal/api/handler/httperr"
 	ucDeleteTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/delete_tenant"
-	apperrors "github.com/tu-org/embolsadora-api/internal/core/errors"
 )
+
+type errorResponse struct {
+	Error   string `json:"error"`
+	Message string `json:"message"`
+	Status  int    `json:"status"`
+}
 
 type DeleteTenantHandler struct {
 	useCase ucDeleteTenant.UseCase
@@ -24,18 +28,18 @@ func NewDeleteTenantHandler(useCase ucDeleteTenant.UseCase) *DeleteTenantHandler
 func (h *DeleteTenantHandler) DeleteTenant(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httperr.WriteError(c, apperrors.NewBadRequest("ID de tenant inválido"))
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "BAD_REQUEST", Message: "ID de tenant inválido", Status: http.StatusBadRequest})
 		return
 	}
 
 	err = h.useCase.Delete(c.Request.Context(), id)
 	if err != nil {
 		if err == ucDeleteTenant.ErrTenantNotFound {
-			httperr.WriteError(c, apperrors.NewNotFound("Tenant no encontrado"))
+			c.JSON(http.StatusNotFound, errorResponse{Error: "NOT_FOUND", Message: "Tenant no encontrado", Status: http.StatusNotFound})
 			return
 		}
 		log.Printf("error deleting tenant: %v", err)
-		httperr.WriteError(c, apperrors.NewInternalServerError("Failed to delete tenant"))
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: "INTERNAL_ERROR", Message: "Failed to delete tenant", Status: http.StatusInternalServerError})
 		return
 	}
 

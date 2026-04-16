@@ -4,11 +4,15 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tu-org/embolsadora-api/internal/api/handler/httperr"
 	"github.com/tu-org/embolsadora-api/internal/api/handler/tenants/get_all_tenants/models"
 	"github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/get_all_tenants"
-	apperrors "github.com/tu-org/embolsadora-api/internal/core/errors"
 )
+
+type errorResponse struct {
+	Error   string `json:"error"`
+	Message string `json:"message"`
+	Status  int    `json:"status"`
+}
 
 // GetAllTenantsHandler maneja las solicitudes para obtener todos los tenants
 type GetAllTenantsHandler struct {
@@ -26,7 +30,7 @@ func NewGetAllTenantsHandler(uc *get_all_tenants.UseCase) *GetAllTenantsHandler 
 func (h *GetAllTenantsHandler) GetAllTenants(c *gin.Context) {
 	tenants, err := h.uc.Execute(c.Request.Context())
 	if err != nil {
-		httperr.WriteError(c, apperrors.NewInternalServerError("Error al obtener tenants"))
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: "INTERNAL_ERROR", Message: "Error al obtener tenants", Status: http.StatusInternalServerError})
 		return
 	}
 

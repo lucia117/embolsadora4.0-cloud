@@ -24,21 +24,21 @@ func ExportLogs(svc *appLogs.Service) gin.HandlerFunc {
 
 		var params dto.ExportLogsParams
 		if err := c.ShouldBindQuery(&params); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "BAD_REQUEST", "message": err.Error()})
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "BAD_REQUEST", Message: err.Error(), Status: http.StatusBadRequest})
 			return
 		}
 
 		if err := validateSeverity(params.Severity); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "BAD_REQUEST", "message": err.Error()})
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "BAD_REQUEST", Message: err.Error(), Status: http.StatusBadRequest})
 			return
 		}
 		if err := validateEventType(params.EventType); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "BAD_REQUEST", "message": err.Error()})
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "BAD_REQUEST", Message: err.Error(), Status: http.StatusBadRequest})
 			return
 		}
 
 		if params.From != nil && params.To != nil && params.From.After(*params.To) {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "BAD_REQUEST", "message": "from must be before to"})
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "BAD_REQUEST", Message: "from must be before to", Status: http.StatusBadRequest})
 			return
 		}
 
@@ -53,7 +53,7 @@ func ExportLogs(svc *appLogs.Service) gin.HandlerFunc {
 		if params.MachineID != "" {
 			mid, err := uuid.Parse(params.MachineID)
 			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "BAD_REQUEST", "message": "invalid machine_id"})
+				c.JSON(http.StatusBadRequest, ErrorResponse{Error: "BAD_REQUEST", Message: "invalid machine_id", Status: http.StatusBadRequest})
 				return
 			}
 			repoParams.MachineID = &mid
@@ -62,7 +62,7 @@ func ExportLogs(svc *appLogs.Service) gin.HandlerFunc {
 		result, err := svc.Export(c.Request.Context(), repoParams)
 		if err != nil {
 			telemetry.LogRequestsTotal.WithLabelValues("export", "500").Inc()
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "INTERNAL_ERROR"})
+			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "INTERNAL_ERROR", Message: "internal server error", Status: http.StatusInternalServerError})
 			return
 		}
 

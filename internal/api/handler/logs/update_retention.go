@@ -21,7 +21,7 @@ func UpdateRetention(svc *appLogs.Service) gin.HandlerFunc {
 		var req dto.UpdateRetentionRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			telemetry.LogRequestsTotal.WithLabelValues("update_retention", "400").Inc()
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "BAD_REQUEST", "message": err.Error()})
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "BAD_REQUEST", Message: err.Error(), Status: http.StatusBadRequest})
 			return
 		}
 
@@ -29,11 +29,11 @@ func UpdateRetention(svc *appLogs.Service) gin.HandlerFunc {
 		if err != nil {
 			if err == domain.ErrInvalidRetentionDays {
 				telemetry.LogRequestsTotal.WithLabelValues("update_retention", "400").Inc()
-				c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "BAD_REQUEST", "message": err.Error()})
+				c.JSON(http.StatusBadRequest, ErrorResponse{Error: "BAD_REQUEST", Message: err.Error(), Status: http.StatusBadRequest})
 				return
 			}
 			telemetry.LogRequestsTotal.WithLabelValues("update_retention", "500").Inc()
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "INTERNAL_ERROR"})
+			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "INTERNAL_ERROR", Message: "internal server error", Status: http.StatusInternalServerError})
 			return
 		}
 

@@ -22,9 +22,16 @@ func HealthCheck(service *edge_devices.Service) gin.HandlerFunc {
 			return
 		}
 
-		// Extract user ID (placeholder for now, should come from JWT claims)
-		userID := uuid.New()
-		userEmail := "operator@example.com"
+		userID := platform.UserID(c.Request.Context())
+		if userID == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "user ID not found in context"})
+			return
+		}
+		userEmail := platform.UserEmail(c.Request.Context())
+		if userEmail == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "user email not found in context"})
+			return
+		}
 
 		// Extract device ID from path parameter
 		deviceIDStr := c.Param("deviceId")
@@ -35,7 +42,7 @@ func HealthCheck(service *edge_devices.Service) gin.HandlerFunc {
 		}
 
 		// Perform health check
-		result, err := service.HealthCheck(c.Request.Context(), *tenantID, deviceID, userID, userEmail)
+		result, err := service.HealthCheck(c.Request.Context(), *tenantID, deviceID, *userID, userEmail)
 		if err != nil {
 			if errors.Is(err, edgeerrors.ErrDeviceNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "Not found"})

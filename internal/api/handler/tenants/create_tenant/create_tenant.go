@@ -5,11 +5,15 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tu-org/embolsadora-api/internal/api/handler/httperr"
 	"github.com/tu-org/embolsadora-api/internal/api/handler/tenants/create_tenant/models"
 	ucCreateTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/create_tenant"
-	apperrors "github.com/tu-org/embolsadora-api/internal/core/errors"
 )
+
+type errorResponse struct {
+	Error   string `json:"error"`
+	Message string `json:"message"`
+	Status  int    `json:"status"`
+}
 
 type CreateTenantHandler struct {
 	useCase ucCreateTenant.UseCase
@@ -30,7 +34,7 @@ func (h *CreateTenantHandler) CreateTenant(c *gin.Context) {
 	err = h.useCase.Create(c.Request.Context(), tenant)
 	if err != nil {
 		log.Printf("error creating tenant: %v", err)
-		httperr.WriteError(c, apperrors.NewInternalServerError("Failed to create tenant"))
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: "INTERNAL_ERROR", Message: "Failed to create tenant", Status: http.StatusInternalServerError})
 		return
 	}
 

@@ -79,11 +79,14 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	// ── External clients ──────────────────────────────────────────────────────
 	supabaseClient := supabase.NewAdminClient(cfg.Supabase.URL, cfg.Supabase.ServiceRoleKey)
 
+	// ── Logger ────────────────────────────────────────────────────────────────
+	logger, _ := zap.NewDevelopment()
+
 	// ── Use cases ─────────────────────────────────────────────────────────────
 	authUC := usecases.NewAuthUsecase(userRepo)
 	meUC := usecases.NewMeUsecase(db)
 	invUC := usecases.NewInvitationUsecase(invRepo, userRepo, supabaseClient, redisClient, cfg.Supabase.AppBaseURL, cfg.Supabase.InviteRateLimitHour)
-	passwordUC := usecases.NewPasswordUsecase(userRepo, supabaseClient)
+	passwordUC := usecases.NewPasswordUsecase(userRepo, supabaseClient, logger)
 
 	// ── JWT verifier ──────────────────────────────────────────────────────────
 	verifier, err := security.NewJWKSVerifier(cfg.Supabase.JWKSUrl, cfg.Supabase.JWTIssuer, cfg.Supabase.JWTAudience)
@@ -127,7 +130,6 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	v1.POST("/users/:id/force-password-change", apimw.RBACCheck("users:write"), forcePasswordHandler.Handle)
 
 	// Admin routes (tenants, user-roles, etc.)
-	logger, _ := zap.NewDevelopment()
 	api.RegisterAdminRoutes(v1, api.Deps{
 		TenantRepo:   tenantRepo,
 		UserRoleRepo: userRoleRepo,

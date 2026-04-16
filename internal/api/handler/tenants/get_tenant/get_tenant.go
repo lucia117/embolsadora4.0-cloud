@@ -5,11 +5,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/tu-org/embolsadora-api/internal/api/handler/httperr"
 	"github.com/tu-org/embolsadora-api/internal/api/handler/tenants/get_tenant/models"
 	"github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/get_tenant"
-	apperrors "github.com/tu-org/embolsadora-api/internal/core/errors"
 )
+
+type errorResponse struct {
+	Error   string `json:"error"`
+	Message string `json:"message"`
+	Status  int    `json:"status"`
+}
 
 type GetTenantHandler struct {
 	uc *get_tenant.UseCase
@@ -24,17 +28,17 @@ func NewGetTenantHandler(uc *get_tenant.UseCase) *GetTenantHandler {
 func (h *GetTenantHandler) GetTenant(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httperr.WriteError(c, apperrors.NewBadRequest("ID de tenant inválido"))
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "BAD_REQUEST", Message: "ID de tenant inválido", Status: http.StatusBadRequest})
 		return
 	}
 
 	tenant, err := h.uc.Execute(c.Request.Context(), id)
 	if err != nil {
 		if err == get_tenant.ErrTenantNotFound {
-			httperr.WriteError(c, apperrors.NewNotFound("Tenant no encontrado"))
+			c.JSON(http.StatusNotFound, errorResponse{Error: "NOT_FOUND", Message: "Tenant no encontrado", Status: http.StatusNotFound})
 			return
 		}
-		httperr.WriteError(c, apperrors.NewInternalServerError("Error al obtener tenant"))
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: "INTERNAL_ERROR", Message: "Error al obtener tenant", Status: http.StatusInternalServerError})
 		return
 	}
 
