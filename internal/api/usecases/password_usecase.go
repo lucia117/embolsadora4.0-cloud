@@ -19,6 +19,9 @@ type PasswordUsecase struct {
 }
 
 func NewPasswordUsecase(userRepo users.UserRepository, supabaseClient supabase.AdminClient, log *zap.Logger) *PasswordUsecase {
+	if log == nil {
+		log = zap.NewNop()
+	}
 	return &PasswordUsecase{
 		userRepo:       userRepo,
 		supabaseClient: supabaseClient,

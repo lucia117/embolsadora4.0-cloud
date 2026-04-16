@@ -6,15 +6,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	tenantserrors "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/errors"
 	"github.com/tu-org/embolsadora-api/internal/api/handler/tenants/update_tenant/models"
 	ucUpdateTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/update_tenant"
 )
-
-type errorResponse struct {
-	Error   string `json:"error"`
-	Message string `json:"message"`
-	Status  int    `json:"status"`
-}
 
 type UpdateTenantHandler struct {
 	useCase ucUpdateTenant.UseCase
@@ -29,13 +24,13 @@ func NewUpdateTenantHandler(useCase ucUpdateTenant.UseCase) *UpdateTenantHandler
 func (h *UpdateTenantHandler) UpdateTenant(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, errorResponse{Error: "BAD_REQUEST", Message: "ID de tenant inválido", Status: http.StatusBadRequest})
+		c.JSON(http.StatusBadRequest, tenantserrors.ErrorResponse{Error: "BAD_REQUEST", Message: "ID de tenant inválido", Status: http.StatusBadRequest})
 		return
 	}
 
 	var req models.TenantUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, errorResponse{Error: "BAD_REQUEST", Message: err.Error(), Status: http.StatusBadRequest})
+		c.JSON(http.StatusBadRequest, tenantserrors.ErrorResponse{Error: "BAD_REQUEST", Message: err.Error(), Status: http.StatusBadRequest})
 		return
 	}
 
@@ -110,11 +105,11 @@ func (h *UpdateTenantHandler) UpdateTenant(c *gin.Context) {
 	tenant, err := h.useCase.Update(c.Request.Context(), id, useCaseReq)
 	if err != nil {
 		if err == ucUpdateTenant.ErrTenantNotFound {
-			c.JSON(http.StatusNotFound, errorResponse{Error: "NOT_FOUND", Message: "Tenant no encontrado", Status: http.StatusNotFound})
+			c.JSON(http.StatusNotFound, tenantserrors.ErrorResponse{Error: "NOT_FOUND", Message: "Tenant no encontrado", Status: http.StatusNotFound})
 			return
 		}
 		log.Printf("error updating tenant: %v", err)
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: "INTERNAL_ERROR", Message: "Failed to update tenant", Status: http.StatusInternalServerError})
+		c.JSON(http.StatusInternalServerError, tenantserrors.ErrorResponse{Error: "INTERNAL_ERROR", Message: "Failed to update tenant", Status: http.StatusInternalServerError})
 		return
 	}
 

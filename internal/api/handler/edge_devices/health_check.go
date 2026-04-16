@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/tu-org/embolsadora-api/internal/app/edge_devices"
 	"github.com/tu-org/embolsadora-api/internal/api/handler/edge_devices/dto"
+	"github.com/tu-org/embolsadora-api/internal/domain"
 	edgeerrors "github.com/tu-org/embolsadora-api/internal/domain/edge_devices"
 	"github.com/tu-org/embolsadora-api/internal/platform"
 )
@@ -27,11 +28,12 @@ func HealthCheck(service *edge_devices.Service) gin.HandlerFunc {
 			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "user ID not found in context"})
 			return
 		}
-		userEmail := platform.UserEmail(c.Request.Context())
-		if userEmail == "" {
+		domainUser, ok := platform.DomainUser(c.Request.Context()).(*domain.User)
+		if !ok || domainUser == nil || domainUser.Email == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "user email not found in context"})
 			return
 		}
+		userEmail := domainUser.Email
 
 		// Extract device ID from path parameter
 		deviceIDStr := c.Param("deviceId")

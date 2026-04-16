@@ -15,6 +15,9 @@ type ErrorResponse struct {
 }
 
 func HandleError(c *gin.Context, err error) {
+	if err == nil {
+		return
+	}
 	switch {
 	case errors.Is(err, domain.ErrLogNotFound):
 		c.JSON(http.StatusNotFound, ErrorResponse{Error: "NOT_FOUND", Message: "log entry not found", Status: http.StatusNotFound})
