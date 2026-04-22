@@ -1025,7 +1025,7 @@
                 "dashboard-layouts"
               ]
             },
-            "description": "Lista todos los layouts activos del usuario en el tenant.\n\nRespuesta 200: `{success, data: [...], meta: {total, limit: 3}}`\nRespuesta 401: sin Authorization header.\nRespuesta 403: tenant access denied."
+            "description": "Lista todos los layouts activos del usuario en el tenant.\n\nRespuesta 200: `{data: [...], meta: {total, limit: 3}}`\nRespuesta 401: sin Authorization header.\nRespuesta 403: tenant access denied."
           }
         },
         {
@@ -1126,7 +1126,7 @@
                 "{{layout_id}}"
               ]
             },
-            "description": "Obtiene un layout por ID.\n\nRespuesta 200: `{success, data: {...}}`\nRespuesta 404: `{error: \"Layout no encontrado\"}`"
+            "description": "Obtiene un layout por ID.\n\nRespuesta 200: layout object `{id, name, widgets, tenantId, createdAt, updatedAt}`\nRespuesta 404: `{error: \"NOT_FOUND\", message: \"...\", status: 404}`"
           }
         },
         {
@@ -1163,7 +1163,7 @@
                 "{{layout_id}}"
               ]
             },
-            "description": "Reemplaza nombre y widgets de un layout existente.\n\nRespuesta 200: `{success, data: {...}}` con `updatedAt` refreshed\nRespuesta 404: `{error: \"NOT_FOUND\"}`\nRespuesta 409: `{error: \"DUPLICATE_NAME\"}`"
+            "description": "Reemplaza nombre y widgets de un layout existente.\n\nRespuesta 200: layout object con `updatedAt` refreshed\nRespuesta 404: `{error: \"NOT_FOUND\", message: \"...\", status: 404}`\nRespuesta 409: `{error: \"DUPLICATE_NAME\", message: \"...\", status: 409}`"
           }
         },
         {
@@ -1508,7 +1508,7 @@
                 "roles"
               ]
             },
-            "description": "Lista todos los roles disponibles para el tenant (4 del sistema + custom propios).\n\nRespuesta 200:\n{success: true, data: [{id, name, description, permissions, isSystemRole, isGlobal, tenantId, createdAt, updatedAt}]}\n\nLos roles del sistema (admin, operario, cliente_admin, cliente_operario) tienen isSystemRole=true, tenantId=null."
+            "description": "Lista todos los roles disponibles para el tenant (4 del sistema + custom propios).\n\nRespuesta 200:\n[{id, name, description, permissions, isSystemRole, isGlobal, tenantId, createdAt, updatedAt}]\n\nLos roles del sistema (admin, operario, cliente_admin, cliente_operario) tienen isSystemRole=true, tenantId=null."
           }
         },
         {
@@ -1537,7 +1537,7 @@
                 "{{role_id}}"
               ]
             },
-            "description": "Obtiene el detalle de un rol por su ID.\n\nRespuesta 200: {success: true, data: {id, name, description, permissions, isSystemRole, isGlobal, tenantId, createdAt, updatedAt}}\nRespuesta 404: {success: false, error: \"rol no encontrado\"}\n\nIDs de roles del sistema: admin | operario | cliente_admin | cliente_operario\nIDs de roles custom: custom_XXXXXX (6 hex chars)"
+            "description": "Obtiene el detalle de un rol por su ID.\n\nRespuesta 200: `{id, name, description, permissions, isSystemRole, isGlobal, tenantId, createdAt, updatedAt}`\nRespuesta 404: `{error: \"NOT_FOUND\", message: \"rol no encontrado\", status: 404}`\n\nIDs de roles del sistema: admin | operario | cliente_admin | cliente_operario\nIDs de roles custom: custom_XXXXXX (6 hex chars)"
           }
         },
         {
@@ -1566,7 +1566,7 @@
                 "custom_000000"
               ]
             },
-            "description": "Solicita un rol con ID inexistente.\n\nRespuesta 404: {success: false, error: \"rol no encontrado\"}"
+            "description": "Solicita un rol con ID inexistente.\n\nRespuesta 404: `{error: \"NOT_FOUND\", message: \"rol no encontrado\", status: 404}`"
           }
         },
         {
@@ -1602,7 +1602,7 @@
                 "roles"
               ]
             },
-            "description": "Crea un nuevo rol personalizado para el tenant. Máximo 3 roles custom por tenant.\n\nRespuesta 201: {success: true, data: {id: \"custom_XXXXXX\", name, description, permissions, isSystemRole: false, isGlobal: false, tenantId, createdAt, updatedAt}}\n\nEl ID se genera automáticamente como custom_<6 hex chars>.\nLos permisos se deduplicán y ordenan alfabéticamente."
+            "description": "Crea un nuevo rol personalizado para el tenant. Máximo 3 roles custom por tenant.\n\nRespuesta 201: `{id: \"custom_XXXXXX\", name, description, permissions, isSystemRole: false, isGlobal: false, tenantId, createdAt, updatedAt}`\n\nEl ID se genera automáticamente como custom_<6 hex chars>.\nLos permisos se deduplicán y ordenan alfabéticamente."
           }
         },
         {
@@ -1638,7 +1638,7 @@
                 "roles"
               ]
             },
-            "description": "Intenta crear un rol con nombre ya existente en el tenant.\n\nRespuesta 409: {success: false, error: \"ya existe un rol con ese nombre en este tenant\"}\n\nLa unicidad de nombre es por tenant, no global. Dos tenants distintos pueden tener un rol llamado 'Supervisor'."
+            "description": "Intenta crear un rol con nombre ya existente en el tenant.\n\nRespuesta 409: `{error: \"DUPLICATE_NAME\", message: \"ya existe un rol con ese nombre en este tenant\", status: 409}`\n\nLa unicidad de nombre es por tenant, no global. Dos tenants distintos pueden tener un rol llamado 'Supervisor'."
           }
         },
         {
@@ -1711,7 +1711,7 @@
                 "{{role_id}}"
               ]
             },
-            "description": "Actualiza nombre, descripción y permisos de un rol personalizado.\n\nRespuesta 200: {success: true, data: {...rol actualizado con updatedAt nuevo}}\nRespuesta 403: intento de modificar rol del sistema\nRespuesta 404: rol no encontrado\nRespuesta 409: nombre duplicado en el tenant\n\nSolo roles custom pueden actualizarse. Los roles del sistema (isSystemRole=true) devuelven 403."
+            "description": "Actualiza nombre, descripción y permisos de un rol personalizado.\n\nRespuesta 200: `{id, name, description, permissions, isSystemRole, tenantId, updatedAt}`\nRespuesta 403: `{error: \"FORBIDDEN\", message: \"los roles del sistema no pueden modificarse\", status: 403}`\nRespuesta 404: `{error: \"NOT_FOUND\", message: \"rol no encontrado\", status: 404}`\nRespuesta 409: `{error: \"DUPLICATE_NAME\", message: \"...\", status: 409}`\n\nSolo roles custom pueden actualizarse. Los roles del sistema (isSystemRole=true) devuelven 403."
           }
         },
         {
@@ -1769,7 +1769,7 @@
                 "{{role_id}}"
               ]
             },
-            "description": "Intenta eliminar un rol que tiene usuarios asignados activamente en user_tenant_roles.\n\nRespuesta 409: {success: false, error: \"el rol tiene usuarios asignados activos\", usersAffected: N}\n\nEl campo usersAffected indica cuántos usuarios deben reasignarse antes de poder eliminar el rol.\n\nPrerequisito: el rol debe tener al menos 1 entrada activa en user_tenant_roles."
+            "description": "Intenta eliminar un rol que tiene usuarios asignados activamente en user_tenant_roles.\n\nRespuesta 409: `{error: \"ROLE_HAS_ASSIGNMENTS\", message: \"el rol tiene usuarios asignados activos\", status: 409, usersAffected: N}`\n\nEl campo usersAffected indica cuántos usuarios deben reasignarse antes de poder eliminar el rol.\n\nPrerequisito: el rol debe tener al menos 1 entrada activa en user_tenant_roles."
           }
         },
         {
@@ -1798,7 +1798,7 @@
                 "admin"
               ]
             },
-            "description": "Intenta eliminar un rol del sistema.\n\nRespuesta 403: {success: false, error: \"los roles del sistema no pueden modificarse ni eliminarse\"}\n\nIDs de roles del sistema: admin | operario | cliente_admin | cliente_operario\nEstos roles tienen isSystemRole=true y no pueden eliminarse bajo ninguna circunstancia."
+            "description": "Intenta eliminar un rol del sistema.\n\nRespuesta 403: `{error: \"FORBIDDEN\", message: \"los roles del sistema no pueden modificarse ni eliminarse\", status: 403}`\n\nIDs de roles del sistema: admin | operario | cliente_admin | cliente_operario\nEstos roles tienen isSystemRole=true y no pueden eliminarse bajo ninguna circunstancia."
           }
         }
       ]
@@ -1860,7 +1860,7 @@
                 "alarm-rules"
               ]
             },
-            "description": "Lista todas las reglas del tenant. Respuesta vacía si no hay ninguna.\n\nRespuesta 200:\n{success: true, data: []}"
+            "description": "Lista todas las reglas del tenant. Respuesta vacía si no hay ninguna.\n\nRespuesta 200: array directo `[]`"
           }
         },
         {
@@ -1892,7 +1892,7 @@
                 "alarm-rules"
               ]
             },
-            "description": "Crea una nueva regla de alarma.\n\nRespuesta 201:\n{success: true, data: {id, tenantId, name, description, metric, operator, threshold, severity, enabled, createdAt, updatedAt}}",
+            "description": "Crea una nueva regla de alarma.\n\nRespuesta 201: `{id, tenantId, name, description, metric, operator, threshold, severity, enabled, createdAt, updatedAt}`",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Temperatura alta\",\n  \"description\": \"Alerta cuando la temperatura supera el umbral\",\n  \"metric\": \"temperature\",\n  \"operator\": \"gt\",\n  \"threshold\": 80.0,\n  \"severity\": \"critical\",\n  \"enabled\": true\n}",
@@ -1970,7 +1970,7 @@
                 "alarm-rules"
               ]
             },
-            "description": "Lista reglas del tenant con al menos una regla creada.\n\nRespuesta 200:\n{success: true, data: [{id, tenantId, name, metric, operator, threshold, severity, enabled, createdAt, updatedAt}]}"
+            "description": "Lista reglas del tenant con al menos una regla creada.\n\nRespuesta 200: array directo `[{id, tenantId, name, metric, operator, threshold, severity, enabled, createdAt, updatedAt}]`"
           }
         },
         {
@@ -1999,7 +1999,7 @@
                 "{{alarm_rule_id}}"
               ]
             },
-            "description": "Obtiene el detalle de una regla por ID.\n\nRespuesta 200:\n{success: true, data: {id, tenantId, name, metric, operator, threshold, severity, enabled, createdAt, updatedAt}}"
+            "description": "Obtiene el detalle de una regla por ID.\n\nRespuesta 200: `{id, tenantId, name, metric, operator, threshold, severity, enabled, createdAt, updatedAt}`"
           }
         },
         {
@@ -2061,7 +2061,7 @@
                 "{{alarm_rule_id}}"
               ]
             },
-            "description": "Actualiza parcialmente una regla (PATCH). Solo los campos enviados cambian.\n\nRespuesta 200:\n{success: true, data: {...regla actualizada...}}",
+            "description": "Actualiza parcialmente una regla (PATCH). Solo los campos enviados cambian.\n\nRespuesta 200: `{id, tenantId, name, metric, operator, threshold, severity, enabled, updatedAt}`",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"threshold\": 85.0,\n  \"severity\": \"warning\"\n}",
@@ -2141,7 +2141,7 @@
                 "{{alarm_rule_id}}"
               ]
             },
-            "description": "Elimina permanentemente una regla.\n\nRespuesta 200:\n{success: true}"
+            "description": "Elimina permanentemente una regla.\n\nRespuesta 200: `{}`"
           }
         },
         {
@@ -2654,7 +2654,7 @@
               "script": {
                 "exec": [
                   "pm.test('Status 200', () => pm.response.to.have.status(200));",
-                  "pm.test('success = true', () => pm.expect(pm.response.json().success).to.be.true);"
+                  "pm.test('Response is empty object', () => pm.expect(pm.response.json()).to.deep.equal({}));"
                 ],
                 "type": "text/javascript"
               }
