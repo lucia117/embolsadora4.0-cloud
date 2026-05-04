@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -59,8 +60,9 @@ func JWTAuth(verifier security.Verifier, authUC *usecases.AuthUsecase, activator
 			return
 		}
 
-		// Inject Supabase sub into context
+		// Inject Supabase sub and email into context
 		ctx := platform.WithSupabaseSub(c.Request.Context(), sub)
+		ctx = platform.WithUserEmail(ctx, email)
 
 		// Auto-provision user (idempotent upsert)
 		user, err := authUC.ProvisionUser(ctx, sub, email)
@@ -231,8 +233,15 @@ func CORS() gin.HandlerFunc {
 }
 
 
+var exemptFromTenant = []string{
+	"/api/v1/me",
+	"/api/v1/auth/change-password",
+	"/api/v1/tenants",
+	"/api/v1/tenants/:tenantId",
+}
+
 func isExemptFromTenant(path string) bool {
-	return path == "/api/v1/me" || path == "/api/v1/auth/change-password"
+	return slices.Contains(exemptFromTenant, path)
 }
 
 func isExemptFromPasswordGuard(path string) bool {
