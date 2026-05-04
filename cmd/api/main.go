@@ -7,7 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 
 	apimw "github.com/tu-org/embolsadora-api/internal/api/middleware"
@@ -23,9 +22,7 @@ func main() {
 	}
 	defer logger.Sync()
 
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using environment variables")
-	}
+	config.LoadEnvFile()
 
 	cfg, err := config.Load()
 	if err != nil {

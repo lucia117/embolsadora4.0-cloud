@@ -9,12 +9,7 @@
       "program": "${workspaceFolder}/cmd/api",
       "cwd": "${workspaceFolder}",
       "env": {
-        "APP_ENV": "dev",
-        "DB_URL": "postgres://embolsadora_user:embolsadora_password@localhost:5432/embolsadora_dev?sslmode=disable",
-        "REDIS_ADDR": "localhost:6379",
-        "AUTH_JWT_ISSUER": "embolsadora",
-        "AUTH_JWT_PUBLIC": "__placeholder__",
-        "AUTH_JWT_PRIVATE": "__placeholder__"
+        "APP_ENV": "local"
       }
     }
   ]
