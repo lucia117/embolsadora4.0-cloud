@@ -158,7 +158,7 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 		apimw.Logger(),
 		apimw.CORS(),
 		apimw.JWTAuth(verifier, authUC, invUC),
-		apimw.ResolveTenantFromPath(db),
+		apimw.ResolveTenantAndCheckMembership(db),
 	)
 	edgeDevicesHandler.RegisterRoutes(tenantsGroup, edgeDeviceService)
 

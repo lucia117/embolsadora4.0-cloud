@@ -233,6 +233,7 @@ func CORS() gin.HandlerFunc {
 }
 
 
+
 var exemptFromTenant = []string{
 	"/api/v1/me",
 	"/api/v1/auth/change-password",
