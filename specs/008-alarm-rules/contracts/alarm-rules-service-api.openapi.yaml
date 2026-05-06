@@ -1,0 +1,460 @@
+openapi: 3.0.3
+info:
+  title: Alarm Rules Service API
+  description: |
+    CRUD de reglas de alarma para monitoreo industrial multi-tenant.
+    Satisface los 10 contratos Pact de `alarm-rules-service-api`.
+
+    **Nota de prefijo**: el Pact usa `/api/alarm-rules`, el backend expone `/api/v1/alarm-rules`.
+    El frontend debe tener configurado `NEXT_PUBLIC_API_URL` apuntando a `/api/v1`.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+
+security:
+  - BearerAuth: []
+
+paths:
+  /alarm-rules:
+    get:
+      summary: Listar reglas de alarma del tenant
+      description: |
+        Devuelve todas las reglas de alarma del tenant activo.
+        Solo accesible con JWT válido (cualquier rol del tenant).
+      operationId: listAlarmRules
+      tags:
+        - Alarm Rules
+      parameters:
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Lista de reglas (puede ser vacía)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlarmRuleListResponse'
+              examples:
+                con_reglas:
+                  summary: Tenant con reglas configuradas
+                  value:
+                    success: true
+                    data:
+                      - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                        tenantId: "550e8400-e29b-41d4-a716-446655440001"
+                        name: "Temperatura alta"
+                        description: "Alerta cuando la temperatura supera el umbral"
+                        metric: "temperature"
+                        operator: "gt"
+                        threshold: 80.0
+                        severity: "critical"
+                        enabled: true
+                        createdAt: "2026-04-06T10:00:00Z"
+                        updatedAt: "2026-04-06T10:00:00Z"
+                sin_reglas:
+                  summary: Tenant sin reglas
+                  value:
+                    success: true
+                    data: []
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      summary: Crear una regla de alarma
+      description: |
+        Crea una nueva regla de alarma para el tenant activo.
+        Requiere permiso de administrador.
+      operationId: createAlarmRule
+      tags:
+        - Alarm Rules
+      parameters:
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAlarmRuleRequest'
+            examples:
+              temperatura_alta:
+                value:
+                  name: "Temperatura alta"
+                  description: "Alerta cuando la temperatura supera el umbral de seguridad"
+                  metric: "temperature"
+                  operator: "gt"
+                  threshold: 80.0
+                  severity: "critical"
+                  enabled: true
+      responses:
+        "201":
+          description: Regla creada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlarmRuleResponse'
+              example:
+                success: true
+                data:
+                  id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  tenantId: "550e8400-e29b-41d4-a716-446655440001"
+                  name: "Temperatura alta"
+                  description: "Alerta cuando la temperatura supera el umbral de seguridad"
+                  metric: "temperature"
+                  operator: "gt"
+                  threshold: 80.0
+                  severity: "critical"
+                  enabled: true
+                  createdAt: "2026-04-06T10:00:00Z"
+                  updatedAt: "2026-04-06T10:00:00Z"
+        "400":
+          description: Datos inválidos o campos requeridos faltantes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                campo_faltante:
+                  value:
+                    success: false
+                    error: "VALIDATION_ERROR"
+                    message: "el campo 'metric' es requerido"
+                    status: 400
+                operator_invalido:
+                  value:
+                    success: false
+                    error: "VALIDATION_ERROR"
+                    message: "operator debe ser uno de: gt, lt, gte, lte, eq"
+                    status: 400
+                severity_invalida:
+                  value:
+                    success: false
+                    error: "VALIDATION_ERROR"
+                    message: "severity debe ser uno de: info, warning, critical"
+                    status: 400
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  /alarm-rules/{id}:
+    get:
+      summary: Obtener una regla de alarma por ID
+      operationId: getAlarmRule
+      tags:
+        - Alarm Rules
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Regla encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlarmRuleResponse'
+              example:
+                success: true
+                data:
+                  id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  tenantId: "550e8400-e29b-41d4-a716-446655440001"
+                  name: "Temperatura alta"
+                  description: "Alerta cuando la temperatura supera el umbral de seguridad"
+                  metric: "temperature"
+                  operator: "gt"
+                  threshold: 80.0
+                  severity: "critical"
+                  enabled: true
+                  createdAt: "2026-04-06T10:00:00Z"
+                  updatedAt: "2026-04-06T10:00:00Z"
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      summary: Actualizar parcialmente una regla de alarma
+      description: |
+        Actualiza solo los campos enviados en el body.
+        Los campos no incluidos permanecen sin cambios.
+        Requiere permiso de administrador.
+      operationId: updateAlarmRule
+      tags:
+        - Alarm Rules
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAlarmRuleRequest'
+            examples:
+              cambiar_umbral:
+                value:
+                  threshold: 85.0
+                  severity: "warning"
+              deshabilitar:
+                value:
+                  enabled: false
+      responses:
+        "200":
+          description: Regla actualizada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlarmRuleResponse'
+              example:
+                success: true
+                data:
+                  id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  tenantId: "550e8400-e29b-41d4-a716-446655440001"
+                  name: "Temperatura alta"
+                  description: "Alerta cuando la temperatura supera el umbral de seguridad"
+                  metric: "temperature"
+                  operator: "gt"
+                  threshold: 85.0
+                  severity: "warning"
+                  enabled: true
+                  createdAt: "2026-04-06T10:00:00Z"
+                  updatedAt: "2026-04-06T12:30:00Z"
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Eliminar una regla de alarma
+      description: |
+        Elimina permanentemente la regla de alarma.
+        Requiere permiso de administrador.
+      operationId: deleteAlarmRule
+      tags:
+        - Alarm Rules
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Regla eliminada exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+              example:
+                success: true
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    AlarmRule:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        metric:
+          type: string
+          example: "temperature"
+        operator:
+          type: string
+          enum: [gt, lt, gte, lte, eq]
+        threshold:
+          type: number
+          format: double
+        severity:
+          type: string
+          enum: [info, warning, critical]
+        enabled:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AlarmRuleListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlarmRule'
+
+    AlarmRuleResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/AlarmRule'
+
+    CreateAlarmRuleRequest:
+      type: object
+      required:
+        - name
+        - metric
+        - operator
+        - threshold
+        - severity
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        metric:
+          type: string
+          minLength: 1
+        operator:
+          type: string
+          enum: [gt, lt, gte, lte, eq]
+        threshold:
+          type: number
+          format: double
+        severity:
+          type: string
+          enum: [info, warning, critical]
+        enabled:
+          type: boolean
+          default: true
+
+    UpdateAlarmRuleRequest:
+      type: object
+      description: Todos los campos son opcionales — solo se actualizan los enviados
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          nullable: true
+        metric:
+          type: string
+          minLength: 1
+        operator:
+          type: string
+          enum: [gt, lt, gte, lte, eq]
+        threshold:
+          type: number
+          format: double
+        severity:
+          type: string
+          enum: [info, warning, critical]
+        enabled:
+          type: boolean
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        error:
+          type: string
+          description: Código de error estable
+        message:
+          type: string
+          description: Mensaje descriptivo en español
+        status:
+          type: integer
+
+  responses:
+    Unauthorized:
+      description: Token JWT faltante o inválido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "UNAUTHORIZED"
+            message: "token de autenticación requerido"
+            status: 401
+
+    NotFound:
+      description: Regla no encontrada o pertenece a otro tenant
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "NOT_FOUND"
+            message: "regla de alarma no encontrada"
+            status: 404
+
+    ValidationError:
+      description: Datos inválidos
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "VALIDATION_ERROR"
+            message: "operator debe ser uno de: gt, lt, gte, lte, eq"
+            status: 400

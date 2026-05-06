@@ -1,44 +1,517 @@
  openapi: 3.1.0
 info:
   title: Embolsadora Cloud API
-  version: 1.0.0
+  version: 2.0.0-alpha
   description: >
     Superficies separadas:
-    - **/api/v1/**: ABM (JWT + RBAC)
+    - **/api/v1/**: ABM (JWT RS256 via Supabase JWKS + X-Tenant-ID + RBAC)
     - **/api/v1/consumers/**: Ingesta batch (API Key + idempotencia)
+
+    **Breaking changes desde v1**: eliminado `/api/auth` — autenticación delegada a Supabase Auth.
 servers:
   - url: https://api.tu-dominio.com
 
 tags:
+  - name: Auth
+  - name: Me
+  - name: Invitations
   - name: Users
+  - name: UserRoles
   - name: Machines
   - name: Tenants
   - name: Consumers
+  - name: Logs
+  - name: Retention
 
 paths:
+  ########################
+  # Auth (Supabase delegado)
+  ########################
+  /api/v1/me:
+    get:
+      tags: [Me]
+      summary: Perfil propio con tenant, rol y permisos
+      description: No requiere `X-Tenant-ID`. Devuelve tenant/role/permissions si el usuario tiene un rol activo.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Perfil del usuario autenticado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id: { type: string, format: uuid }
+                      email: { type: string, format: email, nullable: true }
+                      name: { type: string, nullable: true }
+                      password_change_required: { type: boolean }
+                    required: [id, password_change_required]
+                  tenant:
+                    type: object
+                    nullable: true
+                    properties:
+                      id: { type: string, format: uuid }
+                      name: { type: string }
+                      subdomain: { type: string }
+                    required: [id, name, subdomain]
+                  role:
+                    type: object
+                    nullable: true
+                    properties:
+                      id: { type: string }
+                      name: { type: string }
+                    required: [id, name]
+                  permissions:
+                    type: array
+                    items: { type: string }
+                required: [user, permissions]
+        '401': { description: Token ausente o inválido }
+        '503': { description: Supabase JWKS no disponible }
+
+  /api/v1/auth/change-password:
+    post:
+      tags: [Auth]
+      summary: Confirmar cambio de contraseña (limpia el flag password_change_required)
+      description: No requiere `X-Tenant-ID` ni pasa por `PasswordChangeGuard`. El nuevo token de Supabase ya contiene la sesión renovada.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Flag limpiado correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: password changed }
+        '401': { description: Token ausente o inválido }
+
+  ########################
+  # Invitations
+  ########################
+  /api/v1/invitations:
+    get:
+      tags: [Invitations]
+      summary: Listar invitaciones del tenant
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: status
+          required: false
+          schema: { type: string, enum: [pending, accepted, revoked, expired] }
+      responses:
+        '200':
+          description: Lista de invitaciones
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Invitation' }
+        '401': { description: Token ausente o inválido }
+        '403': { description: Sin acceso al tenant }
+    post:
+      tags: [Invitations]
+      summary: Crear invitación (requiere permiso invitations:write)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+                role_id: { type: string }
+              required: [email, role_id]
+      responses:
+        '201':
+          description: Invitación creada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Invitation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { description: Token ausente o inválido }
+        '403': { description: Sin permiso invitations:write }
+        '409':
+          description: Ya existe invitación pendiente para este email en el tenant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/invitations/{id}/resend:
+    post:
+      tags: [Invitations]
+      summary: Reenviar invitación pendiente
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200': { description: Email reenviado }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: Invitación no está en estado pending
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+
+  /api/v1/invitations/{id}:
+    delete:
+      tags: [Invitations]
+      summary: Revocar invitación (requiere permiso invitations:write)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200': { description: Invitación revocada }
+        '403': { description: Sin permiso invitations:write }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  ########################
+  # Users (force password change)
+  ########################
+  /api/v1/users/{id}/force-password-change:
+    post:
+      tags: [Users]
+      summary: Forzar cambio de contraseña (requiere permiso users:write)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200': { description: Flag activado y email de reset enviado }
+        '403': { description: Sin permiso users:write }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   ########################
   # ABM (JWT + RBAC)
   ########################
   /api/v1/users:
     get:
       tags: [Users]
-      summary: Listar usuarios
+      summary: Listar usuarios del tenant
       security: [{ bearerAuth: [] }]
       parameters:
-        - $ref: '#/components/parameters/Cursor'
-        - $ref: '#/components/parameters/Limit'
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+          description: UUID del tenant
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: offset
+          in: query
+          required: false
+          schema: { type: integer, minimum: 0, default: 0 }
       responses:
         '200': { $ref: '#/components/responses/UserList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
     post:
       tags: [Users]
-      summary: Crear usuario
+      summary: Crear usuario (admin only)
       security: [{ bearerAuth: [] }]
+      parameters:
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
       requestBody:
         required: true
         content:
           application/json: { schema: { $ref: '#/components/schemas/UserCreate' } }
       responses:
-        '201': { $ref: '#/components/responses/CreatedID' }
+        '201':
+          description: Usuario creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: Email ya existe en el tenant
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Envelope' }
+
+  /api/v1/users/{userId}:
+    get:
+      tags: [Users]
+      summary: Obtener usuario por ID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Usuario encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Users]
+      summary: Actualizar usuario (admin only)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: '#/components/schemas/UserUpdate' } }
+      responses:
+        '200':
+          description: Usuario actualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Users]
+      summary: Eliminar usuario — soft delete (admin only)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Usuario eliminado (soft delete)
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/users/{userId}/roles:
+    get:
+      tags: [UserRoles]
+      summary: Obtener roles de un usuario
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Lista de roles del usuario
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/UserRoleItem' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/user-roles:
+    get:
+      tags: [UserRoles]
+      summary: Listar asignaciones de rol
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: tenantId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [active, pending, revoked] }
+      responses:
+        '200':
+          description: Lista de asignaciones
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/UserRole' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [UserRoles]
+      summary: Asignar rol a un usuario
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserRoleAssign' }
+      responses:
+        '201':
+          description: Rol asignado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/UserRole' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: El usuario ya tiene un rol activo en este tenant
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Envelope' }
+
+  /api/v1/user-roles/bulk:
+    post:
+      tags: [UserRoles]
+      summary: Asignación masiva de roles (all-or-nothing)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserRoleBulkAssign' }
+      responses:
+        '201':
+          description: Todos los roles asignados
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          assigned: { type: integer }
+                          failed: { type: integer }
+                          assignments:
+                            type: array
+                            items: { $ref: '#/components/schemas/UserRole' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: Uno o más usuarios ya tienen rol activo
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Envelope' }
+
+  /api/v1/user-roles/{id}:
+    put:
+      tags: [UserRoles]
+      summary: Actualizar rol de una asignación
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                roleId: { type: string }
+              required: [roleId]
+      responses:
+        '200':
+          description: Asignación actualizada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/UserRole' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [UserRoles]
+      summary: Revocar asignación de rol (soft delete — status revoked)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: Asignación revocada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id: { type: string, format: uuid }
+                          status: { type: string, enum: [revoked] }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /api/v1/machines:
     get:
@@ -65,8 +538,14 @@ paths:
     get:
       tags: [Tenants]
       summary: Listar tenants
-      description: Requiere rol con permiso `tenants:list`.
+      description: Requiere rol `super_admin` (permiso `tenants:read`). Pasar `X-Tenant-ID` del tenant MRG interno (`mrg-internal`).
       security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+          description: UUID del tenant MRG interno (00000000-0000-0000-0000-000000000000).
       responses:
         '200':
           description: Lista de tenants
@@ -75,12 +554,20 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/Tenant' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '500': { $ref: '#/components/responses/InternalError' }
     post:
       tags: [Tenants]
       summary: Crear tenant
-      description: Requiere rol con permiso `tenants:create`.
+      description: Requiere rol `super_admin` (permiso `tenants:write`). Pasar `X-Tenant-ID` del tenant MRG interno (`mrg-internal`).
       security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+          description: UUID del tenant MRG interno (00000000-0000-0000-0000-000000000000).
       requestBody:
         required: true
         content:
@@ -96,15 +583,23 @@ paths:
                   tenant: { $ref: '#/components/schemas/Tenant' }
                 required: [tenant]
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '500': { $ref: '#/components/responses/InternalError' }
 
   /api/v1/tenants/{id}:
     get:
       tags: [Tenants]
       summary: Obtener tenant por ID
+      description: Requiere rol `super_admin` (permiso `tenants:read`). Pasar `X-Tenant-ID` del tenant MRG interno.
       security: [{ bearerAuth: [] }]
       parameters:
         - $ref: '#/components/parameters/ID'
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+          description: UUID del tenant MRG interno (00000000-0000-0000-0000-000000000000).
       responses:
         '200':
           description: Tenant encontrado
@@ -116,14 +611,22 @@ paths:
                   tenant: { $ref: '#/components/schemas/Tenant' }
                 required: [tenant]
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalError' }
     patch:
       tags: [Tenants]
       summary: Actualizar tenant (campos parciales)
+      description: Requiere rol `super_admin` (permiso `tenants:write`). Pasar `X-Tenant-ID` del tenant MRG interno.
       security: [{ bearerAuth: [] }]
       parameters:
         - $ref: '#/components/parameters/ID'
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+          description: UUID del tenant MRG interno (00000000-0000-0000-0000-000000000000).
       requestBody:
         required: true
         content:
@@ -135,18 +638,28 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Tenant' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalError' }
     delete:
       tags: [Tenants]
       summary: Eliminar tenant
+      description: Requiere rol `super_admin` (permiso `tenants:write`). Pasar `X-Tenant-ID` del tenant MRG interno.
       security: [{ bearerAuth: [] }]
       parameters:
         - $ref: '#/components/parameters/ID'
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+          description: UUID del tenant MRG interno (00000000-0000-0000-0000-000000000000).
       responses:
         '204':
           description: Tenant eliminado
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalError' }
 
@@ -197,6 +710,240 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
 
+  ########################
+  # Logs — List
+  ########################
+  /api/v1/logs:
+    get:
+      tags: [Logs]
+      summary: Listar logs del tenant con filtros y paginación por cursor
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: event_type, in: query, schema: { type: string, enum: [alarm_triggered, alarm_resolved, device_connected, device_disconnected, device_state_changed, user_action, system] } }
+        - { name: severity,   in: query, schema: { type: string, enum: [info, warning, critical, error] } }
+        - { name: machine_id, in: query, schema: { type: string, format: uuid } }
+        - { name: from,       in: query, schema: { type: string, format: date-time } }
+        - { name: to,         in: query, schema: { type: string, format: date-time } }
+        - { name: q,          in: query, schema: { type: string } }
+        - { name: cursor,     in: query, schema: { type: string } }
+        - { name: limit,      in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        '200':
+          description: Lista de logs
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LogListResponse' }
+        '400':
+          description: Parámetros inválidos (ej. from > to, cursor inválido, severity desconocido)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  ########################
+  # Logs — Export
+  ########################
+  /api/v1/logs/export:
+    get:
+      tags: [Logs]
+      summary: Exportar logs filtrados (máx 50.000)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: event_type, in: query, schema: { type: string } }
+        - { name: severity,   in: query, schema: { type: string } }
+        - { name: machine_id, in: query, schema: { type: string, format: uuid } }
+        - { name: from,       in: query, schema: { type: string, format: date-time } }
+        - { name: to,         in: query, schema: { type: string, format: date-time } }
+        - { name: q,          in: query, schema: { type: string } }
+        - { name: format,     in: query, schema: { type: string, enum: [json, csv], default: json } }
+      responses:
+        '200':
+          description: Exportación completada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LogExportResponse' }
+        '400':
+          description: Parámetros inválidos (ej. from > to, severity desconocido)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  ########################
+  # Logs — Stream SSE
+  ########################
+  /api/v1/logs/stream:
+    get:
+      tags: [Logs]
+      summary: Streaming SSE de nuevos eventos en tiempo real
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: event_type, in: query, schema: { type: string } }
+        - { name: severity,   in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Conexión SSE establecida
+          content:
+            text/event-stream:
+              schema: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  ########################
+  # Logs — Retention
+  ########################
+  /api/v1/logs/retention:
+    get:
+      tags: [Retention]
+      summary: Obtener política de retención del tenant
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Política de retención actual
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RetentionResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    patch:
+      tags: [Retention]
+      summary: Actualizar política de retención (requiere logs:admin)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateRetentionRequest' }
+      responses:
+        '200':
+          description: Política actualizada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RetentionResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  ########################
+  # Logs — By ID
+  ########################
+  /api/v1/logs/{id}:
+    get:
+      tags: [Logs]
+      summary: Obtener log por ID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Log encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LogEntry' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  ########################
+  # Logs — Context
+  ########################
+  /api/v1/logs/{id}/context:
+    get:
+      tags: [Logs]
+      summary: Obtener ventana de logs alrededor de un evento
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id,       in: path,  required: true, schema: { type: string, format: uuid } }
+        - { name: window_size, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 10 } }
+      responses:
+        '200':
+          description: Ventana de contexto
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LogContextResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  ##############################################
+  # Notification Service
+  ##############################################
+
+  /api/v1/notifications:
+    get:
+      tags: [Notifications]
+      summary: Listar notificaciones del tenant
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [unread, acknowledged, closed] } }
+        - { name: severity, in: query, schema: { type: string, enum: [info, warning, critical, error] } }
+        - { name: limit, in: query, schema: { type: integer, default: 20, minimum: 1, maximum: 100 } }
+        - { name: offset, in: query, schema: { type: integer, default: 0, minimum: 0 } }
+      responses:
+        '200':
+          description: Lista paginada de notificaciones
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationListResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/notifications/count:
+    get:
+      tags: [Notifications]
+      summary: Conteo de notificaciones no leídas
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Conteo de no leídas
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationCountResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/notifications/{id}:
+    get:
+      tags: [Notifications]
+      summary: Obtener detalle de una notificación
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Detalle de la notificación
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/notifications/{id}/ack:
+    post:
+      tags: [Notifications]
+      summary: Acusar recibo de una notificación (idempotente)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Notificación acknowledged
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/notifications/{id}/close:
+    post:
+      tags: [Notifications]
+      summary: Cerrar una notificación (idempotente)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Notificación closed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
 components:
   ########################
   # Security
@@ -207,7 +954,7 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: >
-        Requiere claim `tenant_id` y `roles[]`. El servidor ignora `X-Tenant-Id` del cliente.
+        JWT RS256 emitido por Supabase Auth. El tenant se resuelve desde el header `X-Tenant-ID` validando membresía activa en `user_tenant_roles`.
     apiKeyAuth:
       type: apiKey
       in: header
@@ -246,6 +993,20 @@ components:
   # Schemas
   ########################
   schemas:
+    JWTError:
+      type: object
+      description: Formato de error retornado por el middleware JWTAuth (401) y middleware RBAC (403)
+      properties:
+        error:
+          type: string
+          example: "UNAUTHORIZED"
+        message:
+          type: string
+          example: "No autorizado"
+        status:
+          type: integer
+          example: 401
+
     Envelope:
       type: object
       properties:
@@ -271,24 +1032,76 @@ components:
     User:
       type: object
       properties:
-        id: { type: string }
-        email: { type: string, format: email }
-        name: { type: string }
-        roles:
-          type: array
-          items: { type: string, enum: [owner, admin, viewer, operator] }
-        active: { type: boolean }
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        firstName: { type: string, maxLength: 100 }
+        lastName: { type: string, maxLength: 100 }
+        email: { type: string, format: email, maxLength: 254 }
+        role: { type: string, enum: [admin, user] }
+        image: { type: string, nullable: true }
         createdAt: { type: string, format: date-time }
-      required: [id, email, name, roles, active]
+        updatedAt: { type: string, format: date-time }
+        deletedAt: { type: string, format: date-time, nullable: true }
+      required: [id, tenantId, firstName, lastName, email, role, createdAt, updatedAt]
     UserCreate:
       type: object
       properties:
-        email: { type: string, format: email }
-        name: { type: string }
-        roles:
+        firstName: { type: string, maxLength: 100 }
+        lastName: { type: string, maxLength: 100 }
+        email: { type: string, format: email, maxLength: 254 }
+        role: { type: string, enum: [admin, user] }
+        image: { type: string, nullable: true }
+      required: [firstName, lastName, email, role]
+    UserUpdate:
+      type: object
+      description: Todos los campos son opcionales. Email y tenantId son inmutables.
+      properties:
+        firstName: { type: string, maxLength: 100 }
+        lastName: { type: string, maxLength: 100 }
+        role: { type: string, enum: [admin, user] }
+        image: { type: string, nullable: true }
+      minProperties: 1
+
+    # User Roles
+    UserRole:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        roleId: { type: string }
+        status: { type: string, enum: [active, pending, revoked] }
+        assignedBy: { type: string, format: uuid, nullable: true }
+        assignedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, userId, tenantId, roleId, status, createdAt, updatedAt]
+    UserRoleItem:
+      type: object
+      properties:
+        tenantId: { type: string, format: uuid }
+        tenantName: { type: string }
+        roleId: { type: string }
+        roleName: { type: string }
+        status: { type: string, enum: [active, pending, revoked] }
+      required: [tenantId, roleId, status]
+    UserRoleAssign:
+      type: object
+      properties:
+        userId: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        roleId: { type: string }
+      required: [userId, tenantId, roleId]
+    UserRoleBulkAssign:
+      type: object
+      properties:
+        userIds:
           type: array
-          items: { type: string, enum: [admin, viewer, operator] }
-      required: [email, name]
+          items: { type: string, format: uuid }
+          minItems: 1
+        tenantId: { type: string, format: uuid }
+        roleId: { type: string }
+      required: [userIds, tenantId, roleId]
 
     # Machines
     Machine:
@@ -410,6 +1223,21 @@ components:
             postalCode: { type: string }
             country: { type: string }
 
+    # Invitations
+    Invitation:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        role_id: { type: string }
+        status: { type: string, enum: [pending, accepted, revoked, expired] }
+        invited_by: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+      required: [id, tenant_id, email, role_id, status, invited_by, created_at, updated_at, expires_at]
+
     # Consumers (events & heartbeat)
     BatchEvents:
       type: object
@@ -442,6 +1270,97 @@ components:
         ts: { type: string, format: date-time }
         status: { type: string, enum: [online, offline, degraded] }
       required: [machineId, ts, status]
+
+  ########################
+  # Notification Schemas
+  ########################
+    NotificationResponse:
+      type: object
+      required: [id, tenant_id, title, message, severity, status, created_at]
+      properties:
+        id:              { type: string, format: uuid }
+        tenant_id:       { type: string, format: uuid }
+        title:           { type: string }
+        message:         { type: string }
+        severity:        { type: string, enum: [info, warning, critical, error] }
+        status:          { type: string, enum: [unread, acknowledged, closed] }
+        alarm_rule_id:   { type: string, format: uuid, nullable: true }
+        machine_id:      { type: string, format: uuid, nullable: true }
+        created_at:      { type: string, format: date-time }
+        acknowledged_at: { type: string, format: date-time, nullable: true }
+        closed_at:       { type: string, format: date-time, nullable: true }
+
+    NotificationListResponse:
+      type: object
+      required: [data, total, limit, offset]
+      properties:
+        data:   { type: array, items: { $ref: '#/components/schemas/NotificationResponse' } }
+        total:  { type: integer }
+        limit:  { type: integer }
+        offset: { type: integer }
+
+    NotificationCountResponse:
+      type: object
+      required: [unread]
+      properties:
+        unread: { type: integer }
+
+  ########################
+  # Log Service Schemas
+  ########################
+    LogEntry:
+      type: object
+      required: [id, tenant_id, created_at, severity, event_type, message, metadata]
+      properties:
+        id:          { type: string, format: uuid }
+        tenant_id:   { type: string, format: uuid }
+        created_at:  { type: string, format: date-time }
+        severity:    { type: string, enum: [info, warning, critical, error] }
+        event_type:  { type: string, enum: [alarm_triggered, alarm_resolved, device_connected, device_disconnected, device_state_changed, user_action, system] }
+        source_id:   { type: string, format: uuid, nullable: true }
+        machine_id:  { type: string, format: uuid, nullable: true }
+        message:     { type: string }
+        metadata:    { type: object, additionalProperties: true }
+
+    LogListResponse:
+      type: object
+      required: [data, total]
+      properties:
+        data:        { type: array, items: { $ref: '#/components/schemas/LogEntry' } }
+        next_cursor: { type: string, nullable: true }
+        total:       { type: integer }
+
+    LogExportResponse:
+      type: object
+      required: [data, truncated, exported_count, total_available]
+      properties:
+        data:            { type: array, items: { $ref: '#/components/schemas/LogEntry' } }
+        truncated:       { type: boolean }
+        exported_count:  { type: integer }
+        total_available: { type: integer }
+
+    LogContextResponse:
+      type: object
+      required: [before, anchor, after]
+      properties:
+        before: { type: array, items: { $ref: '#/components/schemas/LogEntry' } }
+        anchor: { $ref: '#/components/schemas/LogEntry' }
+        after:  { type: array, items: { $ref: '#/components/schemas/LogEntry' } }
+
+    RetentionResponse:
+      type: object
+      required: [tenant_id, retention_days, next_purge_at, updated_at]
+      properties:
+        tenant_id:      { type: string, format: uuid }
+        retention_days: { type: integer, minimum: 1 }
+        next_purge_at:  { type: string, format: date-time }
+        updated_at:     { type: string, format: date-time }
+
+    UpdateRetentionRequest:
+      type: object
+      required: [retention_days]
+      properties:
+        retention_days: { type: integer, minimum: 1, maximum: 3650 }
 
   ########################
   # Standard responses
@@ -520,6 +1439,16 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Envelope'
+    Unauthorized:
+      description: No autenticado (JWT inválido o ausente)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/JWTError'
+          example:
+            error: "UNAUTHORIZED"
+            message: "No autorizado"
+            status: 401
     Forbidden:
       description: Acción no permitida
       content:
@@ -548,3 +1477,4 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Envelope'
+

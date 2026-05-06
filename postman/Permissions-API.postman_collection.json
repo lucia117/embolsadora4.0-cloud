@@ -1,0 +1,277 @@
+{
+  "info": {
+    "name": "Permissions API — 10 Pact Scenarios",
+    "description": "Colección Postman que cubre las 10 interacciones del contrato Pact permissions-service-api.json.\nFeature: 011-permissions-management\nEndpoints: GET/POST /api/v1/permissions, GET/PUT/DELETE /api/v1/permissions/:id\n\nUsar con el environment 'Embolsadora API - Local' (env-local.postman_environment.json).\nVariables requeridas: baseUrl, jwt_token, tenant_id.\nLa variable permission_id se setea automáticamente al ejecutar Pact 02.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Pact 01 — List all permissions (200)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Response is array', () => pm.expect(pm.response.json()).to.be.an('array'));",
+              "pm.test('Has at least 17 system permissions', () => pm.expect(pm.response.json().length).to.be.at.least(17));",
+              "pm.test('perm_dashboard exists with isSystemPermission=true', () => {",
+              "  const dash = pm.response.json().find(p => p.id === 'perm_dashboard');",
+              "  pm.expect(dash).to.not.be.undefined;",
+              "  pm.expect(dash.isSystemPermission).to.be.true;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tenant-ID", "value": "{{tenant_id}}" }
+        ],
+        "url": "{{baseUrl}}/api/v1/permissions"
+      }
+    },
+    {
+      "name": "Pact 02 — Create custom permission (201)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('Has id', () => pm.expect(body.id).to.be.a('string'));",
+              "pm.test('isSystemPermission is false', () => pm.expect(body.isSystemPermission).to.be.false);",
+              "pm.test('Has createdAt', () => pm.expect(body.createdAt).to.be.a('string'));",
+              "pm.test('Has updatedAt', () => pm.expect(body.updatedAt).to.be.a('string'));",
+              "pm.environment.set('permission_id', body.id);",
+              "console.log('permission_id seteado:', body.id);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tenant-ID", "value": "{{tenant_id}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Export Production Data\",\n  \"section\": \"analytics\",\n  \"description\": \"Allows exporting raw production data for external analysis\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/permissions"
+      }
+    },
+    {
+      "name": "Pact 03 — Create permission with invalid name (400)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('error = Validation failed', () => pm.expect(body.error).to.equal('Validation failed'));",
+              "pm.test('errors array present', () => pm.expect(body.errors).to.be.an('array').with.length.at.least(1));",
+              "pm.test('errors[0].path = name', () => pm.expect(body.errors[0].path).to.equal('name'));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tenant-ID", "value": "{{tenant_id}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"AB\",\n  \"section\": \"analytics\",\n  \"description\": \"Too short\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/permissions"
+      }
+    },
+    {
+      "name": "Pact 04 — Get permission by ID (200)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('id = perm_dashboard', () => pm.expect(body.id).to.equal('perm_dashboard'));",
+              "pm.test('isSystemPermission = true', () => pm.expect(body.isSystemPermission).to.be.true);",
+              "pm.test('Has name', () => pm.expect(body.name).to.be.a('string'));",
+              "pm.test('Has section', () => pm.expect(body.section).to.be.a('string'));",
+              "pm.test('Has description', () => pm.expect(body.description).to.be.a('string'));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tenant-ID", "value": "{{tenant_id}}" }
+        ],
+        "url": "{{baseUrl}}/api/v1/permissions/perm_dashboard"
+      }
+    },
+    {
+      "name": "Pact 05 — Get non-existent permission (404)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 404', () => pm.response.to.have.status(404));",
+              "pm.test('Has error field', () => pm.expect(pm.response.json().error).to.be.a('string'));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tenant-ID", "value": "{{tenant_id}}" }
+        ],
+        "url": "{{baseUrl}}/api/v1/permissions/nonexistent-perm"
+      }
+    },
+    {
+      "name": "Pact 06 — Update custom permission (200)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Name updated', () => pm.expect(body.name).to.equal('Export Production Data (Updated)'));",
+              "pm.test('isSystemPermission = false', () => pm.expect(body.isSystemPermission).to.be.false);",
+              "pm.test('Has updatedAt', () => pm.expect(body.updatedAt).to.be.a('string'));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tenant-ID", "value": "{{tenant_id}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Export Production Data (Updated)\",\n  \"section\": \"analytics\",\n  \"description\": \"Allows exporting raw production and quality data\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/permissions/{{permission_id}}"
+      }
+    },
+    {
+      "name": "Pact 07 — Update system permission fails (403)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 403', () => pm.response.to.have.status(403));",
+              "pm.test('Error message correct', () => pm.expect(pm.response.json().error).to.equal('Cannot modify system permissions'));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tenant-ID", "value": "{{tenant_id}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Modified Dashboard\",\n  \"section\": \"dashboard\",\n  \"description\": \"Attempting to modify a system permission\"\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/permissions/perm_dashboard"
+      }
+    },
+    {
+      "name": "Pact 08 — Delete custom permission (200)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tenant-ID", "value": "{{tenant_id}}" }
+        ],
+        "url": "{{baseUrl}}/api/v1/permissions/{{permission_id}}"
+      }
+    },
+    {
+      "name": "Pact 09 — Delete system permission fails (403)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 403', () => pm.response.to.have.status(403));",
+              "pm.test('Error message correct', () => pm.expect(pm.response.json().error).to.equal('Cannot delete system permissions'));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+          { "key": "X-Tenant-ID", "value": "{{tenant_id}}" }
+        ],
+        "url": "{{baseUrl}}/api/v1/permissions/perm_dashboard"
+      }
+    },
+    {
+      "name": "Pact 10 — Request without auth fails (401)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 401', () => pm.response.to.have.status(401));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/permissions"
+      }
+    }
+  ]
+}

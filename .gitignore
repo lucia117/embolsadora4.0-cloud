@@ -5,7 +5,14 @@ postman/*.local.json
 postman/*secrets*.json
 postman/export-*.json
 
-.env*.local
-
-# Environment variables
+# Variables de entorno — nunca commitear secretos
+# .env.local se usa para desarrollo; beta/prod se configuran en Koyeb
 .env
+.env.*
+!.env.example
+
+# MacOS specific files
+.DS_Store
+
+# Claude Code — local settings (machine-specific paths, not for version control)
+.claude/settings.local.json

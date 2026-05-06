@@ -70,7 +70,7 @@ func TestUpdateTenantHandler(t *testing.T) {
 	useCase := ucUpdateTenant.NewUseCase(mockRepo)
 	h := NewUpdateTenantHandler(useCase)
 	r := gin.Default()
-	r.PATCH("/api/tenants/:id", h.UpdateTenant)
+	r.PATCH("/api/v1/tenants/:tenantId", h.UpdateTenant)
 
 	id := uuid.New().String()
 	updateReq := models.TenantUpdateRequest{
@@ -82,7 +82,7 @@ func TestUpdateTenantHandler(t *testing.T) {
 		},
 	}
 	body, _ := json.Marshal(updateReq)
-	req, _ := http.NewRequest("PATCH", "/api/tenants/"+id, bytes.NewBuffer(body))
+	req, _ := http.NewRequest("PATCH", "/api/v1/tenants/"+id, bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -103,13 +103,13 @@ func TestUpdateTenantHandler_InvalidID(t *testing.T) {
 	useCase := ucUpdateTenant.NewUseCase(mockRepo)
 	h := NewUpdateTenantHandler(useCase)
 	r := gin.Default()
-	r.PATCH("/api/tenants/:id", h.UpdateTenant)
+	r.PATCH("/api/v1/tenants/:tenantId", h.UpdateTenant)
 
 	updateReq := models.TenantUpdateRequest{
 		Name: ptrString("Updated Tenant Name"),
 	}
 	body, _ := json.Marshal(updateReq)
-	req, _ := http.NewRequest("PATCH", "/api/tenants/invalid-id", bytes.NewBuffer(body))
+	req, _ := http.NewRequest("PATCH", "/api/v1/tenants/invalid-id", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
