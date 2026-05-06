@@ -84,7 +84,7 @@ type Config struct {
 	Observability ObservabilityConfig
 }
 
-func Load() (*Config, error) {
+func Load(env Environment) (*Config, error) {
 	var missing []string
 	require := func(key string) string {
 		v := os.Getenv(key)
@@ -95,7 +95,7 @@ func Load() (*Config, error) {
 	}
 
 	cfg := &Config{
-		Env: Environment(getEnv("APP_ENV", string(EnvLocal))),
+		Env: env,
 		HTTP: HTTPConfig{
 			Port:         getEnv("PORT", "8080"),
 			ReadTimeout:  getDurationEnv("HTTP_READ_TIMEOUT", 10*time.Second),
