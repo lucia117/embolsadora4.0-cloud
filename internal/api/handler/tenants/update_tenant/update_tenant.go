@@ -23,7 +23,7 @@ func NewUpdateTenantHandler(useCase ucUpdateTenant.UseCase) *UpdateTenantHandler
 }
 
 func (h *UpdateTenantHandler) UpdateTenant(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(c.Param("tenantId"))
 	if err != nil {
 		httperr.WriteError(c, apperrors.NewBadRequest("ID de tenant inválido"))
 		return

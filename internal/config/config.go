@@ -2,11 +2,46 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/joho/godotenv"
 )
+
+type Environment string
+
+const (
+	EnvLocal      Environment = "local"
+	EnvBeta       Environment = "beta"
+	EnvProduction Environment = "production"
+)
+
+func (e Environment) IsProduction() bool { return e == EnvProduction }
+func (e Environment) IsLocal() bool      { return e == EnvLocal }
+func (e Environment) IsBeta() bool       { return e == EnvBeta }
+
+// LoadEnvFile detecta APP_ENV y carga el archivo .env.<ambiente> correspondiente.
+// Las variables de sistema tienen prioridad sobre el archivo (godotenv no sobreescribe).
+func LoadEnvFile() Environment {
+	env := Environment(getEnv("APP_ENV", string(EnvLocal)))
+	switch env {
+	case EnvLocal, EnvBeta, EnvProduction:
+	default:
+		log.Printf("APP_ENV=%q desconocido, usando %q", env, EnvLocal)
+		env = EnvLocal
+	}
+
+	file := fmt.Sprintf(".env.%s", env)
+	if err := godotenv.Load(file); err != nil {
+		log.Printf("archivo %s no encontrado, usando variables de sistema", file)
+	} else {
+		log.Printf("configuración cargada desde %s (ambiente: %s)", file, env)
+	}
+	return env
+}
 
 type HTTPConfig struct {
 	Port         string
@@ -41,6 +76,7 @@ type ObservabilityConfig struct {
 }
 
 type Config struct {
+	Env           Environment
 	HTTP          HTTPConfig
 	DB            DBConfig
 	Redis         RedisConfig
@@ -48,7 +84,7 @@ type Config struct {
 	Observability ObservabilityConfig
 }
 
-func Load() (*Config, error) {
+func Load(env Environment) (*Config, error) {
 	var missing []string
 	require := func(key string) string {
 		v := os.Getenv(key)
@@ -59,6 +95,7 @@ func Load() (*Config, error) {
 	}
 
 	cfg := &Config{
+		Env: env,
 		HTTP: HTTPConfig{
 			Port:         getEnv("PORT", "8080"),
 			ReadTimeout:  getDurationEnv("HTTP_READ_TIMEOUT", 10*time.Second),

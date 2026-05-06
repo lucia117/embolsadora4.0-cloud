@@ -22,7 +22,7 @@ func NewDeleteTenantHandler(useCase ucDeleteTenant.UseCase) *DeleteTenantHandler
 }
 
 func (h *DeleteTenantHandler) DeleteTenant(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(c.Param("tenantId"))
 	if err != nil {
 		httperr.WriteError(c, apperrors.NewBadRequest("ID de tenant inválido"))
 		return

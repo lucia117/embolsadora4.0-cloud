@@ -146,20 +146,19 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	)
 	consumers.RegisterConsumerRoutes(c1, consumers.Deps{}, consumers.Config{})
 
-	// Superficie de edge devices (/api/tenants/{tenantId}/edge-devices)
-	// Esta ruta sigue el contrato del pact y es parte de la superficie ABM
+	// Superficie de edge devices (/api/v1/tenants/{tenantId}/edge-devices)
 	edgeDeviceTimeout := time.Duration(0) // usar timeout por defecto (10s)
 	edgeDeviceClient := edgeclient.NewHTTPClient(edgeDeviceTimeout)
 	edgeDeviceRepository := edgeDevicesRepo.NewPostgresRepository(db)
 	edgeDeviceService := edgeDevicesApp.NewService(edgeDeviceRepository, edgeDeviceClient, logger)
 
 	tenantsGroup := r.Group(
-		"/api/tenants/:tenantId",
+		"/api/v1/tenants/:tenantId",
 		apimw.RequestID(),
 		apimw.Logger(),
 		apimw.CORS(),
 		apimw.JWTAuth(verifier, authUC, invUC),
-		apimw.ResolveTenantFromPath(db),
+		apimw.ResolveTenantAndCheckMembership(db),
 	)
 	edgeDevicesHandler.RegisterRoutes(tenantsGroup, edgeDeviceService)
 
