@@ -3,6 +3,7 @@ package security
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/tu-org/embolsadora-api/internal/domain"
 	"github.com/tu-org/embolsadora-api/internal/platform"
@@ -16,6 +17,14 @@ type Permission string
 
 // rolePermissions maps role names to their allowed permissions.
 var rolePermissions = map[string][]string{
+	// Platform-level role: MRG employees who manage the platform (tenants, all users, all machines).
+	// Members of the mrg-internal tenant only.
+	"super_admin": {
+		"tenants:read", "tenants:write",
+		"users:read", "users:write",
+		"invitations:write",
+		"machines:read", "machines:write",
+	},
 	"admin":            {"users:read", "users:write", "invitations:write", "machines:read", "machines:write", "tenants:read"},
 	"operario":         {"machines:read", "machines:write"},
 	"cliente_admin":    {"users:read", "invitations:write", "machines:read"},
@@ -68,10 +77,8 @@ func Can(ctx context.Context, perm string) error {
 		return fmt.Errorf("%w: unknown role %q", domain.ErrForbidden, roleName)
 	}
 
-	for _, p := range perms {
-		if p == perm {
-			return nil
-		}
+	if slices.Contains(perms, perm) {
+		return nil
 	}
 
 	return fmt.Errorf("%w: role %q lacks permission %q", domain.ErrForbidden, roleName, perm)

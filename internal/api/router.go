@@ -93,11 +93,11 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 	updateTenantHandler := updateTenant.NewUpdateTenantHandler(updateTenantUseCase)
 	deleteTenantHandler := deleteTenant.NewDeleteTenantHandler(deleteTenantUseCase)
 
-	g.GET("/tenants", getAllTenantsHandler.GetAllTenants)
-	g.POST("/tenants", createTenantHandler.CreateTenant)
-	g.GET("/tenants/:tenantId", getTenantHandler.GetTenant)
-	g.PATCH("/tenants/:tenantId", updateTenantHandler.UpdateTenant)
-	g.DELETE("/tenants/:tenantId", deleteTenantHandler.DeleteTenant)
+	g.GET("/tenants", middleware.RBACCheck("tenants:read"), getAllTenantsHandler.GetAllTenants)
+	g.POST("/tenants", middleware.RBACCheck("tenants:write"), createTenantHandler.CreateTenant)
+	g.GET("/tenants/:tenantId", middleware.RBACCheck("tenants:read"), getTenantHandler.GetTenant)
+	g.PATCH("/tenants/:tenantId", middleware.RBACCheck("tenants:write"), updateTenantHandler.UpdateTenant)
+	g.DELETE("/tenants/:tenantId", middleware.RBACCheck("tenants:write"), deleteTenantHandler.DeleteTenant)
 
 	// User Roles
 	assignUserRoleUseCase := ucAssignUserRole.NewUseCase(deps.UserRoleRepo)

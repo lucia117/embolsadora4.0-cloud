@@ -236,8 +236,6 @@ func CORS() gin.HandlerFunc {
 var exemptFromTenant = []string{
 	"/api/v1/me",
 	"/api/v1/auth/change-password",
-	"/api/v1/tenants",
-	"/api/v1/tenants/:tenantId",
 }
 
 func isExemptFromTenant(path string) bool {
