@@ -1,4 +1,4 @@
--- Migration: 000004_create_log_entries_table
+-- Migration: 000015_create_log_entries_table
 -- Creates log_entries and log_retention_policies tables
 
 -- Reuse existing trigger function or create if not exists

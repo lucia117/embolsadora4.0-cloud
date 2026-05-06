@@ -6,10 +6,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/tu-org/embolsadora-api/internal/api/handler/httperr"
+	tenantserrors "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/errors"
 	"github.com/tu-org/embolsadora-api/internal/api/handler/tenants/update_tenant/models"
 	ucUpdateTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/update_tenant"
-	apperrors "github.com/tu-org/embolsadora-api/internal/core/errors"
 )
 
 type UpdateTenantHandler struct {
@@ -25,13 +24,13 @@ func NewUpdateTenantHandler(useCase ucUpdateTenant.UseCase) *UpdateTenantHandler
 func (h *UpdateTenantHandler) UpdateTenant(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("tenantId"))
 	if err != nil {
-		httperr.WriteError(c, apperrors.NewBadRequest("ID de tenant inválido"))
+		c.JSON(http.StatusBadRequest, tenantserrors.ErrorResponse{Error: "BAD_REQUEST", Message: "ID de tenant inválido", Status: http.StatusBadRequest})
 		return
 	}
 
 	var req models.TenantUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httperr.WriteError(c, apperrors.NewBadRequest(err.Error()))
+		c.JSON(http.StatusBadRequest, tenantserrors.ErrorResponse{Error: "BAD_REQUEST", Message: err.Error(), Status: http.StatusBadRequest})
 		return
 	}
 
@@ -106,11 +105,11 @@ func (h *UpdateTenantHandler) UpdateTenant(c *gin.Context) {
 	tenant, err := h.useCase.Update(c.Request.Context(), id, useCaseReq)
 	if err != nil {
 		if err == ucUpdateTenant.ErrTenantNotFound {
-			httperr.WriteError(c, apperrors.NewNotFound("Tenant no encontrado"))
+			c.JSON(http.StatusNotFound, tenantserrors.ErrorResponse{Error: "NOT_FOUND", Message: "Tenant no encontrado", Status: http.StatusNotFound})
 			return
 		}
 		log.Printf("error updating tenant: %v", err)
-		httperr.WriteError(c, apperrors.NewInternalServerError("Failed to update tenant"))
+		c.JSON(http.StatusInternalServerError, tenantserrors.ErrorResponse{Error: "INTERNAL_ERROR", Message: "Failed to update tenant", Status: http.StatusInternalServerError})
 		return
 	}
 

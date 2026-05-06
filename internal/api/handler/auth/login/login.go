@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -13,10 +14,15 @@ import (
 type Handler struct {
 	supabaseURL string
 	anonKey     string
+	httpClient  *http.Client
 }
 
 func NewHandler(supabaseURL, anonKey string) *Handler {
-	return &Handler{supabaseURL: supabaseURL, anonKey: anonKey}
+	return &Handler{
+		supabaseURL: supabaseURL,
+		anonKey:     anonKey,
+		httpClient:  &http.Client{Timeout: 10 * time.Second},
+	}
 }
 
 type loginRequest struct {
@@ -31,10 +37,14 @@ func (h *Handler) Handle(c *gin.Context) {
 		return
 	}
 
-	body, _ := json.Marshal(map[string]string{
+	body, err := json.Marshal(map[string]string{
 		"email":    req.Email,
 		"password": req.Password,
 	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to build request body"})
+		return
+	}
 
 	url := fmt.Sprintf("%s/auth/v1/token?grant_type=password", h.supabaseURL)
 	httpReq, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, url, bytes.NewReader(body))
@@ -45,7 +55,7 @@ func (h *Handler) Handle(c *gin.Context) {
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("apikey", h.anonKey)
 
-	resp, err := http.DefaultClient.Do(httpReq)
+	resp, err := h.httpClient.Do(httpReq)
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": "supabase unreachable"})
 		return

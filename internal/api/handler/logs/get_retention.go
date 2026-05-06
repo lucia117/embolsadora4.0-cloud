@@ -20,7 +20,7 @@ func GetRetention(svc *appLogs.Service) gin.HandlerFunc {
 		policy, err := svc.GetRetention(c.Request.Context(), tenantID)
 		if err != nil {
 			telemetry.LogRequestsTotal.WithLabelValues("get_retention", "500").Inc()
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "INTERNAL_ERROR"})
+			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "INTERNAL_ERROR", Message: "internal server error", Status: http.StatusInternalServerError})
 			return
 		}
 

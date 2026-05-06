@@ -30,12 +30,12 @@ var validEventTypes = map[string]bool{
 func parseTenantID(c *gin.Context) (uuid.UUID, bool) {
 	raw := c.GetHeader("X-Tenant-ID")
 	if raw == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "UNAUTHORIZED", "message": "X-Tenant-ID header required"})
+		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "UNAUTHORIZED", Message: "X-Tenant-ID header required", Status: http.StatusUnauthorized})
 		return uuid.UUID{}, false
 	}
 	id, err := uuid.Parse(raw)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "BAD_REQUEST", "message": "invalid X-Tenant-ID"})
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "BAD_REQUEST", Message: "invalid X-Tenant-ID", Status: http.StatusBadRequest})
 		return uuid.UUID{}, false
 	}
 	return id, true

@@ -997,12 +997,15 @@ components:
       type: object
       description: Formato de error retornado por el middleware JWTAuth (401) y middleware RBAC (403)
       properties:
-        success:
-          type: boolean
-          example: false
         error:
           type: string
+          example: "UNAUTHORIZED"
+        message:
+          type: string
           example: "No autorizado"
+        status:
+          type: integer
+          example: 401
 
     Envelope:
       type: object
@@ -1443,8 +1446,9 @@ components:
           schema:
             $ref: '#/components/schemas/JWTError'
           example:
-            success: false
-            error: "No autorizado"
+            error: "UNAUTHORIZED"
+            message: "No autorizado"
+            status: 401
     Forbidden:
       description: Acción no permitida
       content:
