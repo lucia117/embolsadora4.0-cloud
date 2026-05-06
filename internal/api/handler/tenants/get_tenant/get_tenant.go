@@ -21,7 +21,7 @@ func NewGetTenantHandler(uc *get_tenant.UseCase) *GetTenantHandler {
 }
 
 func (h *GetTenantHandler) GetTenant(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(c.Param("tenantId"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, tenantserrors.ErrorResponse{Error: "BAD_REQUEST", Message: "ID de tenant inválido", Status: http.StatusBadRequest})
 		return

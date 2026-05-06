@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "embolsadora-api-master-collection",
     "name": "Embolsadora API - Complete Collection",
-    "description": "Master collection for Embolsadora 4.0 Cloud API\n\nConsolidated endpoints across all features:\n- Auth (Supabase JWT)\n- Invitations CRUD\n- Tenants management\n- Users CRUD\n- User Role Assignments\n- Edge Device Management (Complete US1-US9)\n- Dashboard Layouts (Complete US1-US5)\n- Roles Management (7 Pact interactions)\n\n**Base URL:** `{{baseUrl}}` = http://localhost:8080\n\n**Authentication:** Bearer JWT Token (usar POST Login para obtenerlo)\n**Multi-tenant:** `X-Tenant-ID: {{tenant_uuid}}` header requerido en la mayoría de endpoints\n\n**Dashboard Layout Endpoints (005-dashboard-layouts):**\n- US1: List Layouts - GET /api/v1/dashboard-layouts\n- US2: Create Layout - POST /api/v1/dashboard-layouts\n- US3: Get Layout - GET /api/v1/dashboard-layouts/:layoutId\n- US4: Update Layout - PUT /api/v1/dashboard-layouts/:layoutId\n- US5: Delete Layout - DELETE /api/v1/dashboard-layouts/:layoutId\n- Headers: Authorization + X-Tenant-ID (UUID) requeridos\n\n**Edge Device Endpoints (All 9 User Stories Implemented):**\n- US1: List Devices - GET /api/tenants/:tenantId/edge-devices\n- US2: Create Device - POST /api/tenants/:tenantId/edge-devices\n- US3: Get Device - GET /api/tenants/:tenantId/edge-devices/:deviceId\n- US4: Update Device - PUT /api/tenants/:tenantId/edge-devices/:deviceId\n- US5: Enable/Disable - POST /api/tenants/:tenantId/edge-devices/:deviceId/enable, /disable\n- US6: Status Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/status\n- US7: Health Check - POST /api/tenants/:tenantId/edge-devices/:deviceId/health-check\n- US8: Telemetry - GET /api/tenants/:tenantId/edge-devices/:deviceId/telemetry\n- US9: Events - GET /api/tenants/:tenantId/edge-devices/:deviceId/events\n- Alarm Rules (008-alarm-rules) â CRUD completo con 10 Pact interactions (GET list, GET by id, POST, PATCH, DELETE + errores 401/404/400)",
+    "description": "Master collection for Embolsadora 4.0 Cloud API\n\nConsolidated endpoints across all features:\n- Auth (Supabase JWT)\n- Invitations CRUD\n- Tenants management\n- Users CRUD\n- User Role Assignments\n- Edge Device Management (Complete US1-US9)\n- Dashboard Layouts (Complete US1-US5)\n- Roles Management (7 Pact interactions)\n\n**Base URL:** `{{baseUrl}}` = http://localhost:8080\n\n**Authentication:** Bearer JWT Token (usar POST Login para obtenerlo)\n**Multi-tenant:** `X-Tenant-ID: {{tenant_uuid}}` header requerido en la mayoría de endpoints\n\n**Dashboard Layout Endpoints (005-dashboard-layouts):**\n- US1: List Layouts - GET /api/v1/dashboard-layouts\n- US2: Create Layout - POST /api/v1/dashboard-layouts\n- US3: Get Layout - GET /api/v1/dashboard-layouts/:layoutId\n- US4: Update Layout - PUT /api/v1/dashboard-layouts/:layoutId\n- US5: Delete Layout - DELETE /api/v1/dashboard-layouts/:layoutId\n- Headers: Authorization + X-Tenant-ID (UUID) requeridos\n\n**Edge Device Endpoints (All 9 User Stories Implemented):**\n- US1: List Devices - GET /api/v1/tenants/:tenantId/edge-devices\n- US2: Create Device - POST /api/v1/tenants/:tenantId/edge-devices\n- US3: Get Device - GET /api/v1/tenants/:tenantId/edge-devices/:deviceId\n- US4: Update Device - PUT /api/v1/tenants/:tenantId/edge-devices/:deviceId\n- US5: Enable/Disable - POST /api/v1/tenants/:tenantId/edge-devices/:deviceId/enable, /disable\n- US6: Status Check - POST /api/v1/tenants/:tenantId/edge-devices/:deviceId/status\n- US7: Health Check - POST /api/v1/tenants/:tenantId/edge-devices/:deviceId/health-check\n- US8: Telemetry - GET /api/v1/tenants/:tenantId/edge-devices/:deviceId/telemetry\n- US9: Events - GET /api/v1/tenants/:tenantId/edge-devices/:deviceId/events\n- Alarm Rules (008-alarm-rules) â CRUD completo con 10 Pact interactions (GET list, GET by id, POST, PATCH, DELETE + errores 401/404/400)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -339,6 +339,11 @@
               {
                 "key": "Authorization",
                 "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}",
+                "type": "text"
               }
             ],
             "url": {
@@ -367,11 +372,21 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}",
+                "type": "text"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"mrg-equipamientos\",\n  \"companyName\": \"M.R.G. Equipamientos S.R.L.\",\n  \"subdomain\": \"mrg\",\n  \"description\": \"Empresa fabricante de embolsadoras industriales\"\n}"
+              "raw": "{\n  \"name\": \"mrg-equipamientos\",\n  \"companyName\": \"M.R.G. Equipamientos S.R.L.\",\n  \"subdomain\": \"mrg\",\n  \"description\": \"Empresa fabricante de embolsadoras industriales\",\n  \"adminUser\": {\n    \"email\": \"admin@mrg.com\",\n    \"firstName\": \"Admin\",\n    \"lastName\": \"MRG\",\n    \"password\": \"Test1234!\"\n  },\n  \"theme\": {\n    \"primaryColor\": \"#1A73E8\"\n  },\n  \"address\": {\n    \"street\": \"Av. Siempre Viva 123\",\n    \"city\": \"Santa Fe\",\n    \"state\": \"Santa Fe\",\n    \"postalCode\": \"3000\",\n    \"country\": \"Argentina\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/tenants",
@@ -394,6 +409,11 @@
               {
                 "key": "Authorization",
                 "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}",
+                "type": "text"
               }
             ],
             "url": {
@@ -422,6 +442,11 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}",
+                "type": "text"
               }
             ],
             "body": {
@@ -450,6 +475,11 @@
               {
                 "key": "Authorization",
                 "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}",
+                "type": "text"
               }
             ],
             "url": {
@@ -642,7 +672,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -650,11 +680,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/users/{{user_id}}?include=roles",
+              "raw": "{{baseUrl}}/api/v1/users/{{user_id}}?include=roles",
               "host": [
-                "{{base_url}}"
+                "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "users",
                 "{{user_id}}"
               ],
@@ -676,7 +708,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -692,11 +724,13 @@
               "raw": "{\"status\": \"active\"}"
             },
             "url": {
-              "raw": "{{base_url}}/users/{{user_id}}/status",
+              "raw": "{{baseUrl}}/api/v1/users/{{user_id}}/status",
               "host": [
-                "{{base_url}}"
+                "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "users",
                 "{{user_id}}",
                 "status"
@@ -713,7 +747,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -729,11 +763,13 @@
               "raw": "{\"status\": \"inactive\"}"
             },
             "url": {
-              "raw": "{{base_url}}/users/{{user_id}}/status",
+              "raw": "{{baseUrl}}/api/v1/users/{{user_id}}/status",
               "host": [
-                "{{base_url}}"
+                "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "users",
                 "{{user_id}}",
                 "status"
@@ -750,7 +786,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -766,11 +802,13 @@
               "raw": "{\"status\": \"inactive\"}"
             },
             "url": {
-              "raw": "{{base_url}}/users/{{admin_user_id}}/status",
+              "raw": "{{baseUrl}}/api/v1/users/{{admin_user_id}}/status",
               "host": [
-                "{{base_url}}"
+                "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "users",
                 "{{admin_user_id}}",
                 "status"
@@ -787,7 +825,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -795,11 +833,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/users/pending",
+              "raw": "{{baseUrl}}/api/v1/users/pending",
               "host": [
-                "{{base_url}}"
+                "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "users",
                 "pending"
               ]
@@ -813,18 +853,33 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
-              { "key": "X-Tenant-ID", "value": "{{tenant_id}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"firstName\": \"Juan\",\n  \"lastName\": \"Pérez\",\n  \"email\": \"juan.perez@ejemplo.com\",\n  \"role\": \"operario\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/users",
-              "host": ["{{base_url}}"],
-              "path": ["users"]
+              "raw": "{{baseUrl}}/api/v1/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users"
+              ]
             },
             "description": "Creates user + active UTR in one transaction. Expects 201 + user in response. Verify user_tenant_roles has status='active'. (013 Pact)"
           },
@@ -835,18 +890,33 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
-              { "key": "X-Tenant-ID", "value": "{{tenant_id}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"firstName\": \"Test\",\n  \"lastName\": \"User\",\n  \"email\": \"test.invalid@ejemplo.com\",\n  \"role\": \"rol_inexistente\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/users",
-              "host": ["{{base_url}}"],
-              "path": ["users"]
+              "raw": "{{baseUrl}}/api/v1/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users"
+              ]
             },
             "description": "Role does not exist in roles table → FK violation → 400 INVALID_ROLE. User must NOT be created (rollback). (013 Pact)"
           },
@@ -857,18 +927,33 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
-              { "key": "X-Tenant-ID", "value": "{{tenant_id}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"firstName\": \"Otro\",\n  \"lastName\": \"User\",\n  \"email\": \"juan.perez@ejemplo.com\",\n  \"role\": \"operario\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/users",
-              "host": ["{{base_url}}"],
-              "path": ["users"]
+              "raw": "{{baseUrl}}/api/v1/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users"
+              ]
             },
             "description": "Same email already registered in tenant → 409 DUPLICATE_EMAIL. Run after the happy path request. (013 Pact)"
           },
@@ -891,6 +976,11 @@
               {
                 "key": "Authorization",
                 "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}",
+                "type": "text"
               }
             ],
             "body": {
@@ -918,6 +1008,11 @@
               {
                 "key": "Authorization",
                 "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}",
+                "type": "text"
               }
             ],
             "url": {
@@ -951,6 +1046,11 @@
               {
                 "key": "Authorization",
                 "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}",
+                "type": "text"
               }
             ],
             "body": {
@@ -979,6 +1079,11 @@
               {
                 "key": "Authorization",
                 "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}",
+                "type": "text"
               }
             ],
             "url": {
@@ -1007,7 +1112,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -1035,7 +1140,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -1071,7 +1176,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -1107,7 +1212,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -1136,7 +1241,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -1173,7 +1278,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -1207,7 +1312,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "Content-Type",
@@ -1215,13 +1320,15 @@
               }
             ],
             "url": {
-              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices",
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantSubdomain}}/edge-devices",
               "host": [
-                "{{edgeDevicesBaseUrl}}"
+                "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "tenants",
-                "{{tenant_id}}",
+                "{{tenantSubdomain}}",
                 "edge-devices"
               ]
             },
@@ -1235,7 +1342,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "Content-Type",
@@ -1247,13 +1354,15 @@
               "raw": "{\n  \"name\": \"RaspPi-02\",\n  \"machineId\": \"M-EQ-002\",\n  \"edgeType\": \"RASPBERRY_PLC\",\n  \"raspberryBaseUrl\": \"http://192.168.1.101:8080\",\n  \"description\": \"Secondary edge gateway\"\n}"
             },
             "url": {
-              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices",
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantSubdomain}}/edge-devices",
               "host": [
-                "{{edgeDevicesBaseUrl}}"
+                "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "tenants",
-                "{{tenant_id}}",
+                "{{tenantSubdomain}}",
                 "edge-devices"
               ]
             },
@@ -1267,17 +1376,19 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               }
             ],
             "url": {
-              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}",
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantSubdomain}}/edge-devices/{{device_id}}",
               "host": [
-                "{{edgeDevicesBaseUrl}}"
+                "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "tenants",
-                "{{tenant_id}}",
+                "{{tenantSubdomain}}",
                 "edge-devices",
                 "{{device_id}}"
               ]
@@ -1292,7 +1403,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "Content-Type",
@@ -1304,13 +1415,15 @@
               "raw": "{\n  \"name\": \"RaspPi-Updated\",\n  \"description\": \"Updated description\"\n}"
             },
             "url": {
-              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}",
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantSubdomain}}/edge-devices/{{device_id}}",
               "host": [
-                "{{edgeDevicesBaseUrl}}"
+                "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "tenants",
-                "{{tenant_id}}",
+                "{{tenantSubdomain}}",
                 "edge-devices",
                 "{{device_id}}"
               ]
@@ -1325,17 +1438,19 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               }
             ],
             "url": {
-              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/enable",
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantSubdomain}}/edge-devices/{{device_id}}/enable",
               "host": [
-                "{{edgeDevicesBaseUrl}}"
+                "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "tenants",
-                "{{tenant_id}}",
+                "{{tenantSubdomain}}",
                 "edge-devices",
                 "{{device_id}}",
                 "enable"
@@ -1351,17 +1466,19 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               }
             ],
             "url": {
-              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/disable",
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantSubdomain}}/edge-devices/{{device_id}}/disable",
               "host": [
-                "{{edgeDevicesBaseUrl}}"
+                "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "tenants",
-                "{{tenant_id}}",
+                "{{tenantSubdomain}}",
                 "edge-devices",
                 "{{device_id}}",
                 "disable"
@@ -1377,7 +1494,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "Content-Type",
@@ -1385,13 +1502,15 @@
               }
             ],
             "url": {
-              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/status",
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantSubdomain}}/edge-devices/{{device_id}}/status",
               "host": [
-                "{{edgeDevicesBaseUrl}}"
+                "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "tenants",
-                "{{tenant_id}}",
+                "{{tenantSubdomain}}",
                 "edge-devices",
                 "{{device_id}}",
                 "status"
@@ -1407,17 +1526,19 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               }
             ],
             "url": {
-              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/health-check",
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantSubdomain}}/edge-devices/{{device_id}}/health-check",
               "host": [
-                "{{edgeDevicesBaseUrl}}"
+                "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "tenants",
-                "{{tenant_id}}",
+                "{{tenantSubdomain}}",
                 "edge-devices",
                 "{{device_id}}",
                 "health-check"
@@ -1433,17 +1554,19 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               }
             ],
             "url": {
-              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/telemetry",
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantSubdomain}}/edge-devices/{{device_id}}/telemetry",
               "host": [
-                "{{edgeDevicesBaseUrl}}"
+                "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "tenants",
-                "{{tenant_id}}",
+                "{{tenantSubdomain}}",
                 "edge-devices",
                 "{{device_id}}",
                 "telemetry"
@@ -1459,17 +1582,19 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               }
             ],
             "url": {
-              "raw": "{{edgeDevicesBaseUrl}}/tenants/{{tenant_id}}/edge-devices/{{device_id}}/events",
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantSubdomain}}/edge-devices/{{device_id}}/events",
               "host": [
-                "{{edgeDevicesBaseUrl}}"
+                "{{baseUrl}}"
               ],
               "path": [
+                "api",
+                "v1",
                 "tenants",
-                "{{tenant_id}}",
+                "{{tenantSubdomain}}",
                 "edge-devices",
                 "{{device_id}}",
                 "events"
@@ -1490,7 +1615,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -1518,7 +1643,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -1547,7 +1672,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -1576,7 +1701,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -1612,7 +1737,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -1648,7 +1773,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -1684,7 +1809,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -1721,7 +1846,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -1750,7 +1875,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -1779,7 +1904,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -1813,7 +1938,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}",
+                "value": "Bearer {{token}}",
                 "disabled": true
               },
               {
@@ -1842,7 +1967,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -1870,7 +1995,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -1911,7 +2036,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -1952,7 +2077,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -1980,7 +2105,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -2009,7 +2134,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -2038,7 +2163,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -2080,7 +2205,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -2122,7 +2247,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -2151,7 +2276,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -2185,7 +2310,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -2231,7 +2356,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -2257,7 +2382,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -2283,7 +2408,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -2309,7 +2434,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -2336,7 +2461,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -2363,7 +2488,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -2413,7 +2538,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -2448,7 +2573,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -2488,7 +2613,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -2530,7 +2655,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -2559,7 +2684,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -2591,7 +2716,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -2628,7 +2753,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -2665,7 +2790,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
@@ -2694,7 +2819,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{token}}"
               },
               {
                 "key": "X-Tenant-ID",
