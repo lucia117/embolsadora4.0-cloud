@@ -29,7 +29,7 @@ func NewHandler(service *users.Service, logger *zap.Logger) *Handler {
 
 // ListUsers handles GET /api/v1/users - list paginated users
 func (h *Handler) ListUsers(c *gin.Context) {
-	tenantID := c.GetString("tenant_id") // Set by middleware
+	tenantID := platform.TenantID(c.Request.Context())
 	// Middleware ensures tenant_id is present, no need to check here
 
 	// Parse pagination params
@@ -92,7 +92,7 @@ func (h *Handler) ListUsers(c *gin.Context) {
 
 // GetUser handles GET /api/v1/users/:id - get a specific user
 func (h *Handler) GetUser(c *gin.Context) {
-	tenantID := c.GetString("tenant_id") // Set by middleware
+	tenantID := platform.TenantID(c.Request.Context())
 
 	userID := c.Param("id")
 	if userID == "" {
@@ -130,7 +130,7 @@ func (h *Handler) GetUser(c *gin.Context) {
 
 // ListPendingUsers handles GET /api/v1/users/pending - list users pending activation
 func (h *Handler) ListPendingUsers(c *gin.Context) {
-	tenantID := c.GetString("tenant_id")
+	tenantID := platform.TenantID(c.Request.Context())
 
 	h.logger.Debug("list pending users request", zap.String("tenant_id", tenantID))
 
@@ -154,7 +154,7 @@ func (h *Handler) ListPendingUsers(c *gin.Context) {
 
 // UpdateUserStatus handles PATCH /api/v1/users/:id/status - change user participation status
 func (h *Handler) UpdateUserStatus(c *gin.Context) {
-	tenantID := c.GetString("tenant_id")
+	tenantID := platform.TenantID(c.Request.Context())
 
 	userID := c.Param("id")
 	if userID == "" {
@@ -205,7 +205,7 @@ func (h *Handler) UpdateUserStatus(c *gin.Context) {
 
 // CreateUser handles POST /api/v1/users - create a new user with active role assignment
 func (h *Handler) CreateUser(c *gin.Context) {
-	tenantID := c.GetString("tenant_id") // Set by middleware
+	tenantID := platform.TenantID(c.Request.Context())
 
 	callerUUID := platform.UserID(c.Request.Context())
 	if callerUUID == nil {
@@ -252,7 +252,7 @@ func (h *Handler) CreateUser(c *gin.Context) {
 
 // UpdateUser handles PATCH /api/v1/users/:id - update a user
 func (h *Handler) UpdateUser(c *gin.Context) {
-	tenantID := c.GetString("tenant_id") // Set by middleware
+	tenantID := platform.TenantID(c.Request.Context())
 
 	userID := c.Param("id")
 	if userID == "" {
@@ -299,7 +299,7 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 
 // DeleteUser handles DELETE /api/v1/users/:id - soft delete a user
 func (h *Handler) DeleteUser(c *gin.Context) {
-	tenantID := c.GetString("tenant_id") // Set by middleware
+	tenantID := platform.TenantID(c.Request.Context())
 
 	userID := c.Param("id")
 	if userID == "" {

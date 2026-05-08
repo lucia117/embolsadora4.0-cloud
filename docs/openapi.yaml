@@ -538,8 +538,14 @@ paths:
     get:
       tags: [Tenants]
       summary: Listar tenants
-      description: Requiere rol con permiso `tenants:list`.
+      description: Requiere rol `super_admin` (permiso `tenants:read`). Pasar `X-Tenant-ID` del tenant MRG interno (`mrg-internal`).
       security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+          description: UUID del tenant MRG interno (00000000-0000-0000-0000-000000000000).
       responses:
         '200':
           description: Lista de tenants
@@ -548,12 +554,20 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/Tenant' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '500': { $ref: '#/components/responses/InternalError' }
     post:
       tags: [Tenants]
       summary: Crear tenant
-      description: Requiere rol con permiso `tenants:create`.
+      description: Requiere rol `super_admin` (permiso `tenants:write`). Pasar `X-Tenant-ID` del tenant MRG interno (`mrg-internal`).
       security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+          description: UUID del tenant MRG interno (00000000-0000-0000-0000-000000000000).
       requestBody:
         required: true
         content:
@@ -569,15 +583,23 @@ paths:
                   tenant: { $ref: '#/components/schemas/Tenant' }
                 required: [tenant]
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '500': { $ref: '#/components/responses/InternalError' }
 
   /api/v1/tenants/{id}:
     get:
       tags: [Tenants]
       summary: Obtener tenant por ID
+      description: Requiere rol `super_admin` (permiso `tenants:read`). Pasar `X-Tenant-ID` del tenant MRG interno.
       security: [{ bearerAuth: [] }]
       parameters:
         - $ref: '#/components/parameters/ID'
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+          description: UUID del tenant MRG interno (00000000-0000-0000-0000-000000000000).
       responses:
         '200':
           description: Tenant encontrado
@@ -589,14 +611,22 @@ paths:
                   tenant: { $ref: '#/components/schemas/Tenant' }
                 required: [tenant]
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalError' }
     patch:
       tags: [Tenants]
       summary: Actualizar tenant (campos parciales)
+      description: Requiere rol `super_admin` (permiso `tenants:write`). Pasar `X-Tenant-ID` del tenant MRG interno.
       security: [{ bearerAuth: [] }]
       parameters:
         - $ref: '#/components/parameters/ID'
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+          description: UUID del tenant MRG interno (00000000-0000-0000-0000-000000000000).
       requestBody:
         required: true
         content:
@@ -608,18 +638,28 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Tenant' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalError' }
     delete:
       tags: [Tenants]
       summary: Eliminar tenant
+      description: Requiere rol `super_admin` (permiso `tenants:write`). Pasar `X-Tenant-ID` del tenant MRG interno.
       security: [{ bearerAuth: [] }]
       parameters:
         - $ref: '#/components/parameters/ID'
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+          description: UUID del tenant MRG interno (00000000-0000-0000-0000-000000000000).
       responses:
         '204':
           description: Tenant eliminado
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalError' }
 
@@ -957,12 +997,15 @@ components:
       type: object
       description: Formato de error retornado por el middleware JWTAuth (401) y middleware RBAC (403)
       properties:
-        success:
-          type: boolean
-          example: false
         error:
           type: string
+          example: "UNAUTHORIZED"
+        message:
+          type: string
           example: "No autorizado"
+        status:
+          type: integer
+          example: 401
 
     Envelope:
       type: object
@@ -1403,8 +1446,9 @@ components:
           schema:
             $ref: '#/components/schemas/JWTError'
           example:
-            success: false
-            error: "No autorizado"
+            error: "UNAUTHORIZED"
+            message: "No autorizado"
+            status: 401
     Forbidden:
       description: Acción no permitida
       content:

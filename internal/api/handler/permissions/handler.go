@@ -70,6 +70,11 @@ type errorResponse struct {
 	Error string `json:"error"`
 }
 
+// deleteSuccessResponse is the Pact-required shape for DELETE 200.
+type deleteSuccessResponse struct {
+	Success bool `json:"success"`
+}
+
 // --- Conversión ---
 
 func toPermissionResponse(p *domain.Permission) PermissionResponse {
@@ -281,7 +286,7 @@ func (h *Handler) DeletePermission(c *gin.Context) {
 	}
 
 	telemetry.PermissionsRequestsTotal.WithLabelValues("delete", "200").Inc()
-	c.JSON(http.StatusOK, gin.H{"success": true})
+	c.JSON(http.StatusOK, deleteSuccessResponse{Success: true})
 }
 
 // --- Helpers ---

@@ -15,12 +15,17 @@ import (
 type PasswordUsecase struct {
 	userRepo       users.UserRepository
 	supabaseClient supabase.AdminClient
+	log            *zap.Logger
 }
 
-func NewPasswordUsecase(userRepo users.UserRepository, supabaseClient supabase.AdminClient) *PasswordUsecase {
+func NewPasswordUsecase(userRepo users.UserRepository, supabaseClient supabase.AdminClient, log *zap.Logger) *PasswordUsecase {
+	if log == nil {
+		log = zap.NewNop()
+	}
 	return &PasswordUsecase{
 		userRepo:       userRepo,
 		supabaseClient: supabaseClient,
+		log:            log,
 	}
 }
 
@@ -58,7 +63,7 @@ func (uc *PasswordUsecase) ForcePasswordChange(ctx context.Context, targetUserID
 		return fmt.Errorf("send password reset email: %w", err)
 	}
 
-	Log.Info("force password change initiated",
+	uc.log.Info("force password change initiated",
 		zap.String("target_user_id", targetUserID),
 		zap.String("tenant_id", tenantID),
 	)

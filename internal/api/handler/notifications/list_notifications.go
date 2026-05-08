@@ -11,23 +11,24 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/platform"
 )
 
-// ListNotifications godoc
-// GET /api/v1/notifications
 func ListNotifications(service *appNotifications.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tenantID, err := uuid.Parse(platform.TenantID(c.Request.Context()))
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "X-Tenant-ID inválido o ausente", "code": "BAD_REQUEST"})
+			invalidTenantResponse(c)
 			return
 		}
 
 		var params dto.ListNotificationsParams
 		if err := c.ShouldBindQuery(&params); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "BAD_REQUEST"})
+			c.JSON(http.StatusBadRequest, ErrorResponse{
+				Error:   "VALIDATION_ERROR",
+				Message: err.Error(),
+				Status:  http.StatusBadRequest,
+			})
 			return
 		}
 
-		// Defaults
 		if params.Limit <= 0 {
 			params.Limit = 20
 		}
@@ -48,7 +49,7 @@ func ListNotifications(service *appNotifications.Service) gin.HandlerFunc {
 
 		items, total, err := service.List(c.Request.Context(), tenantID, repoParams)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "error interno del servidor", "code": "INTERNAL_ERROR"})
+			HandleError(c, err)
 			return
 		}
 

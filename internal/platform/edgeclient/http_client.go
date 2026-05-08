@@ -3,6 +3,7 @@ package edgeclient
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -41,42 +42,27 @@ func (c *HTTPClient) HealthCheck(ctx context.Context, baseURL string) (*edge_dev
 func (c *HTTPClient) GetTelemetry(ctx context.Context, baseURL string) (*edge_devices.TelemetrySnapshot, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/telemetry", nil)
 	if err != nil {
-		return &edge_devices.TelemetrySnapshot{
-			CapturedAt: time.Now(),
-			PLC:        &edge_devices.PLCSnapshot{Reachable: false, LatencyMs: nil, LastHeartbeatAt: nil},
-		}, nil
+		return nil, fmt.Errorf("build request: %w", err)
 	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return &edge_devices.TelemetrySnapshot{
-			CapturedAt: time.Now(),
-			PLC:        &edge_devices.PLCSnapshot{Reachable: false, LatencyMs: nil, LastHeartbeatAt: nil},
-		}, nil
+		return nil, fmt.Errorf("transport: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return &edge_devices.TelemetrySnapshot{
-			CapturedAt: time.Now(),
-			PLC:        &edge_devices.PLCSnapshot{Reachable: false, LatencyMs: nil, LastHeartbeatAt: nil},
-		}, nil
+		return nil, fmt.Errorf("read response body: %w", err)
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return &edge_devices.TelemetrySnapshot{
-			CapturedAt: time.Now(),
-			PLC:        &edge_devices.PLCSnapshot{Reachable: false, LatencyMs: nil, LastHeartbeatAt: nil},
-		}, nil
+		return nil, fmt.Errorf("device returned status %d", resp.StatusCode)
 	}
 
 	var snapshot edge_devices.TelemetrySnapshot
 	if err := json.Unmarshal(body, &snapshot); err != nil {
-		return &edge_devices.TelemetrySnapshot{
-			CapturedAt: time.Now(),
-			PLC:        &edge_devices.PLCSnapshot{Reachable: false, LatencyMs: nil, LastHeartbeatAt: nil},
-		}, nil
+		return nil, fmt.Errorf("parse device response: %w", err)
 	}
 
 	if snapshot.CapturedAt.IsZero() {
@@ -89,33 +75,18 @@ func (c *HTTPClient) GetTelemetry(ctx context.Context, baseURL string) (*edge_de
 func (c *HTTPClient) callEndpoint(ctx context.Context, url string) (*edge_devices.CheckResult, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return &edge_devices.CheckResult{
-			CheckedAt:     time.Now(),
-			OverallStatus: "ERROR",
-			Summary:       stringPtr(err.Error()),
-			Details:       make(map[string]interface{}),
-		}, nil
+		return nil, fmt.Errorf("build request: %w", err)
 	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return &edge_devices.CheckResult{
-			CheckedAt:     time.Now(),
-			OverallStatus: "ERROR",
-			Summary:       stringPtr(err.Error()),
-			Details:       make(map[string]interface{}),
-		}, nil
+		return nil, fmt.Errorf("transport: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return &edge_devices.CheckResult{
-			CheckedAt:     time.Now(),
-			OverallStatus: "ERROR",
-			Summary:       stringPtr(err.Error()),
-			Details:       make(map[string]interface{}),
-		}, nil
+		return nil, fmt.Errorf("read response body: %w", err)
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -129,12 +100,7 @@ func (c *HTTPClient) callEndpoint(ctx context.Context, url string) (*edge_device
 
 	var result edge_devices.CheckResult
 	if err := json.Unmarshal(body, &result); err != nil {
-		return &edge_devices.CheckResult{
-			CheckedAt:     time.Now(),
-			OverallStatus: "ERROR",
-			Summary:       stringPtr(err.Error()),
-			Details:       make(map[string]interface{}),
-		}, nil
+		return nil, fmt.Errorf("parse device response: %w", err)
 	}
 
 	if result.CheckedAt.IsZero() {

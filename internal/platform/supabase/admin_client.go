@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 )
@@ -69,6 +70,7 @@ func (c *adminClient) doWithRetry(ctx context.Context, method, path string, body
 			return fmt.Errorf("create request: %w", err)
 		}
 		req.Header.Set("Authorization", "Bearer "+c.serviceRoleKey)
+		req.Header.Set("apikey", c.serviceRoleKey)
 		req.Header.Set("Content-Type", "application/json")
 
 		resp, err := c.httpClient.Do(req)
@@ -76,17 +78,22 @@ func (c *adminClient) doWithRetry(ctx context.Context, method, path string, body
 			lastErr = fmt.Errorf("supabase admin API request failed: %w", err)
 			continue
 		}
-		resp.Body.Close()
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
 			return nil
 		}
+
+		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		resp.Body.Close()
+
 		// 4xx: do not retry
 		if resp.StatusCode >= 400 && resp.StatusCode < 500 {
-			return fmt.Errorf("supabase admin API error %d (no retry)", resp.StatusCode)
+			return fmt.Errorf("supabase admin API error %d: %s", resp.StatusCode, errBody)
 		}
 		// 5xx: retry once
-		lastErr = fmt.Errorf("supabase admin API server error %d", resp.StatusCode)
+		lastErr = fmt.Errorf("supabase admin API server error %d: %s", resp.StatusCode, errBody)
 	}
 	return lastErr
 }

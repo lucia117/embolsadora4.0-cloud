@@ -43,29 +43,10 @@ type MetaDTO struct {
 	Limit int `json:"limit"`
 }
 
-// ListLayoutsResponse is the response envelope for GET /dashboard-layouts.
+// ListLayoutsResponse is the response for GET /dashboard-layouts.
 type ListLayoutsResponse struct {
-	Success bool        `json:"success"`
-	Data    []LayoutDTO `json:"data"`
-	Meta    MetaDTO     `json:"meta"`
-}
-
-// SingleLayoutResponse is the response envelope for single-layout operations.
-type SingleLayoutResponse struct {
-	Success bool      `json:"success"`
-	Data    LayoutDTO `json:"data"`
-}
-
-// DeleteLayoutResponse is the response envelope for DELETE /dashboard-layouts/:id.
-type DeleteLayoutResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
-}
-
-// ErrorResponse is the response envelope for error cases.
-type ErrorResponse struct {
-	Success bool   `json:"success"`
-	Error   string `json:"error"`
+	Data []LayoutDTO `json:"data"`
+	Meta MetaDTO     `json:"meta"`
 }
 
 // CreateLayoutRequest is the request body for POST /dashboard-layouts.

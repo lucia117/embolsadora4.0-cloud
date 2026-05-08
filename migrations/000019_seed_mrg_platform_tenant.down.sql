@@ -1,0 +1,2 @@
+DELETE FROM roles WHERE id = 'super_admin';
+DELETE FROM tenants WHERE id = '00000000-0000-0000-0000-000000000000';
