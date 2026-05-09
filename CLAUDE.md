@@ -100,11 +100,10 @@ specs/                       — feature specs, plans, tasks
 
 ## Pending Manual Steps
 
-- T008: `migrate -path migrations/ -database $DATABASE_URL up 1` (migration 004)
-- T034: `migrate -path migrations/ -database $DATABASE_URL up 1` (migration 005)
+- **Deploy a Koyeb**: tras mergear, aplicar migraciones contra Koyeb Managed Postgres. Ver `migrations/README.md` (sección "Deploy a Koyeb") y `specs/014-consolidate-migrations/quickstart.md`.
+- **Activar admin MRG**: post-deploy, crear el admin en Supabase Auth y asignar el rol `super-admin` en el tenant MRG (`11b36b85-033d-4bb3-9e31-4c92161887c0`) — instrucciones en `migrations/README.md`.
 - T048: Run `specs/002-supabase-auth-backend/quickstart.md` curl commands against local server
 - T051: Benchmark `GET /api/v1/me` P95 < 300ms
-- 013: `migrate -path migrations/ -database $DATABASE_URL up 1` (migration 018 — drop users_role_check)
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->
