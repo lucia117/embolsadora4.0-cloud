@@ -19,6 +19,9 @@ import (
 // databaseURL must be a Postgres URL accepted by the postgres driver.
 // Returns nil on success or when there are no pending migrations.
 func Run(sourceURL, databaseURL string, logger *zap.Logger) error {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	m, err := migrate.New(sourceURL, databaseURL)
 	if err != nil {
 		return fmt.Errorf("dbmigrate: open: %w", err)
@@ -51,8 +54,16 @@ func Run(sourceURL, databaseURL string, logger *zap.Logger) error {
 		return fmt.Errorf("dbmigrate: up: %w", err)
 	}
 
-	afterVer, afterDirty, _ := m.Version()
-	logger.Info("dbmigrate: complete",
-		zap.Uint("version", uint(afterVer)), zap.Bool("dirty", afterDirty))
+	afterVer, afterDirty, afterErr := m.Version()
+	switch {
+	case errors.Is(afterErr, migrate.ErrNilVersion):
+		logger.Info("dbmigrate: complete (empty schema)")
+	case afterErr != nil:
+		logger.Warn("dbmigrate: complete but failed to read final version",
+			zap.Error(afterErr))
+	default:
+		logger.Info("dbmigrate: complete",
+			zap.Uint("version", uint(afterVer)), zap.Bool("dirty", afterDirty))
+	}
 	return nil
 }
