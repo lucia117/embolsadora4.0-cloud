@@ -14,11 +14,15 @@
 -- UUIDs. Then assign them inside the tenants by re-running this script
 -- with the user-section variables set, e.g.:
 --   psql "$DATABASE_URL" \
---        -v cordoba_admin="'<uuid>'" -v cordoba_op="'<uuid>'" \
---        -v mendoza_admin="'<uuid>'" -v mendoza_op="'<uuid>'" \
---        -v rosario_admin="'<uuid>'" -v rosario_op="'<uuid>'" \
+--        -v cordoba_admin=<uuid> -v cordoba_op=<uuid> \
+--        -v mendoza_admin=<uuid> -v mendoza_op=<uuid> \
+--        -v rosario_admin=<uuid> -v rosario_op=<uuid> \
 --        -v with_users=1 \
 --        -f scripts/seed_test_city_tenants.sql
+--
+-- Pass raw UUIDs without surrounding quotes — the SQL uses :'var' which
+-- already wraps the value as a SQL literal. Adding extra quotes would
+-- produce '''<uuid>''' and fail the UUID cast.
 --
 -- The user/role section is gated by `:with_users` so the bare run only
 -- inserts tenants and stays safe to execute on environments without the
@@ -76,12 +80,12 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO users (id, email, name, tenant_id, status, created_at, updated_at)
 VALUES
-    (:'cordoba_admin', 'federicoadegiovanni+cordobaadmin@gmail.com', 'Admin Córdoba',    :cordoba_tid, 'active', NOW(), NOW()),
-    (:'cordoba_op',    'federicoadegiovanni+cordobaop@gmail.com',    'Operario Córdoba', :cordoba_tid, 'active', NOW(), NOW()),
-    (:'mendoza_admin', 'federicoadegiovanni+mendozaadmin@gmail.com', 'Admin Mendoza',    :mendoza_tid, 'active', NOW(), NOW()),
-    (:'mendoza_op',    'federicoadegiovanni+mendozaop@gmail.com',    'Operario Mendoza', :mendoza_tid, 'active', NOW(), NOW()),
-    (:'rosario_admin', 'federicoadegiovanni+rosarioadmin@gmail.com', 'Admin Rosario',    :rosario_tid, 'active', NOW(), NOW()),
-    (:'rosario_op',    'federicoadegiovanni+rosarioop@gmail.com',    'Operario Rosario', :rosario_tid, 'active', NOW(), NOW())
+    (:'cordoba_admin', 'admin@cordoba.test.example.com',    'Admin Córdoba',    :cordoba_tid, 'active', NOW(), NOW()),
+    (:'cordoba_op',    'operario@cordoba.test.example.com', 'Operario Córdoba', :cordoba_tid, 'active', NOW(), NOW()),
+    (:'mendoza_admin', 'admin@mendoza.test.example.com',    'Admin Mendoza',    :mendoza_tid, 'active', NOW(), NOW()),
+    (:'mendoza_op',    'operario@mendoza.test.example.com', 'Operario Mendoza', :mendoza_tid, 'active', NOW(), NOW()),
+    (:'rosario_admin', 'admin@rosario.test.example.com',    'Admin Rosario',    :rosario_tid, 'active', NOW(), NOW()),
+    (:'rosario_op',    'operario@rosario.test.example.com', 'Operario Rosario', :rosario_tid, 'active', NOW(), NOW())
 ON CONFLICT (tenant_id, email) DO UPDATE SET updated_at = NOW();
 
 INSERT INTO user_tenant_roles (id, user_id, tenant_id, role_id, status, assigned_at, created_at, updated_at)

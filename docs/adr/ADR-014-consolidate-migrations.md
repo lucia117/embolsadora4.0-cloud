@@ -37,7 +37,7 @@ Los seeds de tenants de prueba (Córdoba, Mendoza, Rosario) salen del flujo de m
 
 ## Verification
 
-- `migrate up` sobre Postgres 16 vacío → 14 tablas, `schema_migrations.version=2 dirty=f`.
+- `migrate up` sobre Postgres 16 vacío → 13 tablas (alarm_rules, dashboard_layouts, device_events, edge_devices, log_entries, log_retention_policies, notifications, permissions, roles, tenants, user_invitations, user_tenant_roles, users), `schema_migrations.version=2 dirty=f`.
 - `migrate down -all` deja el esquema vacío (solo `schema_migrations`) sin errores.
 - Re-aplicación `up` después de `down` → estado limpio (idempotencia verificada).
 - Sin script opcional, `SELECT subdomain FROM tenants` retorna solo `mrgsrl` (cumple SC-006).

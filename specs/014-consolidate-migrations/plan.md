@@ -5,7 +5,7 @@
 
 ## Summary
 
-Reemplazar las 20 migraciones históricas (`000001`–`000020`, con conflicto de prefijo en `000019`) por **dos migraciones limpias**: una con el esquema final (`000001_initial_schema`) y otra con los seeds esenciales para producción (`000002_seed_essentials`: roles, permisos, tenant MRG, usuario admin). Los seeds de tenants de prueba (ciudades) salen del flujo de migraciones y quedan como un script SQL independiente bajo `scripts/`. La migración inicial se construye haciendo `pg_dump --schema-only` de una DB intermedia donde se aplicó la cadena histórica completa, garantizando equivalencia funcional. La verificación end-to-end es: `migrate up` sobre Postgres vacío → arrancar `cmd/api` → `go test ./...` verde + login del admin MRG retorna 200 en `/api/v1/me`.
+Reemplazar las 20 migraciones históricas (`000001`–`000020`, con conflicto de prefijo en `000019`) por **dos migraciones limpias**: una con el esquema final (`000001_initial_schema`) y otra con los seeds esenciales para producción (`000002_seed_essentials`: roles, permisos, tenant MRG). El admin MRG NO se siembra en SQL: se crea en Supabase Auth post-deploy y la fila en `users` se crea automáticamente en el primer login vía `auth_usecase.ProvisionUser` (ver R3 actualizada). Los seeds de tenants de prueba (ciudades) salen del flujo de migraciones y quedan como un script SQL independiente bajo `scripts/`. La migración inicial se construye haciendo `pg_dump --schema-only` de una DB intermedia donde se aplicó la cadena histórica completa, garantizando equivalencia funcional. La verificación end-to-end es: `migrate up` sobre Postgres vacío → arrancar `cmd/api` → `go test ./...` verde + login del admin MRG retorna 200 en `/api/v1/me` con permisos de `super_admin`.
 
 ## Technical Context
 
@@ -19,9 +19,9 @@ Reemplazar las 20 migraciones históricas (`000001`–`000020`, con conflicto de
 **Constraints**:
 - No se permiten cambios en código Go (FR-008).
 - Idempotencia de seeds (FR-003 + edge case): usar `ON CONFLICT DO NOTHING` o `INSERT … WHERE NOT EXISTS`.
-- Credencial inicial del admin MRG no puede ir hardcodeada en el repo (FR-007): el seed crea el usuario en estado `pending_invitation` (sin password local) o usa una variable `MRG_ADMIN_PASSWORD_HASH` resuelta en deploy time.
+- Credencial inicial del admin MRG no puede ir hardcodeada en el repo (FR-007): el seed NO inserta usuario; el admin MRG se crea en Supabase Auth post-deploy y `auth_usecase.ProvisionUser` lo upsertea en `users` en el primer login. La asignación al rol `super_admin` dentro del tenant MRG se documenta como paso post-deploy.
 - El conflicto de prefijo `000019` debe quedar eliminado del repo (FR-005).
-**Scale/Scope**: ~15 tablas en el modelo final, ~30 permisos, 8 roles base, 1 tenant MRG, 1 usuario admin MRG.
+**Scale/Scope**: 13 tablas en el modelo final, 17 permisos, 6 roles base, 1 tenant MRG. El admin MRG NO se siembra (provisioning vía Supabase + ProvisionUser).
 
 ## Constitution Check
 

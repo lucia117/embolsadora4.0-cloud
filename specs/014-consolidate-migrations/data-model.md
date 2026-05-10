@@ -23,9 +23,9 @@ Usuarios autenticados vía Supabase. Tabla unificada (resultado de la fusión 00
 
 ### `roles`
 Catálogo de roles. Globales (`is_global=true`) y por tenant.
-- `id VARCHAR(50) PK` (string identifier, ej `'super-admin'`, `'tenant-manager'`, `'admin'`, `'operario'`, `'cliente_admin'`, `'cliente_operario'`), `name VARCHAR(255) NOT NULL`, `description TEXT`, `is_system_role BOOLEAN NOT NULL DEFAULT false`, `is_global BOOLEAN NOT NULL DEFAULT false`, `tenant_id UUID` (nullable; null para roles globales o catálogo reusable), `permissions JSONB NOT NULL DEFAULT '[]'` (campo legacy — los permisos efectivos se resuelven en `internal/security/rbac.go::rolePermissions`, NO desde este JSONB), `deleted_at` (soft delete).
+- `id VARCHAR(50) PK` (string identifier, ej `'super_admin'`, `'tenant_manager'`, `'admin'`, `'operario'`, `'cliente_admin'`, `'cliente_operario'`), `name VARCHAR(255) NOT NULL`, `description TEXT`, `is_system_role BOOLEAN NOT NULL DEFAULT false`, `is_global BOOLEAN NOT NULL DEFAULT false`, `tenant_id UUID` (nullable; null para roles globales o catálogo reusable), `permissions JSONB NOT NULL DEFAULT '[]'` (campo legacy — los permisos efectivos se resuelven en `internal/security/rbac.go::rolePermissions`, NO desde este JSONB), `deleted_at` (soft delete).
 - **No** hay tabla `role_permissions` ni columna `scope`.
-- Seed esencial: 6 roles (super-admin, tenant-manager globales; admin, operario, cliente_admin, cliente_operario tenant-scoped).
+- Seed esencial: 6 roles (super_admin, tenant_manager globales; admin, operario, cliente_admin, cliente_operario tenant-scoped).
 
 ### `permissions`
 Catálogo de permisos. Sistema (`is_system_permission=true, tenant_id=NULL`) o custom-tenant (`is_system_permission=false, tenant_id=<uuid>`), enforced por CHECK constraints `chk_system_perm_no_tenant` y `chk_custom_perm_has_tenant`.
@@ -38,7 +38,7 @@ Catálogo de permisos. Sistema (`is_system_permission=true, tenant_id=NULL`) o c
 ### `user_tenant_roles`
 Asignación de un usuario a un rol dentro de un tenant.
 - `id UUID PK`, `user_id UUID NOT NULL`, `tenant_id UUID NOT NULL`, `role_id VARCHAR(50)` (FK lógica a `roles.id`), `status VARCHAR(20) NOT NULL DEFAULT 'pending'` (CHECK `active|pending|revoked|suspended`), `assigned_by UUID`, `assigned_at TIMESTAMPTZ`.
-- **Sin** seed esencial: la asignación admin MRG ↔ tenant MRG ↔ super-admin se hace post-deploy (ver Paso 5 de quickstart).
+- **Sin** seed esencial: la asignación admin MRG ↔ tenant MRG ↔ super_admin se hace post-deploy (ver Paso 5 de quickstart).
 
 ### `user_invitations`
 Invitaciones pendientes (000005 + 000006).
@@ -47,38 +47,36 @@ Invitaciones pendientes (000005 + 000006).
 
 ## Entidades de dispositivos y telemetría
 
+> **Fuente de verdad**: `migrations/000001_initial_schema.up.sql`. Las descripciones siguientes resumen ese dump — ante cualquier divergencia, prevalece el SQL.
+
 ### `edge_devices`
-Dispositivos de borde por tenant (000008).
-- `id UUID PK`, `tenant_id UUID NOT NULL`, `serial TEXT NOT NULL`, `model TEXT`, `last_seen_at TIMESTAMPTZ`.
-- UNIQUE `(tenant_id, serial)`.
+Dispositivos de borde por tenant.
+- `id UUID PK`, `tenant_id UUID NOT NULL`, `name VARCHAR(255) NOT NULL`, `description TEXT`, `machine_id VARCHAR(100) NOT NULL`, `edge_type VARCHAR(50) NOT NULL` (CHECK = `RASPBERRY_PLC`), `raspberry_base_url TEXT NOT NULL`, `plc_address VARCHAR(255)`, `status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'` (CHECK `ACTIVE|DISABLED`), `last_seen_at TIMESTAMPTZ`, `last_health_check_at TIMESTAMPTZ`, `last_health_status VARCHAR(20) NOT NULL DEFAULT 'UNKNOWN'`, `last_health_summary TEXT`.
 
 ### `device_events`
-Eventos ingresados por dispositivos (parte de 000008).
-- `id BIGSERIAL PK`, `device_id UUID NOT NULL`, `tenant_id UUID NOT NULL`, `event_type TEXT NOT NULL`, `payload JSONB NOT NULL`, `recorded_at TIMESTAMPTZ NOT NULL`.
-- Index BRIN por `recorded_at`.
+Eventos ingresados por dispositivos (status / health checks).
+- `id UUID PK`, `device_id UUID NOT NULL`, `tenant_id UUID NOT NULL`, `check_type VARCHAR(20) NOT NULL` (CHECK `STATUS|HEALTH_CHECK`), `checked_at TIMESTAMPTZ NOT NULL`, `overall_status VARCHAR(20) NOT NULL` (CHECK `OK|DEGRADED|ERROR|UNKNOWN`), `summary TEXT`, `details JSONB`, `user_id UUID NOT NULL`, `user_email VARCHAR(254) NOT NULL`.
 
 ### `alarm_rules`
-Reglas de alarma por tenant (000014).
-- `id UUID PK`, `tenant_id UUID NOT NULL`, `name TEXT NOT NULL`, `expression JSONB NOT NULL`, `severity TEXT NOT NULL`, `enabled BOOL NOT NULL DEFAULT true`.
+Reglas de alarma por tenant. Ver el dump para columnas exactas.
 
 ### `log_entries`
-Log estructurado de eventos del sistema (000015).
-- `id BIGSERIAL PK`, `tenant_id UUID`, `level TEXT NOT NULL`, `message TEXT NOT NULL`, `metadata JSONB`, `occurred_at TIMESTAMPTZ NOT NULL`.
+Log estructurado de eventos del sistema.
+- `id UUID PK`, `tenant_id UUID NOT NULL`, `created_at TIMESTAMPTZ NOT NULL`, `severity VARCHAR(20) NOT NULL` (CHECK `info|warning|critical|error`), `event_type VARCHAR(50) NOT NULL` (CHECK `alarm_triggered|alarm_resolved|device_connected|device_disconnected|device_state_changed|user_action|system`), `source_id UUID`, `machine_id UUID`, `message TEXT NOT NULL`, `metadata JSONB NOT NULL DEFAULT '{}'`.
 
 ### `log_retention_policies`
-Políticas de retención (000015).
-- `tenant_id UUID PK`, `retention_days INT NOT NULL`.
+Políticas de retención.
+- `tenant_id UUID PK`, `retention_days INT NOT NULL DEFAULT 90` (CHECK > 0), `updated_at TIMESTAMPTZ NOT NULL`, `next_purge_at TIMESTAMPTZ NOT NULL`.
 
 ### `notifications`
-Notificaciones a usuarios (000016).
-- `id UUID PK`, `user_id UUID NOT NULL`, `tenant_id UUID NOT NULL`, `kind TEXT NOT NULL`, `payload JSONB NOT NULL`, `read_at TIMESTAMPTZ`.
+Notificaciones a usuarios.
+- `id UUID PK`, `tenant_id UUID NOT NULL`, `title TEXT NOT NULL`, `message TEXT NOT NULL`, `severity VARCHAR(20) NOT NULL` (CHECK `info|warning|critical|error`), `status VARCHAR(20) NOT NULL DEFAULT 'unread'` (CHECK `unread|acknowledged|closed`), `alarm_rule_id UUID`, `machine_id UUID`, `created_at`, `acknowledged_at`, `closed_at`.
 
 ## Entidades de UI
 
 ### `dashboard_layouts`
-Layouts de dashboard por usuario y tenant (000009 + 000011).
-- `id UUID PK`, `user_id UUID NOT NULL`, `tenant_id UUID NOT NULL`, `name TEXT NOT NULL`, `layout JSONB NOT NULL`.
-- UNIQUE `(user_id, tenant_id, name)`.
+Layouts de dashboard por usuario y tenant.
+- `id UUID PK`, `tenant_id UUID NOT NULL`, `user_id UUID NOT NULL`, `name VARCHAR(255) NOT NULL`, `widgets JSONB NOT NULL DEFAULT '[]'`, `created_at`, `updated_at`, `deleted_at`.
 
 ## Entidades de auth/sessions
 

@@ -14,6 +14,11 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+-- pgcrypto provides gen_random_uuid() on Postgres < 13. Built into core on
+-- PG ≥ 13, but the IF NOT EXISTS guard makes the migration safe on older
+-- targets and explicit about the dependency.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 --
 -- Name: public; Type: SCHEMA; Schema: -; Owner: -
 --

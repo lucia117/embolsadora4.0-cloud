@@ -25,6 +25,14 @@ var rolePermissions = map[string][]string{
 		"invitations:write",
 		"machines:read", "machines:write",
 	},
+	// Platform-level support role: MRG operators with cross-tenant read access
+	// and limited write capabilities. Members of the MRG tenant only.
+	"tenant_manager": {
+		"tenants:read",
+		"users:read",
+		"invitations:write",
+		"machines:read",
+	},
 	"admin":            {"users:read", "users:write", "invitations:write", "machines:read", "machines:write", "tenants:read"},
 	"operario":         {"machines:read", "machines:write"},
 	"cliente_admin":    {"users:read", "invitations:write", "machines:read"},
