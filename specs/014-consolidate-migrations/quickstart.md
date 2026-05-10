@@ -72,75 +72,19 @@ git rm migrations/000001_*.sql migrations/000002_*.sql migrations/000003_*.sql \
 # Crear el nuevo schema
 mv /tmp/initial_schema.sql migrations/000001_initial_schema.up.sql
 
-cat > migrations/000001_initial_schema.down.sql <<'SQL'
-DROP SCHEMA public CASCADE;
-CREATE SCHEMA public;
-GRANT ALL ON SCHEMA public TO public;
-SQL
-```
+El `down` del schema es un `DROP TABLE IF EXISTS … CASCADE` por cada tabla del dump, en orden FK-safe, más los `DROP FUNCTION` correspondientes. Ver el archivo versionado `migrations/000001_initial_schema.down.sql` como fuente de verdad.
 
-Crear `migrations/000002_seed_essentials.up.sql` con (extraído de las migraciones 000017 + 000019_add_global_roles + 000019_seed_mrg + parte relevante de `scripts/seed_mrg_users.sql`):
+Crear `migrations/000002_seed_essentials.{up,down}.sql` con los seeds esenciales para producción:
 
-```sql
--- Roles del sistema
-INSERT INTO roles (id, name, scope, description, is_system) VALUES
-  (gen_random_uuid(), 'super_admin',  'global', 'Acceso total a la plataforma', true),
-  (gen_random_uuid(), 'tenant_admin', 'tenant', 'Administra un tenant', true),
-  (gen_random_uuid(), 'operator',     'tenant', 'Operación día a día', true),
-  (gen_random_uuid(), 'viewer',       'tenant', 'Solo lectura', true)
-ON CONFLICT (name, scope) DO NOTHING;
+- 17 permisos del sistema (`is_system_permission=TRUE, tenant_id=NULL`).
+- 6 roles base: `super_admin` y `tenant_manager` (globales, `is_global=TRUE`); `admin`, `operario`, `cliente_admin`, `cliente_operario` (tenant-scoped reusables, `tenant_id=NULL`).
+- Tenant MRG con UUID fijo `11b36b85-033d-4bb3-9e31-4c92161887c0`.
+- **No se siembra usuario admin** ni asignación en `user_tenant_roles`: el admin MRG se crea en Supabase Auth post-deploy y se auto-provisiona en `users` vía `auth_usecase.ProvisionUser`. La asignación al rol `super_admin` dentro del tenant MRG se hace en el Paso 5.
+- Todos los `INSERT` usan `ON CONFLICT (id) DO NOTHING` para idempotencia.
 
--- Permisos del sistema
-INSERT INTO permissions (id, code, description) VALUES
-  (gen_random_uuid(), 'users.create', 'Crear usuarios'),
-  (gen_random_uuid(), 'users.read',   'Listar usuarios'),
-  -- … completar con catálogo de 000017
-ON CONFLICT (code) DO NOTHING;
+El `down` borra en orden FK-safe: primero `user_tenant_roles WHERE tenant_id=<MRG> AND role_id IN (...)` (scoped al tenant MRG con AND para no arrastrar asignaciones de otros tenants), luego `tenants`, luego `roles`, finalmente `permissions WHERE is_system_permission=TRUE AND tenant_id IS NULL`.
 
--- Asignación rol↔permisos (super_admin = todos)
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
-WHERE r.name='super_admin' AND r.scope='global'
-ON CONFLICT DO NOTHING;
-
--- Tenant plataforma MRG
-INSERT INTO tenants (id, name, slug, is_platform, status) VALUES
-  ('00000000-0000-0000-0000-000000000001', 'MRG Platform', 'mrg', true, 'active')
-ON CONFLICT (slug) DO NOTHING;
-
--- Usuario admin MRG (sin password — se invita post-deploy)
-INSERT INTO users (id, email, full_name, status) VALUES
-  ('00000000-0000-0000-0000-000000000010',
-   'admin@mrg.local', 'MRG Admin', 'pending_invitation')
-ON CONFLICT (email) DO NOTHING;
-
--- Vincular admin MRG ↔ tenant MRG ↔ super_admin
-INSERT INTO user_tenant_roles (id, user_id, tenant_id, role_id, status)
-SELECT gen_random_uuid(),
-       '00000000-0000-0000-0000-000000000010',
-       '00000000-0000-0000-0000-000000000001',
-       r.id, 'active'
-FROM roles r WHERE r.name='super_admin' AND r.scope='global'
-AND NOT EXISTS (
-  SELECT 1 FROM user_tenant_roles utr
-  WHERE utr.user_id='00000000-0000-0000-0000-000000000010'
-    AND utr.tenant_id='00000000-0000-0000-0000-000000000001'
-);
-```
-
-Y el `down`:
-
-```sql
--- migrations/000002_seed_essentials.down.sql
-DELETE FROM user_tenant_roles
-  WHERE user_id='00000000-0000-0000-0000-000000000010';
-DELETE FROM users WHERE id='00000000-0000-0000-0000-000000000010';
-DELETE FROM tenants WHERE id='00000000-0000-0000-0000-000000000001';
-DELETE FROM role_permissions
-  WHERE role_id IN (SELECT id FROM roles WHERE is_system=true);
-DELETE FROM permissions;
-DELETE FROM roles WHERE is_system=true;
-```
+Ver los archivos efectivamente versionados en el PR como fuente de verdad: `migrations/000002_seed_essentials.up.sql` y `migrations/000002_seed_essentials.down.sql`.
 
 Mover los seeds de prueba a `scripts/seed_test_city_tenants.sql` consolidando `000020_seed_test_city_tenants.up.sql` + `scripts/seed_city_tenants_users.sql`. Borrar los originales:
 
@@ -217,23 +161,30 @@ psql "$KOYEB_DATABASE_URL" -c "SELECT version, dirty FROM schema_migrations;"
 
 ## Paso 5 — Activar el admin MRG
 
-Vía API (con un service token de Supabase con permisos de admin):
+Flujo completo (sin SQL excepto el `INSERT` final en `user_tenant_roles`):
 
-```bash
-curl -X POST "$API_URL/api/v1/invitations" \
-  -H "Authorization: Bearer $SUPABASE_SERVICE_TOKEN" \
-  -H "X-Tenant-Id: 00000000-0000-0000-0000-000000000001" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@mrg.local","role":"super_admin"}'
-```
+1. Crear el usuario admin en Supabase Auth (dashboard o API), capturar el UUID y el email.
+2. Que el usuario complete el flujo de invitación / set password en Supabase y haga el primer login contra la API. El middleware `JWTAuth` dispara `auth_usecase.ProvisionUser` y crea automáticamente la fila en `users` (idempotente vía `ON CONFLICT (supabase_user_id)`).
+3. Asignar el rol `super_admin` dentro del tenant MRG:
 
-El admin recibe el correo de Supabase, completa la invitación, setea password, y puede hacer login.
+   ```sql
+   INSERT INTO user_tenant_roles (id, user_id, tenant_id, role_id, status, assigned_at, created_at, updated_at)
+   VALUES (
+       gen_random_uuid(),
+       '<UUID-DEL-ADMIN>',
+       '11b36b85-033d-4bb3-9e31-4c92161887c0',
+       'super_admin',
+       'active', NOW(), NOW(), NOW()
+   );
+   ```
 
 Validación final:
 
 ```bash
-TOKEN=$(... obtener JWT con admin@mrg.local ...)
-curl "$API_URL/api/v1/me" -H "Authorization: Bearer $TOKEN"
+TOKEN=$(... obtener JWT del admin MRG ...)
+curl "$API_URL/api/v1/me" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "X-Tenant-Id: 11b36b85-033d-4bb3-9e31-4c92161887c0"
 # → 200 OK con permisos de super_admin
 ```
 

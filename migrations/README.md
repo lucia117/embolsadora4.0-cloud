@@ -20,7 +20,7 @@ sudo mv migrate /usr/local/bin/
 | # | Archivo | Contenido |
 |---|---------|-----------|
 | 1 | `000001_initial_schema` | DDL completo: 13 tablas (tenants, users, roles, permissions, user_tenant_roles, user_invitations, edge_devices, device_events, alarm_rules, log_entries, log_retention_policies, notifications, dashboard_layouts), índices, FKs, triggers. |
-| 2 | `000002_seed_essentials` | Catálogo del sistema: 17 permisos `is_system=TRUE`, 6 roles (`super-admin`, `tenant-manager`, `admin`, `operario`, `cliente_admin`, `cliente_operario`), tenant MRG (`11b36b85-033d-4bb3-9e31-4c92161887c0`). Idempotente (`ON CONFLICT DO NOTHING`). |
+| 2 | `000002_seed_essentials` | Catálogo del sistema: 17 permisos `is_system_permission=TRUE`, 6 roles (`super_admin`, `tenant_manager`, `admin`, `operario`, `cliente_admin`, `cliente_operario`), tenant MRG (`11b36b85-033d-4bb3-9e31-4c92161887c0`). Idempotente (`ON CONFLICT DO NOTHING`). |
 
 ## Comandos
 
@@ -68,7 +68,7 @@ El usuario admin MRG **no** está en el seed: su UUID lo genera Supabase Auth. P
 1. Crear el usuario admin en Supabase Auth (dashboard o API), obtener su UUID.
 2. Que el usuario complete el flujo de invitación / set password vía Supabase.
 3. En el primer login el middleware (`internal/api/usecases/auth_usecase.go::ProvisionUser`) crea automáticamente la fila en `users`.
-4. Asignar el rol `super-admin` dentro del tenant MRG:
+4. Asignar el rol `super_admin` dentro del tenant MRG:
 
    ```sql
    INSERT INTO user_tenant_roles (id, user_id, tenant_id, role_id, status, assigned_at, created_at, updated_at)
@@ -76,12 +76,12 @@ El usuario admin MRG **no** está en el seed: su UUID lo genera Supabase Auth. P
        gen_random_uuid(),
        '<UUID-DEL-ADMIN>',
        '11b36b85-033d-4bb3-9e31-4c92161887c0',
-       'super-admin',
+       'super_admin',
        'active', NOW(), NOW(), NOW()
    );
    ```
 
-5. Validar: `curl "$API_URL/api/v1/me" -H "Authorization: Bearer $TOKEN"` debe retornar 200 con permisos de super-admin.
+5. Validar: `curl "$API_URL/api/v1/me" -H "Authorization: Bearer $TOKEN"` debe retornar 200 con permisos de super_admin.
 
 ## Seeds opcionales (UAT / dev)
 
@@ -91,11 +91,11 @@ El usuario admin MRG **no** está en el seed: su UUID lo genera Supabase Auth. P
 # Solo tenants
 psql "$DATABASE_URL" -f scripts/seed_test_city_tenants.sql
 
-# Tenants + usuarios (requiere UUIDs de Supabase)
+# Tenants + usuarios (requiere UUIDs de Supabase, sin comillas extras)
 psql "$DATABASE_URL" \
-     -v cordoba_admin="'<uuid>'" -v cordoba_op="'<uuid>'" \
-     -v mendoza_admin="'<uuid>'" -v mendoza_op="'<uuid>'" \
-     -v rosario_admin="'<uuid>'" -v rosario_op="'<uuid>'" \
+     -v cordoba_admin=<uuid> -v cordoba_op=<uuid> \
+     -v mendoza_admin=<uuid> -v mendoza_op=<uuid> \
+     -v rosario_admin=<uuid> -v rosario_op=<uuid> \
      -v with_users=1 \
      -f scripts/seed_test_city_tenants.sql
 ```

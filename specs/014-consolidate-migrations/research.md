@@ -36,7 +36,7 @@ Decisiones tomadas para resolver los puntos abiertos del Technical Context. Cada
 
 ## R3. Entrega segura de la credencial inicial del admin MRG
 
-**Decisión** (actualizada post-implementación): El seed `000002` NO inserta ningún usuario. El admin MRG se crea en el dashboard de Supabase post-deploy; el primer request autenticado dispara `auth_usecase.ProvisionUser` que upsertea la fila en `users` (idempotente vía `ON CONFLICT (supabase_user_id)`). La asignación `user_tenant_roles` (admin MRG ↔ tenant MRG ↔ rol `super-admin`) se hace con un `psql` one-shot o un `curl POST /api/v1/invitations` desde un script de bootstrap, documentado en `quickstart.md` Paso 5. Esta variante reemplaza la decisión original de sembrar el usuario con `status='pending_invitation'`; el motivo es evitar cualquier material rotable (incluso UUIDs de admins) en el repo y reusar el flujo de provisión ya existente sin agregar código (FR-008).
+**Decisión** (actualizada post-implementación): El seed `000002` NO inserta ningún usuario. El admin MRG se crea en el dashboard de Supabase post-deploy; el primer request autenticado dispara `auth_usecase.ProvisionUser` que upsertea la fila en `users` (idempotente vía `ON CONFLICT (supabase_user_id)`). La asignación `user_tenant_roles` (admin MRG ↔ tenant MRG ↔ rol `super_admin`) se hace con un `psql` one-shot o un `curl POST /api/v1/invitations` desde un script de bootstrap, documentado en `quickstart.md` Paso 5. Esta variante reemplaza la decisión original de sembrar el usuario con `status='pending_invitation'`; el motivo es evitar cualquier material rotable (incluso UUIDs de admins) en el repo y reusar el flujo de provisión ya existente sin agregar código (FR-008).
 
 **Rationale**:
 - Cumple FR-007: cero credenciales en repo.
