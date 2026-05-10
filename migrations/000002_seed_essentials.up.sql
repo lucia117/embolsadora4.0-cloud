@@ -4,13 +4,13 @@
 -- Loads the data the application needs to authenticate and authorize on a
 -- fresh deployment:
 --   1. System permissions catalog (17 permissions, is_system_permission=TRUE)
---   2. Global roles (super-admin, tenant-manager) used by MRG operators
+--   2. Global roles (super_admin, tenant_manager) used by MRG operators
 --   3. The MRG platform tenant (id 11b36b85-033d-4bb3-9e31-4c92161887c0)
 --
 -- The admin user(s) are NOT seeded here: their UUID comes from Supabase Auth
 -- and the auth middleware auto-provisions the row in `users` on first login
 -- (see internal/api/usecases/auth_usecase.go::ProvisionUser). After creating
--- the admin in Supabase, grant the super-admin role inside the MRG tenant via
+-- the admin in Supabase, grant the super_admin role inside the MRG tenant via
 -- `POST /api/v1/invitations` (see specs/014-consolidate-migrations/quickstart.md
 -- Paso 5) or by inserting directly into user_tenant_roles with the resolved UUID.
 --
@@ -44,8 +44,8 @@ ON CONFLICT (id) DO NOTHING;
 --    Tenant-scoped roles (is_global=FALSE, tenant_id=NULL) are reusable
 --    archetypes that any tenant can assign to its users.
 INSERT INTO roles (id, name, description, is_system_role, is_global, tenant_id, permissions) VALUES
-    ('super-admin',       'Super Admin',       'Full system access. Multi-tenant. Can create and manage any tenant.',                            TRUE, TRUE,  NULL, '[]'::jsonb),
-    ('tenant-manager',    'Tenant Manager',    'Multi-tenant support role for MRG team. Can access any tenant with limited write permissions.',  TRUE, TRUE,  NULL, '[]'::jsonb),
+    ('super_admin',       'Super Admin',       'Full system access. Multi-tenant. Can create and manage any tenant.',                            TRUE, TRUE,  NULL, '[]'::jsonb),
+    ('tenant_manager',    'Tenant Manager',    'Multi-tenant support role for MRG team. Can access any tenant with limited write permissions.',  TRUE, TRUE,  NULL, '[]'::jsonb),
     ('admin',             'Admin',             'Tenant administrator. Manages users and configuration within a single tenant.',                   TRUE, FALSE, NULL, '[]'::jsonb),
     ('operario',          'Operario',          'Day-to-day operator within a tenant.',                                                            TRUE, FALSE, NULL, '[]'::jsonb),
     ('cliente_admin',     'Cliente Admin',     'External client administrator with limited management capabilities.',                             TRUE, FALSE, NULL, '[]'::jsonb),
