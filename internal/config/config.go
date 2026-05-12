@@ -50,10 +50,12 @@ type HTTPConfig struct {
 }
 
 type DBConfig struct {
-	URL             string
-	MaxConns        int
-	MinConns        int
-	ConnMaxLifetime time.Duration
+	URL                 string
+	MaxConns            int
+	MinConns            int
+	ConnMaxLifetime     time.Duration
+	RunMigrationsOnBoot bool
+	MigrationsSourceURL string
 }
 
 type RedisConfig struct {
@@ -102,10 +104,12 @@ func Load(env Environment) (*Config, error) {
 			WriteTimeout: getDurationEnv("HTTP_WRITE_TIMEOUT", 10*time.Second),
 		},
 		DB: DBConfig{
-			URL:             require("DATABASE_URL"),
-			MaxConns:        getIntEnv("DB_MAX_CONNS", 10),
-			MinConns:        getIntEnv("DB_MIN_CONNS", 2),
-			ConnMaxLifetime: getDurationEnv("DB_CONN_MAX_LIFETIME", 30*time.Minute),
+			URL:                 require("DATABASE_URL"),
+			MaxConns:            getIntEnv("DB_MAX_CONNS", 10),
+			MinConns:            getIntEnv("DB_MIN_CONNS", 2),
+			ConnMaxLifetime:     getDurationEnv("DB_CONN_MAX_LIFETIME", 30*time.Minute),
+			RunMigrationsOnBoot: getBoolEnv("RUN_MIGRATIONS_ON_BOOT", false),
+			MigrationsSourceURL: getEnv("MIGRATIONS_SOURCE_URL", "file://migrations"),
 		},
 		Redis: RedisConfig{
 			URL: getEnv("REDIS_URL", ""),
@@ -142,6 +146,15 @@ func getIntEnv(key string, defaultVal int) int {
 	if v := os.Getenv(key); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			return n
+		}
+	}
+	return defaultVal
+}
+
+func getBoolEnv(key string, defaultVal bool) bool {
+	if v := os.Getenv(key); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			return b
 		}
 	}
 	return defaultVal
