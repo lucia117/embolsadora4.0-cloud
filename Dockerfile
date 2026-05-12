@@ -34,6 +34,10 @@ WORKDIR /app
 # Copy the binary from builder
 COPY --from=builder /app/embolsadora-api .
 
+# Copy migrations so the app can apply them on boot when
+# RUN_MIGRATIONS_ON_BOOT=true (see internal/platform/dbmigrate).
+COPY --from=builder /app/migrations ./migrations
+
 # Make the binary executable
 RUN chmod +x /app/embolsadora-api
 

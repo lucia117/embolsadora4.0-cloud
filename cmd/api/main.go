@@ -11,6 +11,7 @@ import (
 
 	apimw "github.com/tu-org/embolsadora-api/internal/api/middleware"
 	"github.com/tu-org/embolsadora-api/internal/config"
+	"github.com/tu-org/embolsadora-api/internal/platform/dbmigrate"
 	"github.com/tu-org/embolsadora-api/internal/routes"
 )
 
@@ -27,6 +28,14 @@ func main() {
 	cfg, err := config.Load(env)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	if cfg.DB.RunMigrationsOnBoot {
+		logger.Info("dbmigrate: enabled, applying pending migrations",
+			zap.String("source", cfg.DB.MigrationsSourceURL))
+		if err := dbmigrate.Run(cfg.DB.MigrationsSourceURL, cfg.DB.URL, logger); err != nil {
+			logger.Fatal("dbmigrate failed", zap.Error(err))
+		}
 	}
 
 	// PostgreSQL connection
