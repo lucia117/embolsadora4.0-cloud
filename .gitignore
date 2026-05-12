@@ -14,7 +14,7 @@ postman/export-*.json
 # MacOS
 .DS_Store
 
-# Claude Code local settings
+# Claude Code — local settings (machine-specific paths, not for version control)
 .claude/settings.local.json
 
 # Local docs and specs (not for tracking)
