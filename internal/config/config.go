@@ -109,7 +109,7 @@ func Load(env Environment) (*Config, error) {
 			MinConns:            getIntEnv("DB_MIN_CONNS", 2),
 			ConnMaxLifetime:     getDurationEnv("DB_CONN_MAX_LIFETIME", 30*time.Minute),
 			RunMigrationsOnBoot: getBoolEnv("RUN_MIGRATIONS_ON_BOOT", false),
-			MigrationsSourceURL: getEnv("MIGRATIONS_SOURCE_URL", "file://migrations"),
+			MigrationsSourceURL: getEnv("MIGRATIONS_SOURCE_URL", "file:///app/migrations"),
 		},
 		Redis: RedisConfig{
 			URL: getEnv("REDIS_URL", ""),

@@ -3,6 +3,7 @@ package user_roles
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -142,10 +143,10 @@ func (r *userRoleRepository) BulkCreate(ctx context.Context, utrs []domain.UserT
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) {
 				if pgErr.Code == errCodeUniqueViolation {
-					return nil, domain.ErrUserAlreadyHasActiveRole
+					return nil, fmt.Errorf("%w: user %s", domain.ErrUserAlreadyHasActiveRole, utr.UserID)
 				}
 				if pgErr.Code == errCodeForeignKeyViolation {
-					return nil, domain.ErrInvalidRoleID
+					return nil, fmt.Errorf("%w: user %s", domain.ErrInvalidRoleID, utr.UserID)
 				}
 			}
 			return nil, err

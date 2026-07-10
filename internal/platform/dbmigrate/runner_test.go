@@ -3,6 +3,7 @@ package dbmigrate_test
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -12,16 +13,30 @@ import (
 )
 
 // TestRun_AppliesAndIsIdempotent runs the real migrations from migrations/
-// against a Postgres pointed to by DATABASE_URL. Skipped when DATABASE_URL
-// is unset so the unit suite stays fast.
+// against a Postgres pointed to by DBMIGRATE_TEST_DATABASE_URL (falls back to
+// DATABASE_URL). Skipped when neither is set so the unit suite stays fast.
 func TestRun_AppliesAndIsIdempotent(t *testing.T) {
-	dbURL := os.Getenv("DATABASE_URL")
+	dbURL := os.Getenv("DBMIGRATE_TEST_DATABASE_URL")
 	if dbURL == "" {
-		t.Skip("DATABASE_URL not set")
+		dbURL = os.Getenv("DATABASE_URL")
+	}
+	if dbURL == "" {
+		t.Skip("DBMIGRATE_TEST_DATABASE_URL (or DATABASE_URL) not set")
 	}
 	logger := zap.NewNop()
 
-	if err := dbmigrate.Run("file://../../../migrations", dbURL, logger); err != nil {
+	// Build an absolute path so the file:// URL is unambiguous regardless of CWD.
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	migrationsAbs, err := filepath.Abs(filepath.Join(wd, "..", "..", "..", "migrations"))
+	if err != nil {
+		t.Fatalf("filepath.Abs: %v", err)
+	}
+	sourceURL := "file://" + filepath.ToSlash(migrationsAbs)
+
+	if err := dbmigrate.Run(sourceURL, dbURL, logger); err != nil {
 		t.Fatalf("first Run: %v", err)
 	}
 
@@ -42,7 +57,7 @@ func TestRun_AppliesAndIsIdempotent(t *testing.T) {
 	}
 
 	// Second run should be a no-op (ErrNoChange handled internally).
-	if err := dbmigrate.Run("file://../../../migrations", dbURL, logger); err != nil {
+	if err := dbmigrate.Run(sourceURL, dbURL, logger); err != nil {
 		t.Fatalf("second Run (idempotency): %v", err)
 	}
 }

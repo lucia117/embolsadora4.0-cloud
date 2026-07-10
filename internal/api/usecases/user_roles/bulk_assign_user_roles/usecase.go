@@ -18,9 +18,10 @@ type BulkAssignRequest struct {
 }
 
 // BulkAssignResult holds the result of a bulk assignment operation.
+// The operation is all-or-nothing: BulkCreate runs in a single transaction,
+// so a non-nil error here means nothing was persisted.
 type BulkAssignResult struct {
 	Assigned    int
-	Failed      int
 	Assignments []domain.UserTenantRole
 }
 
@@ -64,7 +65,6 @@ func (uc *useCase) Execute(ctx context.Context, req BulkAssignRequest) (*BulkAss
 
 	return &BulkAssignResult{
 		Assigned:    len(assignments),
-		Failed:      0,
 		Assignments: assignments,
 	}, nil
 }

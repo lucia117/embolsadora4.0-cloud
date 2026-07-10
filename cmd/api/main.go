@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -34,7 +35,9 @@ func main() {
 		logger.Info("dbmigrate: enabled, applying pending migrations",
 			zap.String("source", cfg.DB.MigrationsSourceURL))
 		if err := dbmigrate.Run(cfg.DB.MigrationsSourceURL, cfg.DB.URL, logger); err != nil {
-			logger.Fatal("dbmigrate failed", zap.Error(err))
+			logger.Error("dbmigrate failed", zap.Error(err))
+			_ = logger.Sync()
+			os.Exit(1)
 		}
 	}
 

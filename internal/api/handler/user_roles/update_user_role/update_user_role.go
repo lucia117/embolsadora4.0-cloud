@@ -9,6 +9,7 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/api/handler/user_roles/update_user_role/models"
 	ucUpdateUserRole "github.com/tu-org/embolsadora-api/internal/api/usecases/user_roles/update_user_role"
 	"github.com/tu-org/embolsadora-api/internal/domain"
+	"github.com/tu-org/embolsadora-api/internal/platform"
 )
 
 // Handler handles PUT /api/v1/user-roles/:id requests.
@@ -34,7 +35,13 @@ func (h *Handler) Handle(c *gin.Context) {
 		return
 	}
 
-	result, err := h.useCase.Execute(c.Request.Context(), id, req.RoleID)
+	tenantID, err := uuid.Parse(platform.TenantID(c.Request.Context()))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "unauthenticated"})
+		return
+	}
+
+	result, err := h.useCase.Execute(c.Request.Context(), id, tenantID, req.RoleID)
 	if err != nil {
 		if errors.Is(err, domain.ErrAssignmentNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"success": false, "error": err.Error()})
