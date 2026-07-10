@@ -3,6 +3,7 @@ package edge_devices
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -174,9 +175,16 @@ func (s *Service) StatusCheck(ctx context.Context, tenantID, deviceID, userID uu
 	// Call client to perform status check
 	result, err := s.client.StatusCheck(ctx, device.RaspberryBaseURL)
 	if err != nil || result == nil {
+		s.logger.Warn("status check unreachable", zap.Error(err), zap.String("device_id", deviceID.String()))
+		summary := "unreachable"
+		if err != nil {
+			summary = err.Error()
+		}
 		result = &edge_devices.CheckResult{
 			CheckType:     "STATUS",
+			CheckedAt:     time.Now(),
 			OverallStatus: "ERROR",
+			Summary:       &summary,
 		}
 	}
 	result.CheckType = "STATUS"
@@ -237,9 +245,16 @@ func (s *Service) HealthCheck(ctx context.Context, tenantID, deviceID, userID uu
 	// Call client to perform health check
 	result, err := s.client.HealthCheck(ctx, device.RaspberryBaseURL)
 	if err != nil || result == nil {
+		s.logger.Warn("health check unreachable", zap.Error(err), zap.String("device_id", deviceID.String()))
+		summary := "unreachable"
+		if err != nil {
+			summary = err.Error()
+		}
 		result = &edge_devices.CheckResult{
 			CheckType:     "HEALTH_CHECK",
+			CheckedAt:     time.Now(),
 			OverallStatus: "ERROR",
+			Summary:       &summary,
 		}
 	}
 	result.CheckType = "HEALTH_CHECK"
