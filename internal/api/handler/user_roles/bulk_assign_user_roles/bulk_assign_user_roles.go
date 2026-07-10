@@ -28,6 +28,13 @@ func (h *Handler) Handle(c *gin.Context) {
 		return
 	}
 
+	// Reject cross-tenant assignment: caller may only assign roles within the
+	// tenant validated by X-Tenant-ID (TenantFromHeader), not an arbitrary tenantId in the body.
+	if !platform.TenantMatches(c.Request.Context(), req.TenantID) {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "tenantId does not match authenticated tenant"})
+		return
+	}
+
 	// Extract authenticated user ID from request context (populated by JWTAuth middleware)
 	assignedBy := platform.UserID(c.Request.Context())
 
@@ -44,6 +51,14 @@ func (h *Handler) Handle(c *gin.Context) {
 		}
 		if errors.Is(err, domain.ErrInvalidRoleID) {
 			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+			return
+		}
+		if errors.Is(err, domain.ErrInvalidUserID) {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+			return
+		}
+		if errors.Is(err, domain.ErrRoleNotAllowedForTenant) {
+			c.JSON(http.StatusForbidden, gin.H{"success": false, "error": err.Error()})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "internal server error"})

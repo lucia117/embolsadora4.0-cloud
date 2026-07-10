@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -93,17 +94,18 @@ func (r *PostgresRepository) Create(ctx context.Context, user *users.User) (*use
 	}
 
 	now := time.Now().UTC()
+	user.ID = uuid.New().String()
 	user.CreatedAt = now
 	user.UpdatedAt = now
 	user.DeletedAt = nil
 
 	query := `
-		INSERT INTO users (tenant_id, first_name, last_name, email, role, image, created_at, updated_at, deleted_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO users (id, tenant_id, first_name, last_name, email, role, image, created_at, updated_at, deleted_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING id, tenant_id, first_name, last_name, email, role, image, created_at, updated_at, deleted_at
 	`
 
-	row := r.db.QueryRow(ctx, query, user.TenantID, user.FirstName, user.LastName, user.Email, user.Role, user.Image, user.CreatedAt, user.UpdatedAt, user.DeletedAt)
+	row := r.db.QueryRow(ctx, query, user.ID, user.TenantID, user.FirstName, user.LastName, user.Email, user.Role, user.Image, user.CreatedAt, user.UpdatedAt, user.DeletedAt)
 	created, err := scanUser(row)
 	if err != nil {
 		// Check for unique constraint violation (duplicate email in tenant)
@@ -130,17 +132,18 @@ func (r *PostgresRepository) CreateWithRole(ctx context.Context, user *users.Use
 	defer tx.Rollback(ctx) //nolint:errcheck
 
 	now := time.Now().UTC()
+	user.ID = uuid.New().String()
 	user.CreatedAt = now
 	user.UpdatedAt = now
 	user.DeletedAt = nil
 
 	userQuery := `
-		INSERT INTO users (tenant_id, first_name, last_name, email, role, image, created_at, updated_at, deleted_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO users (id, tenant_id, first_name, last_name, email, role, image, created_at, updated_at, deleted_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING id, tenant_id, first_name, last_name, email, role, image, created_at, updated_at, deleted_at
 	`
 	row := tx.QueryRow(ctx, userQuery,
-		user.TenantID, user.FirstName, user.LastName, user.Email, user.Role, user.Image,
+		user.ID, user.TenantID, user.FirstName, user.LastName, user.Email, user.Role, user.Image,
 		user.CreatedAt, user.UpdatedAt, user.DeletedAt,
 	)
 	created, err := scanUser(row)

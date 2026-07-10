@@ -8,6 +8,7 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/api/handler/user_roles/list_user_roles/models"
 	ucListUserRoles "github.com/tu-org/embolsadora-api/internal/api/usecases/user_roles/list_user_roles"
 	"github.com/tu-org/embolsadora-api/internal/domain"
+	"github.com/tu-org/embolsadora-api/internal/platform"
 )
 
 // Handler handles GET /api/v1/user-roles requests.
@@ -31,6 +32,13 @@ func (h *Handler) Handle(c *gin.Context) {
 	tenantID, err := uuid.Parse(tenantIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid tenantId: must be a UUID"})
+		return
+	}
+
+	// Reject cross-tenant reads: caller may only list assignments for the tenant
+	// validated by X-Tenant-ID (TenantFromHeader), not an arbitrary tenantId query param.
+	if !platform.TenantMatches(c.Request.Context(), tenantID) {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "tenantId does not match authenticated tenant"})
 		return
 	}
 

@@ -9,6 +9,7 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/api/handler/user_roles/revoke_user_role/models"
 	ucRevokeUserRole "github.com/tu-org/embolsadora-api/internal/api/usecases/user_roles/revoke_user_role"
 	"github.com/tu-org/embolsadora-api/internal/domain"
+	"github.com/tu-org/embolsadora-api/internal/platform"
 )
 
 // Handler handles DELETE /api/v1/user-roles/:id requests.
@@ -29,7 +30,13 @@ func (h *Handler) Handle(c *gin.Context) {
 		return
 	}
 
-	result, err := h.useCase.Execute(c.Request.Context(), id)
+	tenantID, err := uuid.Parse(platform.TenantID(c.Request.Context()))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "error": "unauthenticated"})
+		return
+	}
+
+	result, err := h.useCase.Execute(c.Request.Context(), id, tenantID)
 	if err != nil {
 		if errors.Is(err, domain.ErrAssignmentNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"success": false, "error": err.Error()})

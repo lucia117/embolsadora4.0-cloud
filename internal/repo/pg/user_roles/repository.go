@@ -3,6 +3,7 @@ package user_roles
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -15,6 +16,9 @@ const (
 	// PostgreSQL error codes
 	errCodeUniqueViolation     = "23505"
 	errCodeForeignKeyViolation = "23503"
+	// errCodeCheckViolation is raised by the trg_enforce_platform_role_tenant trigger
+	// (migration 000004) — the DB-level backstop for checkRoleAllowedForTenant below.
+	errCodeCheckViolation = "23514"
 )
 
 // UserRoleRepository defines the persistence interface for user-tenant-role assignments.
@@ -23,7 +27,7 @@ type UserRoleRepository interface {
 	FindByID(ctx context.Context, id uuid.UUID) (*domain.UserTenantRole, error)
 	Create(ctx context.Context, utr *domain.UserTenantRole) (*domain.UserTenantRole, error)
 	Update(ctx context.Context, utr *domain.UserTenantRole) (*domain.UserTenantRole, error)
-	Revoke(ctx context.Context, id uuid.UUID) (*domain.UserTenantRole, error)
+	Revoke(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*domain.UserTenantRole, error)
 	BulkCreate(ctx context.Context, utrs []domain.UserTenantRole) ([]domain.UserTenantRole, error)
 	FindByUser(ctx context.Context, userID uuid.UUID) ([]domain.UserRoleWithContext, error)
 	// UpdateStatus changes the status of a user's UTR within a tenant (excludes pending assignments).
@@ -81,7 +85,52 @@ func (r *userRoleRepository) FindByID(ctx context.Context, id uuid.UUID) (*domai
 	return utr, nil
 }
 
+// checkRoleAllowedForTenant rejects assigning a role that either doesn't exist (or was
+// soft-deleted) or is platform-only (roles.is_global = TRUE) outside of the MRG platform
+// tenant. The platform-only rule itself lives in tenant_can_use_role() (migration 000004)
+// — the single source of truth shared with roles.List/GetByIDForTenant and the DB-level
+// enforcement trigger on user_tenant_roles, so there's exactly one place to update it.
+func (r *userRoleRepository) checkRoleAllowedForTenant(ctx context.Context, roleID string, tenantID uuid.UUID) error {
+	var allowed bool
+	err := r.db.QueryRow(ctx, `
+		SELECT tenant_can_use_role($2, r.is_global)
+		FROM roles r
+		WHERE r.id = $1 AND r.deleted_at IS NULL
+	`, roleID, tenantID).Scan(&allowed)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.ErrInvalidRoleID
+		}
+		return err
+	}
+	if !allowed {
+		return domain.ErrRoleNotAllowedForTenant
+	}
+	return nil
+}
+
+// mapForeignKeyViolation translates a user_tenant_roles FK violation into the domain
+// error matching whichever constraint failed. Returns nil for FKs that shouldn't
+// realistically fail from client input (tenant_id, assigned_by — both already validated
+// upstream), so callers fall back to returning the raw pgconn error for those.
+func mapForeignKeyViolation(pgErr *pgconn.PgError) error {
+	switch pgErr.ConstraintName {
+	case "user_tenant_roles_role_id_fkey":
+		return domain.ErrInvalidRoleID
+	case "user_tenant_roles_user_id_fkey":
+		return domain.ErrInvalidUserID
+	default:
+		return nil
+	}
+}
+
 func (r *userRoleRepository) Create(ctx context.Context, utr *domain.UserTenantRole) (*domain.UserTenantRole, error) {
+	if utr.RoleID != nil {
+		if err := r.checkRoleAllowedForTenant(ctx, *utr.RoleID, utr.TenantID); err != nil {
+			return nil, err
+		}
+	}
+
 	created, err := scanUTR(r.db.QueryRow(ctx, CreateQuery,
 		utr.ID, utr.UserID, utr.TenantID, utr.RoleID, utr.Status, utr.AssignedBy, utr.AssignedAt,
 	))
@@ -92,7 +141,12 @@ func (r *userRoleRepository) Create(ctx context.Context, utr *domain.UserTenantR
 				return nil, domain.ErrUserAlreadyHasActiveRole
 			}
 			if pgErr.Code == errCodeForeignKeyViolation {
-				return nil, domain.ErrInvalidRoleID
+				if mapped := mapForeignKeyViolation(pgErr); mapped != nil {
+					return nil, mapped
+				}
+			}
+			if pgErr.Code == errCodeCheckViolation {
+				return nil, domain.ErrRoleNotAllowedForTenant
 			}
 		}
 		return nil, err
@@ -101,22 +155,35 @@ func (r *userRoleRepository) Create(ctx context.Context, utr *domain.UserTenantR
 }
 
 func (r *userRoleRepository) Update(ctx context.Context, utr *domain.UserTenantRole) (*domain.UserTenantRole, error) {
+	if utr.RoleID != nil {
+		if err := r.checkRoleAllowedForTenant(ctx, *utr.RoleID, utr.TenantID); err != nil {
+			return nil, err
+		}
+	}
+
 	updated, err := scanUTR(r.db.QueryRow(ctx, UpdateQuery, utr.RoleID, utr.ID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == errCodeForeignKeyViolation {
-			return nil, domain.ErrInvalidRoleID
+		if errors.As(err, &pgErr) {
+			if pgErr.Code == errCodeForeignKeyViolation {
+				if mapped := mapForeignKeyViolation(pgErr); mapped != nil {
+					return nil, mapped
+				}
+			}
+			if pgErr.Code == errCodeCheckViolation {
+				return nil, domain.ErrRoleNotAllowedForTenant
+			}
 		}
 		return nil, err
 	}
 	return updated, nil
 }
 
-func (r *userRoleRepository) Revoke(ctx context.Context, id uuid.UUID) (*domain.UserTenantRole, error) {
-	revoked, err := scanUTR(r.db.QueryRow(ctx, RevokeQuery, id))
+func (r *userRoleRepository) Revoke(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*domain.UserTenantRole, error) {
+	revoked, err := scanUTR(r.db.QueryRow(ctx, RevokeQuery, id, tenantID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
@@ -127,6 +194,14 @@ func (r *userRoleRepository) Revoke(ctx context.Context, id uuid.UUID) (*domain.
 }
 
 func (r *userRoleRepository) BulkCreate(ctx context.Context, utrs []domain.UserTenantRole) ([]domain.UserTenantRole, error) {
+	// Callers always send the same tenant+role for the whole batch (see
+	// bulk_assign_user_roles usecase), so one check up front covers all rows.
+	if len(utrs) > 0 && utrs[0].RoleID != nil {
+		if err := r.checkRoleAllowedForTenant(ctx, *utrs[0].RoleID, utrs[0].TenantID); err != nil {
+			return nil, err
+		}
+	}
+
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -142,10 +217,15 @@ func (r *userRoleRepository) BulkCreate(ctx context.Context, utrs []domain.UserT
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) {
 				if pgErr.Code == errCodeUniqueViolation {
-					return nil, domain.ErrUserAlreadyHasActiveRole
+					return nil, fmt.Errorf("%w: user %s", domain.ErrUserAlreadyHasActiveRole, utr.UserID)
 				}
 				if pgErr.Code == errCodeForeignKeyViolation {
-					return nil, domain.ErrInvalidRoleID
+					if mapped := mapForeignKeyViolation(pgErr); mapped != nil {
+						return nil, fmt.Errorf("%w: user %s", mapped, utr.UserID)
+					}
+				}
+				if pgErr.Code == errCodeCheckViolation {
+					return nil, fmt.Errorf("%w: user %s", domain.ErrRoleNotAllowedForTenant, utr.UserID)
 				}
 			}
 			return nil, err
