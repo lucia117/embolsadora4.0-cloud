@@ -82,7 +82,34 @@ func (r *userRoleRepository) FindByID(ctx context.Context, id uuid.UUID) (*domai
 	return utr, nil
 }
 
+// checkRoleAllowedForTenant rejects assigning a platform-only role (roles.is_global = TRUE)
+// outside of the MRG platform tenant (tenants.is_platform_tenant = TRUE).
+func (r *userRoleRepository) checkRoleAllowedForTenant(ctx context.Context, roleID string, tenantID uuid.UUID) error {
+	var isGlobal, isPlatformTenant bool
+	err := r.db.QueryRow(ctx, `
+		SELECT COALESCE(r.is_global, FALSE), COALESCE(t.is_platform_tenant, FALSE)
+		FROM roles r, tenants t
+		WHERE r.id = $1 AND t.id = $2
+	`, roleID, tenantID).Scan(&isGlobal, &isPlatformTenant)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.ErrInvalidRoleID
+		}
+		return err
+	}
+	if isGlobal && !isPlatformTenant {
+		return domain.ErrRoleNotAllowedForTenant
+	}
+	return nil
+}
+
 func (r *userRoleRepository) Create(ctx context.Context, utr *domain.UserTenantRole) (*domain.UserTenantRole, error) {
+	if utr.RoleID != nil {
+		if err := r.checkRoleAllowedForTenant(ctx, *utr.RoleID, utr.TenantID); err != nil {
+			return nil, err
+		}
+	}
+
 	created, err := scanUTR(r.db.QueryRow(ctx, CreateQuery,
 		utr.ID, utr.UserID, utr.TenantID, utr.RoleID, utr.Status, utr.AssignedBy, utr.AssignedAt,
 	))
@@ -102,6 +129,12 @@ func (r *userRoleRepository) Create(ctx context.Context, utr *domain.UserTenantR
 }
 
 func (r *userRoleRepository) Update(ctx context.Context, utr *domain.UserTenantRole) (*domain.UserTenantRole, error) {
+	if utr.RoleID != nil {
+		if err := r.checkRoleAllowedForTenant(ctx, *utr.RoleID, utr.TenantID); err != nil {
+			return nil, err
+		}
+	}
+
 	updated, err := scanUTR(r.db.QueryRow(ctx, UpdateQuery, utr.RoleID, utr.ID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -128,6 +161,14 @@ func (r *userRoleRepository) Revoke(ctx context.Context, id uuid.UUID) (*domain.
 }
 
 func (r *userRoleRepository) BulkCreate(ctx context.Context, utrs []domain.UserTenantRole) ([]domain.UserTenantRole, error) {
+	// Callers always send the same tenant+role for the whole batch (see
+	// bulk_assign_user_roles usecase), so one check up front covers all rows.
+	if len(utrs) > 0 && utrs[0].RoleID != nil {
+		if err := r.checkRoleAllowedForTenant(ctx, *utrs[0].RoleID, utrs[0].TenantID); err != nil {
+			return nil, err
+		}
+	}
+
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return nil, err

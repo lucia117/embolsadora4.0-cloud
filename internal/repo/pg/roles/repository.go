@@ -33,13 +33,20 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{pool: pool}
 }
 
-// List devuelve todos los roles activos del tenant más los roles globales del sistema,
-// ordenados: roles del sistema primero, luego alfabéticamente por nombre.
+// List devuelve todos los roles activos del tenant más los roles archetype del sistema
+// (tenant_id IS NULL, is_global=false), ordenados: roles del sistema primero, luego
+// alfabéticamente por nombre. Los roles is_global=TRUE (super_admin, tenant_manager) son
+// exclusivos del tenant plataforma de MRG y no aparecen para el resto de los tenants.
 func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID) ([]*domain.Role, error) {
 	query := `
 		SELECT id, name, description, is_system_role, is_global, tenant_id, permissions, created_at, updated_at
 		FROM roles
-		WHERE (tenant_id = $1 OR is_global = TRUE) AND deleted_at IS NULL
+		WHERE (tenant_id = $1 OR tenant_id IS NULL)
+		  AND deleted_at IS NULL
+		  AND (
+		    is_global = FALSE
+		    OR EXISTS (SELECT 1 FROM tenants t WHERE t.id = $1 AND t.is_platform_tenant = TRUE)
+		  )
 		ORDER BY is_system_role DESC, name ASC
 	`
 	rows, err := r.pool.Query(ctx, query, tenantID)
