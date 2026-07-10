@@ -38,16 +38,15 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 // (tenant_id IS NULL, is_global=false), ordenados: roles del sistema primero, luego
 // alfabéticamente por nombre. Los roles is_global=TRUE (super_admin, tenant_manager) son
 // exclusivos del tenant plataforma de MRG y no aparecen para el resto de los tenants.
+// La regla vive en tenant_can_use_role() (migración 000004) — única fuente de verdad,
+// compartida con checkRoleAllowedForTenant y el trigger de enforcement en la DB.
 func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID) ([]*domain.Role, error) {
 	query := `
 		SELECT id, name, description, is_system_role, is_global, tenant_id, permissions, created_at, updated_at
 		FROM roles
 		WHERE (tenant_id = $1 OR tenant_id IS NULL)
 		  AND deleted_at IS NULL
-		  AND (
-		    is_global = FALSE
-		    OR EXISTS (SELECT 1 FROM tenants t WHERE t.id = $1 AND t.is_platform_tenant = TRUE)
-		  )
+		  AND tenant_can_use_role($1, is_global)
 		ORDER BY is_system_role DESC, name ASC
 	`
 	rows, err := r.pool.Query(ctx, query, tenantID)
@@ -102,10 +101,7 @@ func (r *PostgresRepository) GetByIDForTenant(ctx context.Context, id string, te
 		FROM roles
 		WHERE id = $1
 		  AND deleted_at IS NULL
-		  AND (
-		    is_global = FALSE
-		    OR EXISTS (SELECT 1 FROM tenants t WHERE t.id = $2 AND t.is_platform_tenant = TRUE)
-		  )
+		  AND tenant_can_use_role($2, is_global)
 	`
 	row := r.pool.QueryRow(ctx, query, id, tenantID)
 	role, err := scanRole(row)

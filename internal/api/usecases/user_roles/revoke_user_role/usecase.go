@@ -34,7 +34,7 @@ func (uc *useCase) Execute(ctx context.Context, id uuid.UUID, tenantID uuid.UUID
 		return nil, domain.ErrAssignmentNotFound
 	}
 
-	result, err := uc.repo.Revoke(ctx, id)
+	result, err := uc.repo.Revoke(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}

@@ -40,10 +40,12 @@ const (
 	`
 
 	// RevokeQuery soft-deletes an assignment by setting status to 'revoked'.
+	// Scoped by tenant_id so the repository enforces tenant ownership itself,
+	// not only whichever usecase happens to call it.
 	RevokeQuery = `
 		UPDATE user_tenant_roles
 		SET status = 'revoked', updated_at = NOW()
-		WHERE id = $1
+		WHERE id = $1 AND tenant_id = $2
 		RETURNING id, user_id, tenant_id, role_id, status, assigned_by, assigned_at, created_at, updated_at
 	`
 

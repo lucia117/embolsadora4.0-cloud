@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/tu-org/embolsadora-api/internal/api/handler/user_roles/assign_user_role/models"
 	ucAssignUserRole "github.com/tu-org/embolsadora-api/internal/api/usecases/user_roles/assign_user_role"
 	"github.com/tu-org/embolsadora-api/internal/domain"
@@ -31,9 +30,7 @@ func (h *Handler) Handle(c *gin.Context) {
 
 	// Reject cross-tenant assignment: caller may only assign roles within the
 	// tenant validated by X-Tenant-ID (TenantFromHeader), not an arbitrary tenantId in the body.
-	// Parsed as UUIDs (not raw strings) since X-Tenant-ID case isn't normalized upstream.
-	ctxTenantID, err := uuid.Parse(platform.TenantID(c.Request.Context()))
-	if err != nil || req.TenantID != ctxTenantID {
+	if !platform.TenantMatches(c.Request.Context(), req.TenantID) {
 		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "tenantId does not match authenticated tenant"})
 		return
 	}
