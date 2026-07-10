@@ -106,7 +106,7 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 
 	listUserRolesUseCase := ucListUserRoles.NewUseCase(deps.UserRoleRepo)
 	listUserRolesHandler := listUserRoles.NewListUserRolesHandler(listUserRolesUseCase)
-	g.GET("/user-roles", listUserRolesHandler.Handle)
+	g.GET("/user-roles", middleware.RBACCheck("users:read"), listUserRolesHandler.Handle)
 
 	bulkAssignUserRoleUseCase := ucBulkAssignUserRole.NewUseCase(deps.UserRoleRepo)
 	bulkAssignUserRoleHandler := bulkAssignUserRole.NewBulkAssignUserRolesHandler(bulkAssignUserRoleUseCase)

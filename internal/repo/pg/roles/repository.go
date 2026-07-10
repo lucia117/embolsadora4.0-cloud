@@ -16,6 +16,7 @@ import (
 type Repository interface {
 	List(ctx context.Context, tenantID uuid.UUID) ([]*domain.Role, error)
 	GetByID(ctx context.Context, id string) (*domain.Role, error)
+	GetByIDForTenant(ctx context.Context, id string, tenantID uuid.UUID) (*domain.Role, error)
 	CountCustomByTenant(ctx context.Context, tenantID uuid.UUID) (int, error)
 	Create(ctx context.Context, role *domain.Role) error
 	Update(ctx context.Context, role *domain.Role) error
@@ -80,6 +81,33 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id string) (*domain.Ro
 		WHERE id = $1 AND deleted_at IS NULL
 	`
 	row := r.pool.QueryRow(ctx, query, id)
+	role, err := scanRole(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrRoleNotFound
+		}
+		return nil, err
+	}
+	return role, nil
+}
+
+// GetByIDForTenant devuelve un rol por su ID, aplicando la misma regla de visibilidad
+// que List: los roles is_global=TRUE (super_admin, tenant_manager) solo son visibles
+// para el tenant plataforma de MRG. Devuelve ErrRoleNotFound tanto si el rol no existe
+// como si existe pero no es visible para este tenant (mismo error en ambos casos, para
+// no filtrar la existencia de roles de plataforma a otros tenants).
+func (r *PostgresRepository) GetByIDForTenant(ctx context.Context, id string, tenantID uuid.UUID) (*domain.Role, error) {
+	query := `
+		SELECT id, name, description, is_system_role, is_global, tenant_id, permissions, created_at, updated_at
+		FROM roles
+		WHERE id = $1
+		  AND deleted_at IS NULL
+		  AND (
+		    is_global = FALSE
+		    OR EXISTS (SELECT 1 FROM tenants t WHERE t.id = $2 AND t.is_platform_tenant = TRUE)
+		  )
+	`
+	row := r.pool.QueryRow(ctx, query, id, tenantID)
 	role, err := scanRole(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

@@ -89,7 +89,7 @@ func (r *userRoleRepository) checkRoleAllowedForTenant(ctx context.Context, role
 	err := r.db.QueryRow(ctx, `
 		SELECT COALESCE(r.is_global, FALSE), COALESCE(t.is_platform_tenant, FALSE)
 		FROM roles r, tenants t
-		WHERE r.id = $1 AND t.id = $2
+		WHERE r.id = $1 AND r.deleted_at IS NULL AND t.id = $2
 	`, roleID, tenantID).Scan(&isGlobal, &isPlatformTenant)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -101,6 +101,21 @@ func (r *userRoleRepository) checkRoleAllowedForTenant(ctx context.Context, role
 		return domain.ErrRoleNotAllowedForTenant
 	}
 	return nil
+}
+
+// mapForeignKeyViolation translates a user_tenant_roles FK violation into the domain
+// error matching whichever constraint failed. Returns nil for FKs that shouldn't
+// realistically fail from client input (tenant_id, assigned_by — both already validated
+// upstream), so callers fall back to returning the raw pgconn error for those.
+func mapForeignKeyViolation(pgErr *pgconn.PgError) error {
+	switch pgErr.ConstraintName {
+	case "user_tenant_roles_role_id_fkey":
+		return domain.ErrInvalidRoleID
+	case "user_tenant_roles_user_id_fkey":
+		return domain.ErrInvalidUserID
+	default:
+		return nil
+	}
 }
 
 func (r *userRoleRepository) Create(ctx context.Context, utr *domain.UserTenantRole) (*domain.UserTenantRole, error) {
@@ -119,8 +134,10 @@ func (r *userRoleRepository) Create(ctx context.Context, utr *domain.UserTenantR
 			if pgErr.Code == errCodeUniqueViolation {
 				return nil, domain.ErrUserAlreadyHasActiveRole
 			}
-			if pgErr.Code == errCodeForeignKeyViolation && pgErr.ConstraintName == "user_tenant_roles_role_id_fkey" {
-				return nil, domain.ErrInvalidRoleID
+			if pgErr.Code == errCodeForeignKeyViolation {
+				if mapped := mapForeignKeyViolation(pgErr); mapped != nil {
+					return nil, mapped
+				}
 			}
 		}
 		return nil, err
@@ -142,7 +159,9 @@ func (r *userRoleRepository) Update(ctx context.Context, utr *domain.UserTenantR
 		}
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == errCodeForeignKeyViolation {
-			return nil, domain.ErrInvalidRoleID
+			if mapped := mapForeignKeyViolation(pgErr); mapped != nil {
+				return nil, mapped
+			}
 		}
 		return nil, err
 	}
@@ -186,8 +205,10 @@ func (r *userRoleRepository) BulkCreate(ctx context.Context, utrs []domain.UserT
 				if pgErr.Code == errCodeUniqueViolation {
 					return nil, fmt.Errorf("%w: user %s", domain.ErrUserAlreadyHasActiveRole, utr.UserID)
 				}
-				if pgErr.Code == errCodeForeignKeyViolation && pgErr.ConstraintName == "user_tenant_roles_role_id_fkey" {
-					return nil, fmt.Errorf("%w: user %s", domain.ErrInvalidRoleID, utr.UserID)
+				if pgErr.Code == errCodeForeignKeyViolation {
+					if mapped := mapForeignKeyViolation(pgErr); mapped != nil {
+						return nil, fmt.Errorf("%w: user %s", mapped, utr.UserID)
+					}
 				}
 			}
 			return nil, err

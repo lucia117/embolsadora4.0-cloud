@@ -19,6 +19,9 @@ var ErrAssignmentNotFound = errors.New("user-role assignment not found")
 // ErrInvalidRoleID is returned when the provided role_id does not exist in the roles table.
 var ErrInvalidRoleID = errors.New("invalid roleId: role does not exist")
 
+// ErrInvalidUserID is returned when the provided user_id does not exist in the users table.
+var ErrInvalidUserID = errors.New("invalid userId: user does not exist")
+
 // ErrRoleNotAllowedForTenant is returned when trying to assign a platform-only role
 // (roles.is_global = TRUE, e.g. super_admin, tenant_manager) within a tenant that is
 // not the MRG platform tenant (tenants.is_platform_tenant = TRUE).
