@@ -119,7 +119,7 @@ func (r *userRoleRepository) Create(ctx context.Context, utr *domain.UserTenantR
 			if pgErr.Code == errCodeUniqueViolation {
 				return nil, domain.ErrUserAlreadyHasActiveRole
 			}
-			if pgErr.Code == errCodeForeignKeyViolation {
+			if pgErr.Code == errCodeForeignKeyViolation && pgErr.ConstraintName == "user_tenant_roles_role_id_fkey" {
 				return nil, domain.ErrInvalidRoleID
 			}
 		}
@@ -186,7 +186,7 @@ func (r *userRoleRepository) BulkCreate(ctx context.Context, utrs []domain.UserT
 				if pgErr.Code == errCodeUniqueViolation {
 					return nil, fmt.Errorf("%w: user %s", domain.ErrUserAlreadyHasActiveRole, utr.UserID)
 				}
-				if pgErr.Code == errCodeForeignKeyViolation {
+				if pgErr.Code == errCodeForeignKeyViolation && pgErr.ConstraintName == "user_tenant_roles_role_id_fkey" {
 					return nil, fmt.Errorf("%w: user %s", domain.ErrInvalidRoleID, utr.UserID)
 				}
 			}

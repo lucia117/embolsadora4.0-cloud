@@ -37,7 +37,9 @@ func (h *Handler) Handle(c *gin.Context) {
 
 	// Reject cross-tenant reads: caller may only list assignments for the tenant
 	// validated by X-Tenant-ID (TenantFromHeader), not an arbitrary tenantId query param.
-	if tenantIDStr != platform.TenantID(c.Request.Context()) {
+	// Parsed as UUIDs (not raw strings) since X-Tenant-ID case isn't normalized upstream.
+	ctxTenantID, err := uuid.Parse(platform.TenantID(c.Request.Context()))
+	if err != nil || tenantID != ctxTenantID {
 		c.JSON(http.StatusForbidden, gin.H{"success": false, "error": "tenantId does not match authenticated tenant"})
 		return
 	}
