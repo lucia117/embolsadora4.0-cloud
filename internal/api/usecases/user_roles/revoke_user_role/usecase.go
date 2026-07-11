@@ -10,7 +10,7 @@ import (
 
 // UseCase defines the interface for revoking a user-role assignment.
 type UseCase interface {
-	Execute(ctx context.Context, id uuid.UUID) (*domain.UserTenantRole, error)
+	Execute(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*domain.UserTenantRole, error)
 }
 
 type useCase struct {
@@ -23,9 +23,18 @@ func NewUseCase(repo userrolesrepo.UserRoleRepository) UseCase {
 }
 
 // Execute soft-deletes a UTR assignment by setting its status to 'revoked'.
-// Returns ErrAssignmentNotFound if the assignment does not exist.
-func (uc *useCase) Execute(ctx context.Context, id uuid.UUID) (*domain.UserTenantRole, error) {
-	result, err := uc.repo.Revoke(ctx, id)
+// Returns ErrAssignmentNotFound if the assignment does not exist or belongs to a different tenant
+// (same response either way, so callers cannot use this to probe other tenants' assignment IDs).
+func (uc *useCase) Execute(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*domain.UserTenantRole, error) {
+	existing, err := uc.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil || existing.TenantID != tenantID {
+		return nil, domain.ErrAssignmentNotFound
+	}
+
+	result, err := uc.repo.Revoke(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}

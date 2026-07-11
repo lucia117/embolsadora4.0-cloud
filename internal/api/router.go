@@ -102,21 +102,21 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 	// User Roles
 	assignUserRoleUseCase := ucAssignUserRole.NewUseCase(deps.UserRoleRepo)
 	assignUserRoleHandler := assignUserRole.NewAssignUserRoleHandler(assignUserRoleUseCase)
-	g.POST("/user-roles", assignUserRoleHandler.Handle)
+	g.POST("/user-roles", middleware.RBACCheck("users:write"), assignUserRoleHandler.Handle)
 
 	listUserRolesUseCase := ucListUserRoles.NewUseCase(deps.UserRoleRepo)
 	listUserRolesHandler := listUserRoles.NewListUserRolesHandler(listUserRolesUseCase)
-	g.GET("/user-roles", listUserRolesHandler.Handle)
+	g.GET("/user-roles", middleware.RBACCheck("users:read"), listUserRolesHandler.Handle)
 
 	bulkAssignUserRoleUseCase := ucBulkAssignUserRole.NewUseCase(deps.UserRoleRepo)
 	bulkAssignUserRoleHandler := bulkAssignUserRole.NewBulkAssignUserRolesHandler(bulkAssignUserRoleUseCase)
-	g.POST("/user-roles/bulk", bulkAssignUserRoleHandler.Handle)
+	g.POST("/user-roles/bulk", middleware.RBACCheck("users:write"), bulkAssignUserRoleHandler.Handle)
 
 	updateUserRoleUseCase := ucUpdateUserRole.NewUseCase(deps.UserRoleRepo)
 	updateUserRoleHandler := updateUserRole.NewUpdateUserRoleHandler(updateUserRoleUseCase)
-	g.PUT("/user-roles/:id", updateUserRoleHandler.Handle)
+	g.PUT("/user-roles/:id", middleware.RBACCheck("users:write"), updateUserRoleHandler.Handle)
 
 	revokeUserRoleUseCase := ucRevokeUserRole.NewUseCase(deps.UserRoleRepo)
 	revokeUserRoleHandler := revokeUserRole.NewRevokeUserRoleHandler(revokeUserRoleUseCase)
-	g.DELETE("/user-roles/:id", revokeUserRoleHandler.Handle)
+	g.DELETE("/user-roles/:id", middleware.RBACCheck("users:write"), revokeUserRoleHandler.Handle)
 }

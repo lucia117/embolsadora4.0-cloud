@@ -34,9 +34,10 @@ func (s *Service) ListRoles(ctx context.Context, tenantID uuid.UUID) ([]*domain.
 	return roles, nil
 }
 
-// GetRole devuelve un rol por su ID.
-func (s *Service) GetRole(ctx context.Context, id string) (*domain.Role, error) {
-	role, err := s.repo.GetByID(ctx, id)
+// GetRole devuelve un rol por su ID, visible solo si pertenece al tenant o es un
+// archetype/rol de plataforma que ese tenant puede ver (misma regla que ListRoles).
+func (s *Service) GetRole(ctx context.Context, id string, tenantID uuid.UUID) (*domain.Role, error) {
+	role, err := s.repo.GetByIDForTenant(ctx, id, tenantID)
 	if err != nil {
 		if err != domain.ErrRoleNotFound {
 			s.logger.Error("error obteniendo rol", zap.String("role_id", id), zap.Error(err))

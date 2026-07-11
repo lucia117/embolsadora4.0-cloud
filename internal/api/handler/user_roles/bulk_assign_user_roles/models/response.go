@@ -11,9 +11,10 @@ type AssignmentSummary struct {
 }
 
 // BulkAssignResponse is the JSON shape returned for a bulk assignment operation.
+// The operation is all-or-nothing (single transaction): a partial "failed" count
+// never applies, since any error aborts the whole batch before it commits.
 type BulkAssignResponse struct {
-	Assigned    int                  `json:"assigned"`
-	Failed      int                  `json:"failed"`
+	Assigned    int                 `json:"assigned"`
 	Assignments []AssignmentSummary `json:"assignments"`
 }
 
@@ -35,7 +36,6 @@ func FromDomain(result *bulk_assign_user_roles.BulkAssignResult) *BulkAssignResp
 	}
 	return &BulkAssignResponse{
 		Assigned:    result.Assigned,
-		Failed:      result.Failed,
 		Assignments: assignments,
 	}
 }

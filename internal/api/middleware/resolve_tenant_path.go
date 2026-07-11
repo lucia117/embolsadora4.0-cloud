@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
@@ -58,7 +59,14 @@ func ResolveTenantAndCheckMembership(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
+		tenantUUID, err := uuid.Parse(tenantIDStr)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"success": false, "error": "internal server error"})
+			return
+		}
+
 		ctx := platform.WithTenantID(c.Request.Context(), tenantIDStr)
+		ctx = platform.WithTenantUUID(ctx, tenantUUID)
 		ctx = security.WithRole(ctx, roleID)
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
