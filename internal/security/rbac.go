@@ -24,6 +24,10 @@ var rolePermissions = map[string][]string{
 		"users:read", "users:write",
 		"invitations:write",
 		"machines:read", "machines:write",
+		"roles:read", "roles:write",
+		"permissions:read",
+		"alarms:read", "alarms:write",
+		"logs:read", "reports:read",
 	},
 	// Platform-level support role: MRG operators with cross-tenant read access
 	// and limited write capabilities. Members of the MRG tenant only.
@@ -32,6 +36,7 @@ var rolePermissions = map[string][]string{
 		"users:read",
 		"invitations:write",
 		"machines:read",
+		"alarms:read", "logs:read",
 	},
 	"admin":            {"users:read", "users:write", "invitations:write", "machines:read", "machines:write", "tenants:read"},
 	"operario":         {"machines:read", "machines:write"},
