@@ -88,7 +88,7 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	// ── Use cases ─────────────────────────────────────────────────────────────
 	authUC := usecases.NewAuthUsecase(userRepo)
 	meUC := usecases.NewMeUsecase(db)
-	invUC := usecases.NewInvitationUsecase(invRepo, userRepo, supabaseClient, redisClient, cfg.Supabase.AppBaseURL, cfg.Supabase.InviteRateLimitHour)
+	invUC := usecases.NewInvitationUsecase(invRepo, userRepo, userRoleRepo, supabaseClient, redisClient, cfg.Supabase.AppBaseURL, cfg.Supabase.InviteRateLimitHour)
 	passwordUC := usecases.NewPasswordUsecase(userRepo, supabaseClient, logger)
 
 	// ── JWT verifier ──────────────────────────────────────────────────────────

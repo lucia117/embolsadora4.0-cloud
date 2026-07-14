@@ -34,6 +34,10 @@ var rolePermissions = map[string][]string{
 		"machines:read",
 	},
 	"admin":            {"users:read", "users:write", "invitations:write", "machines:read", "machines:write", "tenants:read"},
+	// Effective role (not in the roles catalog): assigned by TenantFromHeader to
+	// users whose `admin` membership belongs to the platform tenant (MRG).
+	// Same as admin plus tenant management.
+	"platform_admin": {"users:read", "users:write", "invitations:write", "machines:read", "machines:write", "tenants:read", "tenants:write"},
 	"operario":         {"machines:read", "machines:write"},
 	"cliente_admin":    {"users:read", "invitations:write", "machines:read"},
 	"cliente_operario": {"machines:read"},
