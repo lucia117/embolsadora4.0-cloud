@@ -702,6 +702,36 @@
           "response": []
         },
         {
+          "name": "GET User Roles Across Tenants",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{user_id}}/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{user_id}}",
+                "roles"
+              ]
+            },
+            "description": "Devuelve todas las asignaciones de rol del usuario en todos los tenants (distinto de include=roles, que trae el rol activo dentro del tenant actual)."
+          }
+        },
+        {
           "name": "Update User Status (active)",
           "request": {
             "method": "PATCH",
@@ -996,6 +1026,42 @@
                 "api",
                 "v1",
                 "user-roles"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST Bulk Assign Role",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userIds\": [\n    \"{{userId1}}\",\n    \"{{userId2}}\"\n  ],\n  \"tenantId\": \"{{tenantId}}\",\n  \"roleId\": \"operario\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/user-roles/bulk",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "user-roles",
+                "bulk"
               ]
             }
           }
@@ -1602,6 +1668,97 @@
             },
             "description": "Retrieve historical log of all check events for an edge device"
           }
+        }
+      ]
+    },
+    {
+      "name": "Consumers (IoT ingest - stubs, 501)",
+      "item": [
+        {
+          "name": "POST Ingest Events (stub, esperar 501)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "{{consumer_api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"events\": [\n    {\n      \"machine_id\": \"{{device_id}}\",\n      \"event_type\": \"cycle_completed\",\n      \"severity\": \"info\",\n      \"timestamp\": \"2026-07-09T12:00:00Z\",\n      \"payload\": {\n        \"cycle_count\": 1\n      }\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/consumers/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "consumers",
+                "events"
+              ]
+            },
+            "description": "Handler es un stub (IngestEvents) sin logica ni contrato definido todavia. Devuelve 501 Not Implemented. Estructura del body es tentativa."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 501 (stub sin implementar)', () => pm.response.to.have.status(501));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST Heartbeat (stub, esperar 501)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "{{consumer_api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"machine_id\": \"{{device_id}}\",\n  \"status\": \"online\",\n  \"timestamp\": \"2026-07-09T12:00:00Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/consumers/heartbeat",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "consumers",
+                "heartbeat"
+              ]
+            },
+            "description": "Handler es un stub (Heartbeat) sin logica ni contrato definido todavia. Devuelve 501 Not Implemented. Estructura del body es tentativa."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 501 (stub sin implementar)', () => pm.response.to.have.status(501));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -2511,6 +2668,788 @@
       ]
     },
     {
+      "name": "Logs",
+      "item": [
+        {
+          "name": "Pact 1 — List Logs 401 (sin auth)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/logs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "logs"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pact 2 — List Logs con filtros (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/logs?severity=warning&event_type=alarm_triggered",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "logs"
+              ],
+              "query": [
+                {
+                  "key": "severity",
+                  "value": "warning"
+                },
+                {
+                  "key": "event_type",
+                  "value": "alarm_triggered"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Has data array', () => pm.expect(body.data).to.be.an('array'));",
+                  "pm.test('Has total', () => pm.expect(body.total).to.be.a('number'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pact 3 — List Logs búsqueda por texto (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/logs?q=Temperatura",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "logs"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "Temperatura"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Has data array', () => pm.expect(body.data).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pact 4 — List Logs por máquina (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/logs?machine_id={{machine_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "logs"
+              ],
+              "query": [
+                {
+                  "key": "machine_id",
+                  "value": "{{machine_id}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Has data array', () => pm.expect(body.data).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pact 5 — List Logs paginación por cursor (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/logs?limit=2",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "logs"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "2"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Has next_cursor when results >= limit', () => {",
+                  "  if (body.data.length === 2) pm.expect(body.next_cursor).to.not.be.null;",
+                  "});",
+                  "if (body.next_cursor) pm.collectionVariables.set('cursor', body.next_cursor);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pact 5b — List Logs siguiente página con cursor (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/logs?cursor={{cursor}}&limit=2",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "logs"
+              ],
+              "query": [
+                {
+                  "key": "cursor",
+                  "value": "{{cursor}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "2"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Has data array', () => pm.expect(body.data).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pact 6 — List Logs sin resultados (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/logs?event_type=system&from=2000-01-01T00:00:00Z&to=2000-01-02T00:00:00Z",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "logs"
+              ],
+              "query": [
+                {
+                  "key": "event_type",
+                  "value": "system"
+                },
+                {
+                  "key": "from",
+                  "value": "2000-01-01T00:00:00Z"
+                },
+                {
+                  "key": "to",
+                  "value": "2000-01-02T00:00:00Z"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Empty data', () => pm.expect(body.data).to.eql([]));",
+                  "pm.test('Total is 0', () => pm.expect(body.total).to.eql(0));",
+                  "pm.test('next_cursor is null', () => pm.expect(body.next_cursor).to.be.null);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pact 7 — Get Log por ID (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/logs/{{log_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "logs",
+                "{{log_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Has id', () => pm.expect(body.id).to.be.a('string'));",
+                  "pm.test('Has message', () => pm.expect(body.message).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pact 8 — Get Log por ID inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/logs/00000000-0000-0000-0000-000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "logs",
+                "00000000-0000-0000-0000-000000000000"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "const body = pm.response.json();",
+                  "pm.test('Error NOT_FOUND', () => pm.expect(body.error).to.eql('NOT_FOUND'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pact 9 — Get Log Context (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/logs/{{log_id}}/context?window_size=3",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "logs",
+                "{{log_id}}",
+                "context"
+              ],
+              "query": [
+                {
+                  "key": "window_size",
+                  "value": "3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Has before array', () => pm.expect(body.before).to.be.an('array'));",
+                  "pm.test('Has anchor', () => pm.expect(body.anchor).to.be.an('object'));",
+                  "pm.test('Has after array', () => pm.expect(body.after).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pact 10 — Get Retention Policy (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/logs/retention",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "logs",
+                "retention"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Has tenant_id', () => pm.expect(body.tenant_id).to.be.a('string'));",
+                  "pm.test('Has retention_days', () => pm.expect(body.retention_days).to.be.a('number'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pact 11 — Update Retention Policy (200) [requiere logs:admin]",
+          "description": "El token JWT debe pertenecer a un usuario con permiso logs:admin. Sin ese permiso retorna 403.",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "description": "Token con permiso logs:admin"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"retention_days\": 30}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/logs/retention",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "logs",
+                "retention"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('retention_days updated', () => pm.expect(body.retention_days).to.eql(30));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pact 11b — Update Retention sin permiso (403)",
+          "description": "Usuario sin logs:admin recibe 403 Forbidden.",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token_no_admin}}",
+                "description": "Token sin logs:admin"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"retention_days\": 30}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/logs/retention",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "logs",
+                "retention"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Extra — List Logs from > to (400)",
+          "description": "Rango de fechas invertido debe retornar 400 BAD_REQUEST.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/logs?from=2026-01-02T00:00:00Z&to=2026-01-01T00:00:00Z",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "logs"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-01-02T00:00:00Z"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-01-01T00:00:00Z"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test('Error BAD_REQUEST', () => pm.expect(body.error).to.eql('BAD_REQUEST'));",
+                  "pm.test('Mensaje from > to', () => pm.expect(body.message).to.include('from'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pact 12 — Stream SSE (establecer conexión)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              },
+              {
+                "key": "Accept",
+                "value": "text/event-stream"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/logs/stream",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "logs",
+                "stream"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Content-Type is event-stream', () => {",
+                  "  pm.expect(pm.response.headers.get('Content-Type')).to.include('text/event-stream');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pact 13 — Export Logs normal (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/logs/export?severity=warning",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "logs",
+                "export"
+              ],
+              "query": [
+                {
+                  "key": "severity",
+                  "value": "warning"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Has data array', () => pm.expect(body.data).to.be.an('array'));",
+                  "pm.test('Has truncated flag', () => pm.expect(body.truncated).to.be.a('boolean'));",
+                  "pm.test('Not truncated', () => pm.expect(body.truncated).to.eql(false));",
+                  "pm.test('Has exported_count', () => pm.expect(body.exported_count).to.be.a('number'));",
+                  "pm.test('Has total_available', () => pm.expect(body.total_available).to.be.a('number'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pact 14 — Export Logs truncado (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_uuid}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/logs/export",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "logs",
+                "export"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Has data array', () => pm.expect(body.data).to.be.an('array'));",
+                  "pm.test('Has truncated flag', () => pm.expect(body.truncated).to.be.a('boolean'));",
+                  "// Note: truncated=true only when >50k logs exist for this tenant"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Permissions",
       "item": [
         {
@@ -2946,6 +3885,36 @@
       "key": "notification_id",
       "value": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
       "type": "string"
+    },
+    {
+      "key": "machine_id",
+      "value": "550e8400-e29b-41d4-a716-446655440000",
+      "type": "string",
+      "description": "Machine/edge device UUID usado en filtros de Logs"
+    },
+    {
+      "key": "log_id",
+      "value": "00000000-0000-0000-0000-000000000000",
+      "type": "string",
+      "description": "Log entry UUID"
+    },
+    {
+      "key": "cursor",
+      "value": "",
+      "type": "string",
+      "description": "Cursor de paginacion para GET /logs"
+    },
+    {
+      "key": "token_no_admin",
+      "value": "",
+      "type": "string",
+      "description": "JWT de un usuario sin permiso logs:admin, para probar 403 en PATCH /logs/retention"
+    },
+    {
+      "key": "consumer_api_key",
+      "value": "",
+      "type": "string",
+      "description": "API Key de tenant para la superficie /api/v1/consumers (middleware es stub, no valida aun)"
     }
   ]
 }
