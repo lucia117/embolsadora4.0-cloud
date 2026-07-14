@@ -16,7 +16,6 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/domain/users"
 )
 
-
 // PostgresRepository implements Repository using PostgreSQL
 type PostgresRepository struct {
 	db *pgxpool.Pool
@@ -258,9 +257,16 @@ func (r *PostgresRepository) Delete(ctx context.Context, tenantID, userID string
 
 // GetByIDWithRoles retrieves a user with their active role assignment in the tenant.
 // Uses LEFT JOINs so users without an active UTR still return with Roles: [].
+// Membership via user_tenant_roles also qualifies (see ListByTenant).
 func (r *PostgresRepository) GetByIDWithRoles(ctx context.Context, tenantID, userID string) (*users.UserWithRoles, error) {
 	query := `
-		SELECT u.id, u.tenant_id, u.first_name, u.last_name, u.email, u.role, u.image,
+		SELECT u.id,
+		       COALESCE(u.tenant_id, $2) AS tenant_id,
+		       COALESCE(u.first_name, u.name, '') AS first_name,
+		       COALESCE(u.last_name, '') AS last_name,
+		       u.email,
+		       COALESCE(utr.role_id, u.role) AS role,
+		       u.image,
 		       u.created_at, u.updated_at, u.deleted_at,
 		       r.id        AS role_id,
 		       r.name      AS role_name,
@@ -268,12 +274,12 @@ func (r *PostgresRepository) GetByIDWithRoles(ctx context.Context, tenantID, use
 		FROM users u
 		LEFT JOIN user_tenant_roles utr
 		    ON utr.user_id = u.id
-		    AND utr.tenant_id = u.tenant_id
+		    AND utr.tenant_id = $2
 		    AND utr.status = 'active'
 		LEFT JOIN roles r
 		    ON r.id = utr.role_id
 		    AND r.deleted_at IS NULL
-		WHERE u.id = $1 AND u.tenant_id = $2 AND u.deleted_at IS NULL
+		WHERE u.id = $1 AND u.deleted_at IS NULL AND (u.tenant_id = $2 OR utr.id IS NOT NULL)
 	`
 
 	row := r.db.QueryRow(ctx, query, userID, tenantID)

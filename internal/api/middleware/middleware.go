@@ -9,15 +9,15 @@ import (
 	"strings"
 	"time"
 
-	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/gin-gonic/gin"
+	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"go.uber.org/zap"
 	"github.com/tu-org/embolsadora-api/internal/api/usecases"
 	"github.com/tu-org/embolsadora-api/internal/domain"
 	"github.com/tu-org/embolsadora-api/internal/platform"
 	"github.com/tu-org/embolsadora-api/internal/security"
+	"go.uber.org/zap"
 )
 
 // Log is the package-level Zap logger. Set via SetLogger during application startup.
@@ -98,7 +98,14 @@ func JWTAuth(verifier security.Verifier, authUC *usecases.AuthUsecase, activator
 					zap.String("user_id", user.ID),
 					zap.Error(err),
 				)
-			} else if refreshed, err := authUC.ProvisionUser(ctx, sub, email); err == nil {
+			} else if refreshed, err := authUC.ProvisionUser(ctx, sub, email); err != nil {
+				// The activation committed; this request just keeps the stale
+				// 'invited' status in context. Log so it doesn't fail silently.
+				Log.Warn("failed to refresh user after invitation activation",
+					zap.String("user_id", user.ID),
+					zap.Error(err),
+				)
+			} else {
 				// Re-read so downstream middleware sees the post-activation status.
 				user = refreshed
 			}
@@ -127,6 +134,10 @@ func TenantFromHeader(db *pgxpool.Pool) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"success": false, "error": "missing X-Tenant-ID header"})
 			return
 		}
+		if _, err := uuid.Parse(tenantID); err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"success": false, "error": "X-Tenant-ID must be a valid UUID"})
+			return
+		}
 
 		// Validate user has an active role in this tenant
 		user, ok := platform.DomainUser(c.Request.Context()).(*domain.User)
@@ -150,7 +161,7 @@ func TenantFromHeader(db *pgxpool.Pool) gin.HandlerFunc {
 		if err != nil {
 			// Cross-tenant fallback: platform operators (global roles or admins of
 			// the platform tenant) may act on any existing tenant even without a
-			// direct membership row in it.
+			// direct membership row in it. See docs/adr/ADR-015-plataforma-cross-tenant.md.
 			roleID, err = resolvePlatformOperator(c.Request.Context(), db, user.ID, tenantID)
 			if err != nil {
 				Log.Warn("tenant access denied",
@@ -159,6 +170,10 @@ func TenantFromHeader(db *pgxpool.Pool) gin.HandlerFunc {
 					zap.String("endpoint", c.Request.URL.Path),
 					zap.Error(err),
 				)
+				if errors.Is(err, errTargetTenantNotFound) {
+					c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"success": false, "error": "tenant not found"})
+					return
+				}
 				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"success": false, "error": "tenant access denied"})
 				return
 			}
@@ -173,6 +188,10 @@ func TenantFromHeader(db *pgxpool.Pool) gin.HandlerFunc {
 	}
 }
 
+// errTargetTenantNotFound signals that the X-Tenant-ID targets a nonexistent
+// tenant; TenantFromHeader maps it to 404 instead of the generic 403.
+var errTargetTenantNotFound = errors.New("target tenant not found")
+
 // resolvePlatformOperator returns the effective role for a user acting on a tenant
 // they have no direct membership in. Allowed only for members of the platform
 // tenant with a global role (super_admin, tenant_manager) or role admin
@@ -184,7 +203,7 @@ func resolvePlatformOperator(ctx context.Context, db *pgxpool.Pool, userID, targ
 		`SELECT utr.role_id, r.is_global
 		 FROM user_tenant_roles utr
 		 JOIN tenants t ON t.id = utr.tenant_id AND t.is_platform_tenant
-		 JOIN roles r ON r.id = utr.role_id
+		 JOIN roles r ON r.id = utr.role_id AND r.deleted_at IS NULL
 		 WHERE utr.user_id = $1 AND utr.status = 'active'
 		   AND (r.is_global OR utr.role_id = 'admin')
 		 LIMIT 1`,
@@ -202,7 +221,7 @@ func resolvePlatformOperator(ctx context.Context, db *pgxpool.Pool, userID, targ
 		return "", err
 	}
 	if !targetExists {
-		return "", fmt.Errorf("target tenant %q not found", targetTenantID)
+		return "", fmt.Errorf("%w: %q", errTargetTenantNotFound, targetTenantID)
 	}
 
 	if !isGlobal {
@@ -294,8 +313,6 @@ func CORS() gin.HandlerFunc {
 		c.Next()
 	}
 }
-
-
 
 var exemptFromTenant = []string{
 	"/api/v1/me",

@@ -20,7 +20,10 @@ import (
 	handlerListInvitations "github.com/tu-org/embolsadora-api/internal/api/handler/invitations/list_invitations"
 	handlerResendInvitation "github.com/tu-org/embolsadora-api/internal/api/handler/invitations/resend_invitation"
 	handlerRevokeInvitation "github.com/tu-org/embolsadora-api/internal/api/handler/invitations/revoke_invitation"
+	logsHandler "github.com/tu-org/embolsadora-api/internal/api/handler/logs"
 	handlerMe "github.com/tu-org/embolsadora-api/internal/api/handler/me"
+	notificationsHandler "github.com/tu-org/embolsadora-api/internal/api/handler/notifications"
+	permissionsHandler "github.com/tu-org/embolsadora-api/internal/api/handler/permissions"
 	rolesHandler "github.com/tu-org/embolsadora-api/internal/api/handler/roles"
 	handlerForcePasswordChange "github.com/tu-org/embolsadora-api/internal/api/handler/users/force_password_change"
 	apimw "github.com/tu-org/embolsadora-api/internal/api/middleware"
@@ -29,6 +32,8 @@ import (
 	dashboardLayoutsApp "github.com/tu-org/embolsadora-api/internal/app/dashboard_layouts"
 	edgeDevicesApp "github.com/tu-org/embolsadora-api/internal/app/edge_devices"
 	appLogs "github.com/tu-org/embolsadora-api/internal/app/logs"
+	appNotifications "github.com/tu-org/embolsadora-api/internal/app/notifications"
+	permissionsApp "github.com/tu-org/embolsadora-api/internal/app/permissions"
 	rolesApp "github.com/tu-org/embolsadora-api/internal/app/roles"
 	"github.com/tu-org/embolsadora-api/internal/config"
 	consumers "github.com/tu-org/embolsadora-api/internal/consumers"
@@ -39,15 +44,10 @@ import (
 	dashboardLayoutsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/dashboard_layouts"
 	edgeDevicesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/edge_devices"
 	invitationsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/invitations"
-	logsHandler "github.com/tu-org/embolsadora-api/internal/api/handler/logs"
-	notificationsHandler "github.com/tu-org/embolsadora-api/internal/api/handler/notifications"
-	permissionsHandler "github.com/tu-org/embolsadora-api/internal/api/handler/permissions"
 	logsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/logs"
 	notificationsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/notifications"
-	appNotifications "github.com/tu-org/embolsadora-api/internal/app/notifications"
-	permissionsApp "github.com/tu-org/embolsadora-api/internal/app/permissions"
-	rolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/roles"
 	permissionsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/permissions"
+	rolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/roles"
 	tenantsRepository "github.com/tu-org/embolsadora-api/internal/repo/pg/tenants"
 	userRolesRepository "github.com/tu-org/embolsadora-api/internal/repo/pg/user_roles"
 	usersRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/users"
@@ -70,8 +70,8 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	telemetry.RegisterMetrics(r)
 
 	// ── Repositories ──────────────────────────────────────────────────────────
-	userRepo := usersRepo.NewUserRepository(db)          // auth: UpsertBySupabaseID, GetBySupabaseID, etc.
-	mgmtUserRepo := usersRepo.NewPostgresRepository(db)  // user management CRUD
+	userRepo := usersRepo.NewUserRepository(db)         // auth: UpsertBySupabaseID, GetBySupabaseID, etc.
+	mgmtUserRepo := usersRepo.NewPostgresRepository(db) // user management CRUD
 	tenantRepo := tenantsRepository.NewTenantRepository(db)
 	userRoleRepo := userRolesRepository.NewUserRoleRepository(db)
 	invRepo := invitationsRepo.NewInvitationRepository(db)
