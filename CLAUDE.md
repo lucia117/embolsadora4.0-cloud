@@ -66,7 +66,7 @@ internal/
     usecases/
       auth_usecase.go        — ProvisionUser(); InvitationActivator interface
       me_usecase.go          — GetMe() + MeResponse types (defined here to avoid circular imports)
-      invitation_usecase.go  — CreateInvitation, Resend, Revoke, List, ActivateInvitation; Log *zap.Logger
+      invitation_usecase.go  — CreateInvitation, Resend, Revoke, List, ActivatePendingInvitations; Log *zap.Logger
       password_usecase.go    — ForcePasswordChange, ClearPasswordChangeRequired
     handler/
       me/get_me.go

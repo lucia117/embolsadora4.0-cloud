@@ -7,12 +7,14 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"go.uber.org/zap"
+	"github.com/google/uuid"
 	"github.com/tu-org/embolsadora-api/internal/domain"
 	"github.com/tu-org/embolsadora-api/internal/platform"
 	"github.com/tu-org/embolsadora-api/internal/platform/supabase"
 	"github.com/tu-org/embolsadora-api/internal/repo/pg/invitations"
+	userRoles "github.com/tu-org/embolsadora-api/internal/repo/pg/user_roles"
 	"github.com/tu-org/embolsadora-api/internal/repo/pg/users"
+	"go.uber.org/zap"
 )
 
 // Log is the package-level logger for invitation use cases.
@@ -22,6 +24,7 @@ var Log *zap.Logger = zap.NewNop()
 type InvitationUsecase struct {
 	invRepo        invitations.InvitationRepository
 	userRepo       users.UserRepository
+	userRoleRepo   userRoles.UserRoleRepository
 	supabaseClient supabase.AdminClient
 	redis          *redis.Client
 	appBaseURL     string
@@ -31,6 +34,7 @@ type InvitationUsecase struct {
 func NewInvitationUsecase(
 	invRepo invitations.InvitationRepository,
 	userRepo users.UserRepository,
+	userRoleRepo userRoles.UserRoleRepository,
 	supabaseClient supabase.AdminClient,
 	redisClient *redis.Client,
 	appBaseURL string,
@@ -39,6 +43,7 @@ func NewInvitationUsecase(
 	return &InvitationUsecase{
 		invRepo:        invRepo,
 		userRepo:       userRepo,
+		userRoleRepo:   userRoleRepo,
 		supabaseClient: supabaseClient,
 		redis:          redisClient,
 		appBaseURL:     appBaseURL,
@@ -146,29 +151,75 @@ func (uc *InvitationUsecase) ListInvitations(ctx context.Context, status *string
 	return uc.invRepo.ListByTenant(ctx, tenantID, status)
 }
 
-// ActivateInvitation is called by JWTAuth after provisioning a new user.
-// If there is a pending invitation for this email+tenantID, it activates it and
-// creates the user_tenant_role record. Implements InvitationActivator interface.
-func (uc *InvitationUsecase) ActivateInvitation(ctx context.Context, email, tenantID string, userID string) error {
-	inv, err := uc.invRepo.GetPendingByEmailAndTenant(ctx, email, tenantID)
+// ActivatePendingInvitations is called by JWTAuth after provisioning a user whose
+// status is still 'invited'. For every pending invitation matching the email it
+// creates the user_tenant_roles membership (with the invited role) and marks the
+// invitation accepted; if at least one activates, the user becomes active.
+// Implements the InvitationActivator interface.
+func (uc *InvitationUsecase) ActivatePendingInvitations(ctx context.Context, email, userID string) error {
+	invs, err := uc.invRepo.ListPendingByEmail(ctx, email)
 	if err != nil {
-		if errors.Is(err, domain.ErrNotFound) {
-			return nil // no pending invitation, nothing to activate
+		return err
+	}
+	if len(invs) == 0 {
+		return nil // nothing to activate
+	}
+
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return fmt.Errorf("invalid user id %q: %w", userID, err)
+	}
+
+	activated := 0
+	for i := range invs {
+		inv := &invs[i]
+		if inv.IsExpired() {
+			if err := uc.invRepo.UpdateStatus(ctx, inv.ID, domain.InvitationStatusExpired); err != nil {
+				Log.Warn("failed to expire invitation", zap.String("invitation_id", inv.ID), zap.Error(err))
+			}
+			continue
 		}
-		return err
+
+		tenantUUID, err := uuid.Parse(inv.TenantID)
+		if err != nil {
+			Log.Warn("invitation with invalid tenant id", zap.String("invitation_id", inv.ID), zap.Error(err))
+			continue
+		}
+
+		now := time.Now().UTC()
+		utr := &domain.UserTenantRole{
+			ID:         uuid.New(),
+			UserID:     userUUID,
+			TenantID:   tenantUUID,
+			RoleID:     &inv.RoleID,
+			Status:     domain.UserRoleStatusActive,
+			AssignedAt: &now,
+		}
+		if invitedBy, err := uuid.Parse(inv.InvitedBy); err == nil {
+			utr.AssignedBy = &invitedBy
+		}
+
+		if _, err := uc.userRoleRepo.Create(ctx, utr); err != nil &&
+			!errors.Is(err, domain.ErrUserAlreadyHasActiveRole) {
+			Log.Warn("failed to create membership from invitation",
+				zap.String("invitation_id", inv.ID),
+				zap.String("tenant_id", inv.TenantID),
+				zap.Error(err),
+			)
+			continue
+		}
+
+		if err := uc.invRepo.UpdateStatus(ctx, inv.ID, domain.InvitationStatusAccepted); err != nil {
+			Log.Warn("failed to mark invitation accepted", zap.String("invitation_id", inv.ID), zap.Error(err))
+		}
+		activated++
 	}
 
-	// Mark invitation accepted
-	if err := uc.invRepo.UpdateStatus(ctx, inv.ID, domain.InvitationStatusAccepted); err != nil {
-		return err
+	if activated == 0 {
+		return nil
 	}
 
-	// Activate user status
-	if err := uc.userRepo.SetStatus(ctx, userID, domain.UserStatusActive); err != nil {
-		return err
-	}
-
-	return nil
+	return uc.userRepo.SetStatus(ctx, userID, domain.UserStatusActive)
 }
 
 // emailDomain returns only the domain part of an email for safe logging (e.g. "user@example.com" → "@example.com").
