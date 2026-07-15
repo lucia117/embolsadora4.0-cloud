@@ -16,7 +16,6 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/domain/users"
 )
 
-
 // PostgresRepository implements Repository using PostgreSQL
 type PostgresRepository struct {
 	db *pgxpool.Pool
@@ -27,21 +26,38 @@ func NewPostgresRepository(db *pgxpool.Pool) Repository {
 	return &PostgresRepository{db: db}
 }
 
-// ListByTenant retrieves paginated users for a tenant, excluding soft-deleted
+// ListByTenant retrieves paginated users for a tenant, excluding soft-deleted.
+// A user belongs to the tenant if users.tenant_id matches (management CRUD) or
+// if they hold an active membership in user_tenant_roles (auth-provisioned
+// users have tenant_id NULL — their membership is the source of truth).
 func (r *PostgresRepository) ListByTenant(ctx context.Context, tenantID string, limit, offset int) ([]*users.User, int64, error) {
 	// Get total count
 	var totalCount int64
-	countQuery := `SELECT COUNT(*) FROM users WHERE tenant_id = $1 AND deleted_at IS NULL`
+	countQuery := `
+		SELECT COUNT(*)
+		FROM users u
+		LEFT JOIN user_tenant_roles utr
+			ON utr.user_id = u.id AND utr.tenant_id = $1 AND utr.status = 'active'
+		WHERE u.deleted_at IS NULL AND (u.tenant_id = $1 OR utr.id IS NOT NULL)`
 	if err := r.db.QueryRow(ctx, countQuery, tenantID).Scan(&totalCount); err != nil {
 		return nil, 0, fmt.Errorf("failed to count users: %w", err)
 	}
 
-	// Get paginated results
+	// Get paginated results. COALESCE covers auth-provisioned rows where
+	// tenant_id/first_name/last_name are NULL (they only have `name`).
 	query := `
-		SELECT id, tenant_id, first_name, last_name, email, role, image, created_at, updated_at, deleted_at
-		FROM users
-		WHERE tenant_id = $1 AND deleted_at IS NULL
-		ORDER BY created_at DESC
+		SELECT u.id,
+		       COALESCE(u.tenant_id, $1) AS tenant_id,
+		       COALESCE(u.first_name, u.name, '') AS first_name,
+		       COALESCE(u.last_name, '') AS last_name,
+		       u.email,
+		       COALESCE(utr.role_id, u.role) AS role,
+		       u.image, u.created_at, u.updated_at, u.deleted_at
+		FROM users u
+		LEFT JOIN user_tenant_roles utr
+			ON utr.user_id = u.id AND utr.tenant_id = $1 AND utr.status = 'active'
+		WHERE u.deleted_at IS NULL AND (u.tenant_id = $1 OR utr.id IS NOT NULL)
+		ORDER BY u.created_at DESC
 		LIMIT $2 OFFSET $3
 	`
 
@@ -67,12 +83,21 @@ func (r *PostgresRepository) ListByTenant(ctx context.Context, tenantID string, 
 	return result, totalCount, nil
 }
 
-// GetByID retrieves a single user by ID (returns ErrNotFound if soft-deleted)
+// GetByID retrieves a single user by ID (returns ErrNotFound if soft-deleted).
+// Membership via user_tenant_roles also qualifies (see ListByTenant).
 func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, userID string) (*users.User, error) {
 	query := `
-		SELECT id, tenant_id, first_name, last_name, email, role, image, created_at, updated_at, deleted_at
-		FROM users
-		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+		SELECT u.id,
+		       COALESCE(u.tenant_id, $2) AS tenant_id,
+		       COALESCE(u.first_name, u.name, '') AS first_name,
+		       COALESCE(u.last_name, '') AS last_name,
+		       u.email,
+		       COALESCE(utr.role_id, u.role) AS role,
+		       u.image, u.created_at, u.updated_at, u.deleted_at
+		FROM users u
+		LEFT JOIN user_tenant_roles utr
+			ON utr.user_id = u.id AND utr.tenant_id = $2 AND utr.status = 'active'
+		WHERE u.id = $1 AND u.deleted_at IS NULL AND (u.tenant_id = $2 OR utr.id IS NOT NULL)
 	`
 
 	row := r.db.QueryRow(ctx, query, userID, tenantID)
@@ -232,9 +257,16 @@ func (r *PostgresRepository) Delete(ctx context.Context, tenantID, userID string
 
 // GetByIDWithRoles retrieves a user with their active role assignment in the tenant.
 // Uses LEFT JOINs so users without an active UTR still return with Roles: [].
+// Membership via user_tenant_roles also qualifies (see ListByTenant).
 func (r *PostgresRepository) GetByIDWithRoles(ctx context.Context, tenantID, userID string) (*users.UserWithRoles, error) {
 	query := `
-		SELECT u.id, u.tenant_id, u.first_name, u.last_name, u.email, u.role, u.image,
+		SELECT u.id,
+		       COALESCE(u.tenant_id, $2) AS tenant_id,
+		       COALESCE(u.first_name, u.name, '') AS first_name,
+		       COALESCE(u.last_name, '') AS last_name,
+		       u.email,
+		       COALESCE(utr.role_id, u.role) AS role,
+		       u.image,
 		       u.created_at, u.updated_at, u.deleted_at,
 		       r.id        AS role_id,
 		       r.name      AS role_name,
@@ -242,12 +274,12 @@ func (r *PostgresRepository) GetByIDWithRoles(ctx context.Context, tenantID, use
 		FROM users u
 		LEFT JOIN user_tenant_roles utr
 		    ON utr.user_id = u.id
-		    AND utr.tenant_id = u.tenant_id
+		    AND utr.tenant_id = $2
 		    AND utr.status = 'active'
 		LEFT JOIN roles r
 		    ON r.id = utr.role_id
 		    AND r.deleted_at IS NULL
-		WHERE u.id = $1 AND u.tenant_id = $2 AND u.deleted_at IS NULL
+		WHERE u.id = $1 AND u.deleted_at IS NULL AND (u.tenant_id = $2 OR utr.id IS NOT NULL)
 	`
 
 	row := r.db.QueryRow(ctx, query, userID, tenantID)

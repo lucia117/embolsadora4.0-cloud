@@ -15,6 +15,7 @@ import (
 type InvitationRepository interface {
 	Create(ctx context.Context, inv *domain.UserInvitation) (*domain.UserInvitation, error)
 	GetPendingByEmailAndTenant(ctx context.Context, email, tenantID string) (*domain.UserInvitation, error)
+	ListPendingByEmail(ctx context.Context, email string) ([]domain.UserInvitation, error)
 	GetByID(ctx context.Context, id, tenantID string) (*domain.UserInvitation, error)
 	ListByTenant(ctx context.Context, tenantID string, status *string) ([]domain.UserInvitation, error)
 	UpdateStatus(ctx context.Context, id string, status domain.InvitationStatus) error
@@ -55,6 +56,31 @@ func (r *pgInvitationRepo) GetPendingByEmailAndTenant(ctx context.Context, email
 		return nil, err
 	}
 	return inv, nil
+}
+
+// ListPendingByEmail returns every pending invitation for an email across all
+// tenants. Used on first login to activate the user's memberships.
+func (r *pgInvitationRepo) ListPendingByEmail(ctx context.Context, email string) ([]domain.UserInvitation, error) {
+	rows, err := r.db.Query(ctx,
+		`SELECT id, tenant_id, email, role_id, status, invited_by, created_at, updated_at, expires_at
+		 FROM user_invitations
+		 WHERE email = $1 AND status = 'pending'
+		 ORDER BY created_at ASC`,
+		email)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []domain.UserInvitation
+	for rows.Next() {
+		inv, err := scanInvitation(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, *inv)
+	}
+	return result, rows.Err()
 }
 
 func (r *pgInvitationRepo) GetByID(ctx context.Context, id, tenantID string) (*domain.UserInvitation, error) {

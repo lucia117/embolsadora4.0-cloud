@@ -3,20 +3,21 @@ package middleware
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"slices"
 	"strings"
 	"time"
 
-	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/gin-gonic/gin"
+	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"go.uber.org/zap"
 	"github.com/tu-org/embolsadora-api/internal/api/usecases"
 	"github.com/tu-org/embolsadora-api/internal/domain"
 	"github.com/tu-org/embolsadora-api/internal/platform"
 	"github.com/tu-org/embolsadora-api/internal/security"
+	"go.uber.org/zap"
 )
 
 // Log is the package-level Zap logger. Set via SetLogger during application startup.
@@ -87,14 +88,32 @@ func JWTAuth(verifier security.Verifier, authUC *usecases.AuthUsecase, activator
 			ctx = platform.WithUserID(ctx, id)
 		}
 
+		// Activate pending invitations on first logins: creates the
+		// user_tenant_roles membership for each pending invitation of this email
+		// and flips the user to active. Only attempted while the user is still
+		// 'invited' so it costs no extra queries on regular requests.
+		if activator != nil && user.Status == domain.UserStatusInvited && email != "" {
+			if err := activator.ActivatePendingInvitations(ctx, email, user.ID); err != nil {
+				Log.Warn("failed to activate pending invitations",
+					zap.String("user_id", user.ID),
+					zap.Error(err),
+				)
+			} else if refreshed, err := authUC.ProvisionUser(ctx, sub, email); err != nil {
+				// The activation committed; this request just keeps the stale
+				// 'invited' status in context. Log so it doesn't fail silently.
+				Log.Warn("failed to refresh user after invitation activation",
+					zap.String("user_id", user.ID),
+					zap.Error(err),
+				)
+			} else {
+				// Re-read so downstream middleware sees the post-activation status.
+				user = refreshed
+			}
+		}
+
 		// Store provisioned user in context for downstream middleware and handlers
 		ctx = platform.WithDomainUser(ctx, user)
 		c.Request = c.Request.WithContext(ctx)
-
-		// If an invitation activator is provided, try to activate pending invitations.
-		// TenantID may not be in context yet (TenantFromHeader runs after), so this
-		// hook is called post-tenant-resolution in invitation_usecase.go (T031).
-		_ = activator // used in Phase 7 T031
 
 		c.Next()
 	}
@@ -115,6 +134,10 @@ func TenantFromHeader(db *pgxpool.Pool) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"success": false, "error": "missing X-Tenant-ID header"})
 			return
 		}
+		if _, err := uuid.Parse(tenantID); err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"success": false, "error": "X-Tenant-ID must be a valid UUID"})
+			return
+		}
 
 		// Validate user has an active role in this tenant
 		user, ok := platform.DomainUser(c.Request.Context()).(*domain.User)
@@ -123,22 +146,39 @@ func TenantFromHeader(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		// Validate membership and load role in a single query
+		// Validate membership and load role in a single query. The tenants JOIN
+		// upgrades `admin` memberships in the platform tenant to the effective
+		// role `platform_admin` (adds tenants:write — see security/rbac.go).
 		var roleID string
+		var isPlatformTenant bool
 		err := db.QueryRow(c.Request.Context(),
-			`SELECT role_id FROM user_tenant_roles
-			 WHERE user_id = $1 AND tenant_id = $2 AND status = 'active'
+			`SELECT utr.role_id, t.is_platform_tenant
+			 FROM user_tenant_roles utr
+			 JOIN tenants t ON t.id = utr.tenant_id
+			 WHERE utr.user_id = $1 AND utr.tenant_id = $2 AND utr.status = 'active'
 			 LIMIT 1`,
-			user.ID, tenantID).Scan(&roleID)
+			user.ID, tenantID).Scan(&roleID, &isPlatformTenant)
 		if err != nil {
-			Log.Warn("tenant access denied",
-				zap.String("user_id", user.ID),
-				zap.String("tenant_id", tenantID),
-				zap.String("endpoint", c.Request.URL.Path),
-				zap.Error(err),
-			)
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"success": false, "error": "tenant access denied"})
-			return
+			// Cross-tenant fallback: platform operators (global roles or admins of
+			// the platform tenant) may act on any existing tenant even without a
+			// direct membership row in it. See docs/adr/ADR-015-plataforma-cross-tenant.md.
+			roleID, err = resolvePlatformOperator(c.Request.Context(), db, user.ID, tenantID)
+			if err != nil {
+				Log.Warn("tenant access denied",
+					zap.String("user_id", user.ID),
+					zap.String("tenant_id", tenantID),
+					zap.String("endpoint", c.Request.URL.Path),
+					zap.Error(err),
+				)
+				if errors.Is(err, errTargetTenantNotFound) {
+					c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"success": false, "error": "tenant not found"})
+					return
+				}
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"success": false, "error": "tenant access denied"})
+				return
+			}
+		} else if isPlatformTenant && roleID == "admin" {
+			roleID = "platform_admin"
 		}
 
 		ctx := platform.WithTenantID(c.Request.Context(), tenantID)
@@ -146,6 +186,48 @@ func TenantFromHeader(db *pgxpool.Pool) gin.HandlerFunc {
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
+}
+
+// errTargetTenantNotFound signals that the X-Tenant-ID targets a nonexistent
+// tenant; TenantFromHeader maps it to 404 instead of the generic 403.
+var errTargetTenantNotFound = errors.New("target tenant not found")
+
+// resolvePlatformOperator returns the effective role for a user acting on a tenant
+// they have no direct membership in. Allowed only for members of the platform
+// tenant with a global role (super_admin, tenant_manager) or role admin
+// (upgraded to platform_admin), and only when the target tenant exists.
+func resolvePlatformOperator(ctx context.Context, db *pgxpool.Pool, userID, targetTenantID string) (string, error) {
+	var roleID string
+	var isGlobal bool
+	err := db.QueryRow(ctx,
+		`SELECT utr.role_id, r.is_global
+		 FROM user_tenant_roles utr
+		 JOIN tenants t ON t.id = utr.tenant_id AND t.is_platform_tenant
+		 JOIN roles r ON r.id = utr.role_id AND r.deleted_at IS NULL
+		 WHERE utr.user_id = $1 AND utr.status = 'active'
+		   AND (r.is_global OR utr.role_id = 'admin')
+		 LIMIT 1`,
+		userID, // $1
+	).Scan(&roleID, &isGlobal)
+	if err != nil {
+		return "", err
+	}
+
+	var targetExists bool
+	if err := db.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM tenants WHERE id = $1)`,
+		targetTenantID,
+	).Scan(&targetExists); err != nil {
+		return "", err
+	}
+	if !targetExists {
+		return "", fmt.Errorf("%w: %q", errTargetTenantNotFound, targetTenantID)
+	}
+
+	if !isGlobal {
+		return "platform_admin", nil
+	}
+	return roleID, nil
 }
 
 // PasswordChangeGuard blocks requests when user must change their password.
@@ -231,8 +313,6 @@ func CORS() gin.HandlerFunc {
 		c.Next()
 	}
 }
-
-
 
 var exemptFromTenant = []string{
 	"/api/v1/me",

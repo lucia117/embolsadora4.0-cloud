@@ -7,10 +7,11 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/repo/pg/users"
 )
 
-// InvitationActivator is an optional hook called during auto-provisioning to activate
-// any pending invitation for the user's email + tenant. Injected in Phase 7 (T031).
+// InvitationActivator is an optional hook called during auto-provisioning to
+// activate every pending invitation for the user's email (creates the
+// user_tenant_roles membership with the invited role and activates the user).
 type InvitationActivator interface {
-	ActivateInvitation(ctx context.Context, email, tenantID string, userID string) error
+	ActivatePendingInvitations(ctx context.Context, email, userID string) error
 }
 
 // AuthUsecase handles identity provisioning for authenticated users.
