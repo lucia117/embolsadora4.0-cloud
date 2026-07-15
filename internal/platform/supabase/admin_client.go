@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -36,17 +37,15 @@ func NewAdminClient(supabaseURL, serviceRoleKey string) AdminClient {
 }
 
 func (c *adminClient) InviteUserByEmail(ctx context.Context, email, redirectTo string) error {
-	body, err := json.Marshal(map[string]interface{}{
-		"email": email,
-		"data": map[string]string{
-			"redirect_to": redirectTo,
-		},
-	})
+	body, err := json.Marshal(map[string]string{"email": email})
 	if err != nil {
 		return fmt.Errorf("marshal invite request: %w", err)
 	}
 
-	return c.doWithRetry(ctx, http.MethodPost, "/auth/v1/admin/invite", body)
+	// GoTrue expone el invite en /auth/v1/invite (no bajo /admin) y toma
+	// redirect_to como query param; los campos del body van a user_metadata.
+	path := "/auth/v1/invite?redirect_to=" + url.QueryEscape(redirectTo)
+	return c.doWithRetry(ctx, http.MethodPost, path, body)
 }
 
 func (c *adminClient) SendPasswordResetEmail(ctx context.Context, userEmail string) error {
@@ -58,7 +57,7 @@ func (c *adminClient) SendPasswordResetEmail(ctx context.Context, userEmail stri
 		return fmt.Errorf("marshal recovery request: %w", err)
 	}
 
-	return c.doWithRetry(ctx, http.MethodPost, "/auth/v1/admin/generate-link", body)
+	return c.doWithRetry(ctx, http.MethodPost, "/auth/v1/admin/generate_link", body)
 }
 
 // doWithRetry executes the request with 1 retry on 5xx responses.
