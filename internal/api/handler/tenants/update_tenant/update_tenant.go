@@ -9,6 +9,8 @@ import (
 	tenantserrors "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/errors"
 	"github.com/tu-org/embolsadora-api/internal/api/handler/tenants/update_tenant/models"
 	ucUpdateTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/update_tenant"
+	"github.com/tu-org/embolsadora-api/internal/platform"
+	"github.com/tu-org/embolsadora-api/internal/security"
 )
 
 type UpdateTenantHandler struct {
@@ -25,6 +27,12 @@ func (h *UpdateTenantHandler) UpdateTenant(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("tenantId"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, tenantserrors.ErrorResponse{Error: "BAD_REQUEST", Message: "ID de tenant inválido", Status: http.StatusBadRequest})
+		return
+	}
+
+	role := security.RoleFromContext(c.Request.Context())
+	if !security.IsCrossTenantRole(role) && !platform.TenantMatches(c.Request.Context(), id) {
+		c.JSON(http.StatusForbidden, tenantserrors.ErrorResponse{Error: "FORBIDDEN", Message: "No tenés acceso a este tenant", Status: http.StatusForbidden})
 		return
 	}
 
