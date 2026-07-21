@@ -14,13 +14,15 @@ import (
 
 func TestAdminClient_InviteUserByEmail_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/auth/v1/admin/invite", r.URL.Path)
+		assert.Equal(t, "/auth/v1/invite", r.URL.Path)
+		assert.Equal(t, "https://app.example.com/s/demo/auth/callback", r.URL.Query().Get("redirect_to"))
 		assert.Equal(t, "Bearer test-service-key", r.Header.Get("Authorization"))
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
 		var body map[string]interface{}
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
 		assert.Equal(t, "user@example.com", body["email"])
+		assert.NotContains(t, body, "data", "redirect_to must go as query param, not user metadata")
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"id": "user-123"})
@@ -62,7 +64,7 @@ func TestAdminClient_InviteUserByEmail_5xxRetry(t *testing.T) {
 
 func TestAdminClient_SendPasswordResetEmail_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/auth/v1/admin/generate-link", r.URL.Path)
+		assert.Equal(t, "/auth/v1/admin/generate_link", r.URL.Path)
 		assert.Equal(t, "Bearer test-service-key", r.Header.Get("Authorization"))
 
 		var body map[string]string
