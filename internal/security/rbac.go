@@ -43,6 +43,21 @@ var rolePermissions = map[string][]string{
 	"cliente_operario": {"machines:read"},
 }
 
+// crossTenantRoles lists roles allowed to act on any tenant, not just their own.
+// super_admin and tenant_manager are the DB-seeded global roles; platform_admin
+// is the effective role TenantFromHeader assigns to admins of the MRG platform
+// tenant acting cross-tenant (see ADR-015).
+var crossTenantRoles = map[string]bool{
+	"super_admin":    true,
+	"tenant_manager": true,
+	"platform_admin": true,
+}
+
+// IsCrossTenantRole reports whether roleName may act on tenants other than its own.
+func IsCrossTenantRole(roleName string) bool {
+	return crossTenantRoles[roleName]
+}
+
 // roleContextKeyType is an unexported type to store role in context.
 type roleContextKeyType struct{}
 
