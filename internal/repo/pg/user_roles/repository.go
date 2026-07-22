@@ -23,7 +23,7 @@ const (
 
 // UserRoleRepository defines the persistence interface for user-tenant-role assignments.
 type UserRoleRepository interface {
-	FindByTenant(ctx context.Context, tenantID uuid.UUID, status *string) ([]domain.UserTenantRole, error)
+	FindByTenant(ctx context.Context, tenantID uuid.UUID, status *string) ([]domain.UserTenantRoleDetail, error)
 	FindByID(ctx context.Context, id uuid.UUID) (*domain.UserTenantRole, error)
 	Create(ctx context.Context, utr *domain.UserTenantRole) (*domain.UserTenantRole, error)
 	Update(ctx context.Context, utr *domain.UserTenantRole) (*domain.UserTenantRole, error)
@@ -43,7 +43,7 @@ func NewUserRoleRepository(db *pgxpool.Pool) UserRoleRepository {
 	return &userRoleRepository{db: db}
 }
 
-func (r *userRoleRepository) FindByTenant(ctx context.Context, tenantID uuid.UUID, status *string) ([]domain.UserTenantRole, error) {
+func (r *userRoleRepository) FindByTenant(ctx context.Context, tenantID uuid.UUID, status *string) ([]domain.UserTenantRoleDetail, error) {
 	var rows pgx.Rows
 	var err error
 
@@ -57,19 +57,19 @@ func (r *userRoleRepository) FindByTenant(ctx context.Context, tenantID uuid.UUI
 	}
 	defer rows.Close()
 
-	var result []domain.UserTenantRole
+	var result []domain.UserTenantRoleDetail
 	for rows.Next() {
-		utr, err := scanUTRFromRow(rows)
+		d, err := scanUTRDetailFromRow(rows)
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, *utr)
+		result = append(result, *d)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 	if result == nil {
-		result = []domain.UserTenantRole{}
+		result = []domain.UserTenantRoleDetail{}
 	}
 	return result, nil
 }
@@ -300,6 +300,25 @@ func scanUTRFromRow(rows pgx.Rows) (*domain.UserTenantRole, error) {
 	utr.RoleID = roleID
 	utr.AssignedBy = assignedBy
 	return &utr, nil
+}
+
+// scanUTRDetailFromRow scans a single UTR row plus its joined role name and
+// user display fields, from the FindByTenant / FindByTenantWithStatus queries.
+func scanUTRDetailFromRow(rows pgx.Rows) (*domain.UserTenantRoleDetail, error) {
+	var d domain.UserTenantRoleDetail
+	var roleID *string
+	var assignedBy *uuid.UUID
+	err := rows.Scan(
+		&d.ID, &d.UserID, &d.TenantID, &roleID, &d.Status,
+		&assignedBy, &d.AssignedAt, &d.CreatedAt, &d.UpdatedAt,
+		&d.RoleName, &d.UserEmail, &d.UserName, &d.UserFirstName, &d.UserLastName,
+	)
+	if err != nil {
+		return nil, err
+	}
+	d.RoleID = roleID
+	d.AssignedBy = assignedBy
+	return &d, nil
 }
 
 // UpdateStatus changes the status of a user's UTR within a tenant.
