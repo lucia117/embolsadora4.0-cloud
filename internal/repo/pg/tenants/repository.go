@@ -31,6 +31,7 @@ func (r *tenantRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.
 	var tenant domain.Tenant
 	var theme domain.Theme
 	var address domain.Address
+	var settings domain.TenantSettings
 	var tenantID uuid.UUID
 
 	var description, logoUrl, faviconUrl *string
@@ -40,6 +41,7 @@ func (r *tenantRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.
 		&tenantID, &tenant.Name, &tenant.CompanyName, &tenant.Subdomain, &description, &tenant.IsActive,
 		&theme.PrimaryColor, &theme.SecondaryColor, &theme.AccentColor, &theme.TextColor, &theme.BackgroundColor, &logoUrl, &faviconUrl,
 		&street, &city, &state, &postalCode, &country,
+		&settings.ContactEmail, &settings.CompanyWebsite, &settings.Locale, &settings.Timezone, &settings.DateFormat, &settings.TimeFormat, &settings.Currency,
 		&tenant.CreatedAt, &tenant.UpdatedAt,
 	)
 
@@ -61,6 +63,7 @@ func (r *tenantRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.
 	address.PostalCode = derefString(postalCode)
 	address.Country = derefString(country)
 	tenant.Address = address
+	tenant.Settings = settings
 	return &tenant, nil
 }
 
@@ -69,6 +72,7 @@ func (r *tenantRepository) Create(ctx context.Context, tenant *domain.Tenant) er
 		tenant.ID, tenant.Name, tenant.CompanyName, tenant.Subdomain, tenant.Description, tenant.IsActive,
 		tenant.Theme.PrimaryColor, tenant.Theme.SecondaryColor, tenant.Theme.AccentColor, tenant.Theme.TextColor, tenant.Theme.BackgroundColor, tenant.Theme.LogoUrl, tenant.Theme.FaviconUrl,
 		tenant.Address.Street, tenant.Address.City, tenant.Address.State, tenant.Address.PostalCode, tenant.Address.Country,
+		tenant.Settings.ContactEmail, tenant.Settings.CompanyWebsite, tenant.Settings.Locale, tenant.Settings.Timezone, tenant.Settings.DateFormat, tenant.Settings.TimeFormat, tenant.Settings.Currency,
 		tenant.CreatedAt, tenant.UpdatedAt,
 	)
 	return err
@@ -86,6 +90,7 @@ func (r *tenantRepository) FindAll(ctx context.Context) ([]domain.Tenant, error)
 		var tenant domain.Tenant
 		var theme domain.Theme
 		var address domain.Address
+		var settings domain.TenantSettings
 
 		var description, logoUrl, faviconUrl *string
 		var street, city, state, postalCode, country *string
@@ -94,6 +99,7 @@ func (r *tenantRepository) FindAll(ctx context.Context) ([]domain.Tenant, error)
 			&tenant.ID, &tenant.Name, &tenant.CompanyName, &tenant.Subdomain, &description, &tenant.IsActive,
 			&theme.PrimaryColor, &theme.SecondaryColor, &theme.AccentColor, &theme.TextColor, &theme.BackgroundColor, &logoUrl, &faviconUrl,
 			&street, &city, &state, &postalCode, &country,
+			&settings.ContactEmail, &settings.CompanyWebsite, &settings.Locale, &settings.Timezone, &settings.DateFormat, &settings.TimeFormat, &settings.Currency,
 			&tenant.CreatedAt, &tenant.UpdatedAt,
 		)
 
@@ -111,6 +117,7 @@ func (r *tenantRepository) FindAll(ctx context.Context) ([]domain.Tenant, error)
 		address.PostalCode = derefString(postalCode)
 		address.Country = derefString(country)
 		tenant.Address = address
+		tenant.Settings = settings
 		tenants = append(tenants, tenant)
 	}
 
@@ -126,6 +133,7 @@ func (r *tenantRepository) Update(ctx context.Context, tenant *domain.Tenant) er
 		tenant.Name, tenant.CompanyName, tenant.Subdomain, tenant.Description, tenant.IsActive,
 		tenant.Theme.PrimaryColor, tenant.Theme.SecondaryColor, tenant.Theme.AccentColor, tenant.Theme.TextColor, tenant.Theme.BackgroundColor, tenant.Theme.LogoUrl, tenant.Theme.FaviconUrl,
 		tenant.Address.Street, tenant.Address.City, tenant.Address.State, tenant.Address.PostalCode, tenant.Address.Country,
+		tenant.Settings.ContactEmail, tenant.Settings.CompanyWebsite, tenant.Settings.Locale, tenant.Settings.Timezone, tenant.Settings.DateFormat, tenant.Settings.TimeFormat, tenant.Settings.Currency,
 		tenant.UpdatedAt,
 		tenant.ID,
 	)
