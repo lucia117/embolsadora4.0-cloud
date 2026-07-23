@@ -20,13 +20,25 @@ type AddressUpdate struct {
 	Country    *string `json:"country"`
 }
 
+// SettingsUpdate represents the localization/preferences sub-object for tenant update
+type SettingsUpdate struct {
+	Locale     *string `json:"locale"`
+	Timezone   *string `json:"timezone"`
+	DateFormat *string `json:"dateFormat"`
+	TimeFormat *string `json:"timeFormat"`
+	Currency   *string `json:"currency"`
+}
+
 // TenantUpdateRequest define la estructura para actualizar un tenant (con campos opcionales)
 type TenantUpdateRequest struct {
-	Name        *string        `json:"name"`
-	CompanyName *string        `json:"companyName"`
-	Subdomain   *string        `json:"subdomain"`
-	Description *string        `json:"description"`
-	IsActive    *bool          `json:"isActive"`
-	Theme       *ThemeUpdate   `json:"theme"`
-	Address     *AddressUpdate `json:"address"`
+	Name           *string         `json:"name"`
+	CompanyName    *string         `json:"companyName"`
+	Subdomain      *string         `json:"subdomain"`
+	Description    *string         `json:"description"`
+	IsActive       *bool           `json:"isActive"`
+	ContactEmail   *string         `json:"contactEmail"`
+	CompanyWebsite *string         `json:"companyWebsite"`
+	Theme          *ThemeUpdate    `json:"theme"`
+	Address        *AddressUpdate  `json:"address"`
+	Settings       *SettingsUpdate `json:"settings"`
 }

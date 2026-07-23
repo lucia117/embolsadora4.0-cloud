@@ -3,6 +3,8 @@ package update_tenant
 import (
 	"log"
 	"net/http"
+	"net/mail"
+	"net/url"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -10,6 +12,23 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/api/handler/tenants/update_tenant/models"
 	ucUpdateTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/update_tenant"
 )
+
+var (
+	validLocales     = []string{"es-AR", "es-ES", "en-US", "pt-BR"}
+	validTimezones   = []string{"America/Argentina/Buenos_Aires", "America/Sao_Paulo", "America/Santiago", "America/Lima", "America/Bogota", "America/Mexico_City", "UTC"}
+	validDateFormats = []string{"dd/MM/yyyy", "MM/dd/yyyy", "yyyy-MM-dd"}
+	validTimeFormats = []string{"HH:mm", "hh:mm a"}
+	validCurrencies  = []string{"ARS", "USD", "EUR", "BRL", "CLP", "MXN"}
+)
+
+func isOneOf(v string, allowed []string) bool {
+	for _, a := range allowed {
+		if v == a {
+			return true
+		}
+	}
+	return false
+}
 
 type UpdateTenantHandler struct {
 	useCase ucUpdateTenant.UseCase
@@ -34,6 +53,43 @@ func (h *UpdateTenantHandler) UpdateTenant(c *gin.Context) {
 		return
 	}
 
+	if req.ContactEmail != nil {
+		if _, err := mail.ParseAddress(*req.ContactEmail); err != nil {
+			c.JSON(http.StatusBadRequest, tenantserrors.ErrorResponse{Error: "BAD_REQUEST", Message: "Email de contacto inválido", Status: http.StatusBadRequest})
+			return
+		}
+	}
+
+	if req.CompanyWebsite != nil && *req.CompanyWebsite != "" {
+		if _, err := url.ParseRequestURI(*req.CompanyWebsite); err != nil {
+			c.JSON(http.StatusBadRequest, tenantserrors.ErrorResponse{Error: "BAD_REQUEST", Message: "Sitio web inválido", Status: http.StatusBadRequest})
+			return
+		}
+	}
+
+	if req.Settings != nil {
+		if req.Settings.Locale != nil && !isOneOf(*req.Settings.Locale, validLocales) {
+			c.JSON(http.StatusBadRequest, tenantserrors.ErrorResponse{Error: "BAD_REQUEST", Message: "Idioma inválido", Status: http.StatusBadRequest})
+			return
+		}
+		if req.Settings.Timezone != nil && !isOneOf(*req.Settings.Timezone, validTimezones) {
+			c.JSON(http.StatusBadRequest, tenantserrors.ErrorResponse{Error: "BAD_REQUEST", Message: "Zona horaria inválida", Status: http.StatusBadRequest})
+			return
+		}
+		if req.Settings.DateFormat != nil && !isOneOf(*req.Settings.DateFormat, validDateFormats) {
+			c.JSON(http.StatusBadRequest, tenantserrors.ErrorResponse{Error: "BAD_REQUEST", Message: "Formato de fecha inválido", Status: http.StatusBadRequest})
+			return
+		}
+		if req.Settings.TimeFormat != nil && !isOneOf(*req.Settings.TimeFormat, validTimeFormats) {
+			c.JSON(http.StatusBadRequest, tenantserrors.ErrorResponse{Error: "BAD_REQUEST", Message: "Formato de hora inválido", Status: http.StatusBadRequest})
+			return
+		}
+		if req.Settings.Currency != nil && !isOneOf(*req.Settings.Currency, validCurrencies) {
+			c.JSON(http.StatusBadRequest, tenantserrors.ErrorResponse{Error: "BAD_REQUEST", Message: "Moneda inválida", Status: http.StatusBadRequest})
+			return
+		}
+	}
+
 	// Convert request to usecase request
 	useCaseReq := &ucUpdateTenant.UpdateTenantRequest{}
 
@@ -52,6 +108,12 @@ func (h *UpdateTenantHandler) UpdateTenant(c *gin.Context) {
 	}
 	if req.IsActive != nil {
 		useCaseReq.IsActive = req.IsActive
+	}
+	if req.ContactEmail != nil {
+		useCaseReq.ContactEmail = req.ContactEmail
+	}
+	if req.CompanyWebsite != nil {
+		useCaseReq.CompanyWebsite = req.CompanyWebsite
 	}
 
 	// Handle theme updates
@@ -100,6 +162,27 @@ func (h *UpdateTenantHandler) UpdateTenant(c *gin.Context) {
 			addressUpdate.Country = req.Address.Country
 		}
 		useCaseReq.Address = addressUpdate
+	}
+
+	// Handle settings updates
+	if req.Settings != nil {
+		settingsUpdate := &ucUpdateTenant.SettingsUpdate{}
+		if req.Settings.Locale != nil {
+			settingsUpdate.Locale = req.Settings.Locale
+		}
+		if req.Settings.Timezone != nil {
+			settingsUpdate.Timezone = req.Settings.Timezone
+		}
+		if req.Settings.DateFormat != nil {
+			settingsUpdate.DateFormat = req.Settings.DateFormat
+		}
+		if req.Settings.TimeFormat != nil {
+			settingsUpdate.TimeFormat = req.Settings.TimeFormat
+		}
+		if req.Settings.Currency != nil {
+			settingsUpdate.Currency = req.Settings.Currency
+		}
+		useCaseReq.Settings = settingsUpdate
 	}
 
 	tenant, err := h.useCase.Update(c.Request.Context(), id, useCaseReq)
