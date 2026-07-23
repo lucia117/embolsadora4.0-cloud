@@ -21,3 +21,6 @@ postman/export-*.json
 docs/nosql-aas-research.md
 specs/004-aas-server/
 specs/005-plc-events/
+
+# Git worktrees (superpowers:using-git-worktrees)
+.worktrees/
