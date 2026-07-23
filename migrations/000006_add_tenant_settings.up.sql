@@ -1,5 +1,5 @@
 -- ============================================================================
--- Migration 000005: Add tenant settings fields (contact + localization)
+-- Migration 000006: Add tenant settings fields (contact + localization)
 -- ============================================================================
 -- The frontend /settings page already sends contactEmail, companyWebsite,
 -- locale, timezone, dateFormat, timeFormat, and currency on tenant update,
