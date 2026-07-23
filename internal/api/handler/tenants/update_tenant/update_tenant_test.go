@@ -15,6 +15,8 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/api/handler/tenants/update_tenant/models"
 	ucUpdateTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/update_tenant"
 	"github.com/tu-org/embolsadora-api/internal/domain"
+	"github.com/tu-org/embolsadora-api/internal/platform"
+	"github.com/tu-org/embolsadora-api/internal/security"
 )
 
 type mockRepo struct{}
@@ -73,26 +75,33 @@ func (m *mockRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func newTestHandler() (*UpdateTenantHandler, *gin.Engine) {
+func withActorContext(req *http.Request, role, tenantID string) *http.Request {
+	ctx := security.WithRole(req.Context(), role)
+	ctx = platform.WithTenantID(ctx, tenantID)
+	return req.WithContext(ctx)
+}
+
+func newTestRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	useCase := ucUpdateTenant.NewUseCase(&mockRepo{})
 	h := NewUpdateTenantHandler(useCase)
 	r := gin.Default()
 	r.PATCH("/api/v1/tenants/:tenantId", h.UpdateTenant)
-	return h, r
+	return r
 }
 
 func doPatch(t *testing.T, r *gin.Engine, id string, body []byte) *httptest.ResponseRecorder {
 	t.Helper()
 	req, _ := http.NewRequest("PATCH", "/api/v1/tenants/"+id, bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
+	req = withActorContext(req, "super_admin", uuid.New().String())
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	return w
 }
 
 func TestUpdateTenantHandler(t *testing.T) {
-	_, r := newTestHandler()
+	r := newTestRouter()
 
 	id := uuid.New().String()
 	updateReq := models.TenantUpdateRequest{
@@ -133,7 +142,7 @@ func TestUpdateTenantHandler(t *testing.T) {
 }
 
 func TestUpdateTenantHandler_InvalidID(t *testing.T) {
-	_, r := newTestHandler()
+	r := newTestRouter()
 
 	updateReq := models.TenantUpdateRequest{
 		Name: ptrString("Updated Tenant Name"),
@@ -145,7 +154,7 @@ func TestUpdateTenantHandler_InvalidID(t *testing.T) {
 }
 
 func TestUpdateTenantHandler_InvalidSettings(t *testing.T) {
-	_, r := newTestHandler()
+	r := newTestRouter()
 
 	id := uuid.New().String()
 	updateReq := models.TenantUpdateRequest{
@@ -160,7 +169,7 @@ func TestUpdateTenantHandler_InvalidSettings(t *testing.T) {
 }
 
 func TestUpdateTenantHandler_InvalidContactEmail(t *testing.T) {
-	_, r := newTestHandler()
+	r := newTestRouter()
 
 	id := uuid.New().String()
 	updateReq := models.TenantUpdateRequest{
@@ -170,6 +179,37 @@ func TestUpdateTenantHandler_InvalidContactEmail(t *testing.T) {
 	w := doPatch(t, r, id, body)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestUpdateTenantHandler_OwnTenant_NonGlobalRole_Allowed(t *testing.T) {
+	r := newTestRouter()
+	id := uuid.New().String()
+
+	updateReq := models.TenantUpdateRequest{Name: ptrString("Updated Tenant Name")}
+	body, _ := json.Marshal(updateReq)
+	req, _ := http.NewRequest("PATCH", "/api/v1/tenants/"+id, bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = withActorContext(req, "admin", id)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestUpdateTenantHandler_ForeignTenant_NonGlobalRole_Forbidden(t *testing.T) {
+	r := newTestRouter()
+	id := uuid.New().String()
+	otherTenantID := uuid.New().String()
+
+	updateReq := models.TenantUpdateRequest{Name: ptrString("Updated Tenant Name")}
+	body, _ := json.Marshal(updateReq)
+	req, _ := http.NewRequest("PATCH", "/api/v1/tenants/"+id, bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = withActorContext(req, "admin", otherTenantID)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
 func ptrString(s string) *string { return &s }
