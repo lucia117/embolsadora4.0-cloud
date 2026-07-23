@@ -26,16 +26,28 @@ type Address struct {
 	Country    string `json:"country" db:"country"`
 }
 
+// TenantSettings represents tenant-level contact and localization preferences
+type TenantSettings struct {
+	ContactEmail   string `json:"contactEmail" db:"contact_email"`
+	CompanyWebsite string `json:"companyWebsite" db:"company_website"`
+	Locale         string `json:"locale" db:"locale"`
+	Timezone       string `json:"timezone" db:"timezone"`
+	DateFormat     string `json:"dateFormat" db:"date_format"`
+	TimeFormat     string `json:"timeFormat" db:"time_format"`
+	Currency       string `json:"currency" db:"currency"`
+}
+
 // Tenant representa una organización/empresa en el sistema
 type Tenant struct {
-	ID          uuid.UUID `json:"id" db:"id"`
-	Name        string    `json:"name" db:"name"`
-	CompanyName string    `json:"companyName" db:"company_name"`
-	Subdomain   string    `json:"subdomain" db:"subdomain"`
-	Description string    `json:"description" db:"description"`
-	IsActive    bool      `json:"isActive" db:"is_active"`
-	Theme       Theme     `json:"theme" db:"theme"`
-	Address     Address   `json:"address" db:"address"`
-	CreatedAt   time.Time `json:"createdAt" db:"created_at"`
-	UpdatedAt   time.Time `json:"updatedAt" db:"updated_at"`
+	ID          uuid.UUID      `json:"id" db:"id"`
+	Name        string         `json:"name" db:"name"`
+	CompanyName string         `json:"companyName" db:"company_name"`
+	Subdomain   string         `json:"subdomain" db:"subdomain"`
+	Description string         `json:"description" db:"description"`
+	IsActive    bool           `json:"isActive" db:"is_active"`
+	Theme       Theme          `json:"theme" db:"theme"`
+	Address     Address        `json:"address" db:"address"`
+	Settings    TenantSettings `json:"settings" db:"settings"`
+	CreatedAt   time.Time      `json:"createdAt" db:"created_at"`
+	UpdatedAt   time.Time      `json:"updatedAt" db:"updated_at"`
 }
