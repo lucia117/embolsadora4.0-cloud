@@ -11,16 +11,19 @@ type GetAllTenantsResponse []TenantResponse
 
 // TenantResponse representa un tenant individual en la respuesta
 type TenantResponse struct {
-	ID          string  `json:"id"`
-	Name        string  `json:"name"`
-	CompanyName string  `json:"companyName"`
-	Subdomain   string  `json:"subdomain"`
-	Description string  `json:"description"`
-	IsActive    bool    `json:"isActive"`
-	Theme       Theme   `json:"theme"`
-	Address     Address `json:"address"`
-	CreatedAt   string  `json:"createdAt"`
-	UpdatedAt   string  `json:"updatedAt"`
+	ID             string   `json:"id"`
+	Name           string   `json:"name"`
+	CompanyName    string   `json:"companyName"`
+	Subdomain      string   `json:"subdomain"`
+	Description    string   `json:"description"`
+	IsActive       bool     `json:"isActive"`
+	ContactEmail   string   `json:"contactEmail"`
+	CompanyWebsite string   `json:"companyWebsite"`
+	Theme          Theme    `json:"theme"`
+	Address        Address  `json:"address"`
+	Settings       Settings `json:"settings"`
+	CreatedAt      string   `json:"createdAt"`
+	UpdatedAt      string   `json:"updatedAt"`
 }
 
 // Theme representa la configuración de tema de un tenant
@@ -43,16 +46,27 @@ type Address struct {
 	Country    string `json:"country"`
 }
 
+// Settings representa la configuración de localización/preferencias de un tenant
+type Settings struct {
+	Locale     string `json:"locale"`
+	Timezone   string `json:"timezone"`
+	DateFormat string `json:"dateFormat"`
+	TimeFormat string `json:"timeFormat"`
+	Currency   string `json:"currency"`
+}
+
 func FromDomain(tenants []domain.Tenant) GetAllTenantsResponse {
 	response := make(GetAllTenantsResponse, len(tenants))
 	for i, tenant := range tenants {
 		response[i] = TenantResponse{
-			ID:          tenant.ID.String(),
-			Name:        tenant.Name,
-			CompanyName: tenant.CompanyName,
-			Subdomain:   tenant.Subdomain,
-			Description: tenant.Description,
-			IsActive:    tenant.IsActive,
+			ID:             tenant.ID.String(),
+			Name:           tenant.Name,
+			CompanyName:    tenant.CompanyName,
+			Subdomain:      tenant.Subdomain,
+			Description:    tenant.Description,
+			IsActive:       tenant.IsActive,
+			ContactEmail:   tenant.Settings.ContactEmail,
+			CompanyWebsite: tenant.Settings.CompanyWebsite,
 			Theme: Theme{
 				PrimaryColor:    tenant.Theme.PrimaryColor,
 				SecondaryColor:  tenant.Theme.SecondaryColor,
@@ -68,6 +82,13 @@ func FromDomain(tenants []domain.Tenant) GetAllTenantsResponse {
 				State:      tenant.Address.State,
 				PostalCode: tenant.Address.PostalCode,
 				Country:    tenant.Address.Country,
+			},
+			Settings: Settings{
+				Locale:     tenant.Settings.Locale,
+				Timezone:   tenant.Settings.Timezone,
+				DateFormat: tenant.Settings.DateFormat,
+				TimeFormat: tenant.Settings.TimeFormat,
+				Currency:   tenant.Settings.Currency,
 			},
 			CreatedAt: tenant.CreatedAt.Format(time.RFC3339),
 			UpdatedAt: tenant.UpdatedAt.Format(time.RFC3339),
