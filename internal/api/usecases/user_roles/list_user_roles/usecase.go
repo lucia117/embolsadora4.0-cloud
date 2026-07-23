@@ -10,7 +10,7 @@ import (
 
 // UseCase defines the interface for listing user-role assignments for a tenant.
 type UseCase interface {
-	Execute(ctx context.Context, tenantID uuid.UUID, status *string) ([]domain.UserTenantRole, error)
+	Execute(ctx context.Context, tenantID uuid.UUID, status *string) ([]domain.UserTenantRoleDetail, error)
 }
 
 type useCase struct {
@@ -23,6 +23,6 @@ func NewUseCase(repo userrolesrepo.UserRoleRepository) UseCase {
 }
 
 // Execute returns all UTR assignments for a tenant, optionally filtered by status.
-func (uc *useCase) Execute(ctx context.Context, tenantID uuid.UUID, status *string) ([]domain.UserTenantRole, error) {
+func (uc *useCase) Execute(ctx context.Context, tenantID uuid.UUID, status *string) ([]domain.UserTenantRoleDetail, error) {
 	return uc.repo.FindByTenant(ctx, tenantID, status)
 }
