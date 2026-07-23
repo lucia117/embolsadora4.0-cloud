@@ -19,13 +19,16 @@ type UseCase interface {
 
 // UpdateTenantRequest represents the request to update a tenant
 type UpdateTenantRequest struct {
-	Name        *string
-	CompanyName *string
-	Subdomain   *string
-	Description *string
-	IsActive    *bool
-	Theme       *ThemeUpdate
-	Address     *AddressUpdate
+	Name           *string
+	CompanyName    *string
+	Subdomain      *string
+	Description    *string
+	IsActive       *bool
+	ContactEmail   *string
+	CompanyWebsite *string
+	Theme          *ThemeUpdate
+	Address        *AddressUpdate
+	Settings       *SettingsUpdate
 }
 
 // ThemeUpdate represents the theme configuration for update
@@ -46,6 +49,15 @@ type AddressUpdate struct {
 	State      *string
 	PostalCode *string
 	Country    *string
+}
+
+// SettingsUpdate represents the localization/preferences configuration for update
+type SettingsUpdate struct {
+	Locale     *string
+	Timezone   *string
+	DateFormat *string
+	TimeFormat *string
+	Currency   *string
 }
 
 type useCase struct {
@@ -128,6 +140,33 @@ func (uc *useCase) Update(ctx context.Context, id uuid.UUID, req *UpdateTenantRe
 		}
 		if req.Address.Country != nil {
 			tenant.Address.Country = *req.Address.Country
+		}
+	}
+
+	// Update contact/website fields if provided
+	if req.ContactEmail != nil {
+		tenant.Settings.ContactEmail = *req.ContactEmail
+	}
+	if req.CompanyWebsite != nil {
+		tenant.Settings.CompanyWebsite = *req.CompanyWebsite
+	}
+
+	// Update settings fields if provided
+	if req.Settings != nil {
+		if req.Settings.Locale != nil {
+			tenant.Settings.Locale = *req.Settings.Locale
+		}
+		if req.Settings.Timezone != nil {
+			tenant.Settings.Timezone = *req.Settings.Timezone
+		}
+		if req.Settings.DateFormat != nil {
+			tenant.Settings.DateFormat = *req.Settings.DateFormat
+		}
+		if req.Settings.TimeFormat != nil {
+			tenant.Settings.TimeFormat = *req.Settings.TimeFormat
+		}
+		if req.Settings.Currency != nil {
+			tenant.Settings.Currency = *req.Settings.Currency
 		}
 	}
 

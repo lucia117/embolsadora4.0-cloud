@@ -24,3 +24,6 @@ specs/005-plc-events/
 
 # Git worktrees (superpowers:using-git-worktrees)
 .worktrees/
+
+# Subagent-driven-development scratch (superpowers:subagent-driven-development)
+.superpowers/

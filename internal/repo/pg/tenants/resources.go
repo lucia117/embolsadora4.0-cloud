@@ -3,12 +3,13 @@ package tenants
 const (
 	// FindByIDQuery retrieves a tenant by ID with all related data
 	FindByIDQuery = `
-		SELECT 
+		SELECT
 			id, name, company_name, subdomain, description, is_active,
 			primary_color, secondary_color, accent_color, text_color, background_color, logo_url, favicon_url,
 			street, city, state, postal_code, country,
+			contact_email, company_website, locale, timezone, date_format, time_format, currency,
 			created_at, updated_at
-		FROM tenants 
+		FROM tenants
 		WHERE id = $1
 	`
 
@@ -18,23 +19,26 @@ const (
 			id, name, company_name, subdomain, description, is_active,
 			primary_color, secondary_color, accent_color, text_color, background_color, logo_url, favicon_url,
 			street, city, state, postal_code, country,
+			contact_email, company_website, locale, timezone, date_format, time_format, currency,
 			created_at, updated_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6,
 			$7, $8, $9, $10, $11, $12, $13,
 			$14, $15, $16, $17, $18,
-			$19, $20
+			$19, $20, $21, $22, $23, $24, $25,
+			$26, $27
 		)
 	`
 
 	// FindAllQuery retrieves all tenants ordered by creation date
 	FindAllQuery = `
-		SELECT 
+		SELECT
 			id, name, company_name, subdomain, description, is_active,
 			primary_color, secondary_color, accent_color, text_color, background_color, logo_url, favicon_url,
 			street, city, state, postal_code, country,
+			contact_email, company_website, locale, timezone, date_format, time_format, currency,
 			created_at, updated_at
-		FROM tenants 
+		FROM tenants
 		ORDER BY created_at DESC
 	`
 
@@ -44,8 +48,9 @@ const (
 			name = $1, company_name = $2, subdomain = $3, description = $4, is_active = $5,
 			primary_color = $6, secondary_color = $7, accent_color = $8, text_color = $9, background_color = $10, logo_url = $11, favicon_url = $12,
 			street = $13, city = $14, state = $15, postal_code = $16, country = $17,
-			updated_at = $18
-		WHERE id = $19
+			contact_email = $18, company_website = $19, locale = $20, timezone = $21, date_format = $22, time_format = $23, currency = $24,
+			updated_at = $25
+		WHERE id = $26
 	`
 
 	// DeleteQuery removes a tenant by ID
