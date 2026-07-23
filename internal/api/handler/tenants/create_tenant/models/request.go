@@ -81,6 +81,13 @@ func Parse(c *gin.Context) (*domain.Tenant, error) {
 			PostalCode: req.Address.PostalCode,
 			Country:    req.Address.Country,
 		},
+		Settings: domain.TenantSettings{
+			Locale:     "es-AR",
+			Timezone:   "America/Argentina/Buenos_Aires",
+			DateFormat: "dd/MM/yyyy",
+			TimeFormat: "HH:mm",
+			Currency:   "ARS",
+		},
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
