@@ -211,7 +211,9 @@ func (r *PostgresRepository) CreateWithRole(ctx context.Context, user *users.Use
 	return created, nil
 }
 
-// Update modifies user fields (name, role, image only - immutable fields protected)
+// Update modifies user fields (name, role, image only - immutable fields protected).
+// Membership via user_tenant_roles also qualifies (see GetByID) - auth-provisioned
+// users have tenant_id NULL, so a strict column match alone would never find them.
 func (r *PostgresRepository) Update(ctx context.Context, user *users.User) (*users.User, error) {
 	if err := user.Validate(); err != nil {
 		return nil, fmt.Errorf("%w: %v", users.ErrValidation, err)
@@ -223,8 +225,12 @@ func (r *PostgresRepository) Update(ctx context.Context, user *users.User) (*use
 	query := `
 		UPDATE users
 		SET first_name = $1, last_name = $2, role = $3, image = $4, updated_at = $5
-		WHERE id = $6 AND tenant_id = $7 AND deleted_at IS NULL
-		RETURNING id, tenant_id, first_name, last_name, email, role, image, created_at, updated_at, deleted_at
+		WHERE id = $6 AND deleted_at IS NULL
+		  AND (tenant_id = $7 OR EXISTS (
+		      SELECT 1 FROM user_tenant_roles utr
+		      WHERE utr.user_id = $6 AND utr.tenant_id = $7 AND utr.status = 'active'
+		  ))
+		RETURNING id, COALESCE(tenant_id, $7) AS tenant_id, first_name, last_name, email, role, image, created_at, updated_at, deleted_at
 	`
 
 	row := r.db.QueryRow(ctx, query, user.FirstName, user.LastName, user.Role, user.Image, user.UpdatedAt, user.ID, user.TenantID)
@@ -239,9 +245,17 @@ func (r *PostgresRepository) Update(ctx context.Context, user *users.User) (*use
 	return updated, nil
 }
 
-// Delete soft-deletes a user by setting deleted_at
+// Delete soft-deletes a user by setting deleted_at.
+// Membership via user_tenant_roles also qualifies (see GetByID/Update).
 func (r *PostgresRepository) Delete(ctx context.Context, tenantID, userID string) error {
-	query := `UPDATE users SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`
+	query := `
+		UPDATE users SET deleted_at = CURRENT_TIMESTAMP
+		WHERE id = $1 AND deleted_at IS NULL
+		  AND (tenant_id = $2 OR EXISTS (
+		      SELECT 1 FROM user_tenant_roles utr
+		      WHERE utr.user_id = $1 AND utr.tenant_id = $2 AND utr.status = 'active'
+		  ))
+	`
 
 	result, err := r.db.Exec(ctx, query, userID, tenantID)
 	if err != nil {
