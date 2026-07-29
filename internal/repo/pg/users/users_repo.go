@@ -40,7 +40,9 @@ func (r *pgUserRepo) UpsertBySupabaseID(ctx context.Context, supabaseUserID, ema
 			email          = EXCLUDED.email,
 			last_login_at  = NOW(),
 			updated_at     = NOW()
-		RETURNING id, supabase_user_id, email, name, status,
+		RETURNING id, supabase_user_id, email,
+		          COALESCE(NULLIF(TRIM(CONCAT_WS(' ', first_name, last_name)), ''), name) AS name,
+		          status,
 		          auth_provider, email_verified_at, last_login_at,
 		          password_change_required, created_at, updated_at`
 
@@ -51,7 +53,9 @@ func (r *pgUserRepo) UpsertBySupabaseID(ctx context.Context, supabaseUserID, ema
 // GetBySupabaseID retrieves a user by their Supabase user ID.
 func (r *pgUserRepo) GetBySupabaseID(ctx context.Context, supabaseUserID string) (*domain.User, error) {
 	const q = `
-		SELECT id, supabase_user_id, email, name, status,
+		SELECT id, supabase_user_id, email,
+		       COALESCE(NULLIF(TRIM(CONCAT_WS(' ', first_name, last_name)), ''), name) AS name,
+		       status,
 		       auth_provider, email_verified_at, last_login_at,
 		       password_change_required, created_at, updated_at
 		FROM users
@@ -71,7 +75,9 @@ func (r *pgUserRepo) GetBySupabaseID(ctx context.Context, supabaseUserID string)
 // GetByID retrieves a user by their internal ID.
 func (r *pgUserRepo) GetByID(ctx context.Context, id string) (*domain.User, error) {
 	const q = `
-		SELECT id, supabase_user_id, email, name, status,
+		SELECT id, supabase_user_id, email,
+		       COALESCE(NULLIF(TRIM(CONCAT_WS(' ', first_name, last_name)), ''), name) AS name,
+		       status,
 		       auth_provider, email_verified_at, last_login_at,
 		       password_change_required, created_at, updated_at
 		FROM users
