@@ -2,9 +2,11 @@ package usecases
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/tu-org/embolsadora-api/internal/domain"
+	"github.com/tu-org/embolsadora-api/internal/platform"
 	"go.uber.org/zap"
 )
 
@@ -68,4 +70,17 @@ func resolveInviteDisplayNames(
 	}
 
 	return out
+}
+
+// callbackURL arma la URL de callback del frontend para este tenant, usando el
+// origin que el BFF reporto para este request. Cuando no hay ninguno en el
+// contexto —requests que no pasan por el middleware, o un origin rechazado—
+// cae al default configurado. Invite y recovery comparten esta misma URL: la
+// pagina de callback discrimina por el query param `type` que agrega GoTrue.
+func callbackURL(ctx context.Context, fallbackBase, tenantID string) string {
+	base := platform.AppBaseURL(ctx)
+	if base == "" {
+		base = fallbackBase
+	}
+	return fmt.Sprintf("%s/s/%s/auth/callback", base, tenantID)
 }

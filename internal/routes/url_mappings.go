@@ -38,6 +38,7 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/config"
 	consumers "github.com/tu-org/embolsadora-api/internal/consumers"
 	consumermw "github.com/tu-org/embolsadora-api/internal/consumers/middleware"
+	"github.com/tu-org/embolsadora-api/internal/platform/apporigin"
 	"github.com/tu-org/embolsadora-api/internal/platform/edgeclient"
 	"github.com/tu-org/embolsadora-api/internal/platform/supabase"
 	alarmRulesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/alarm_rules"
@@ -75,6 +76,7 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	tenantRepo := tenantsRepository.NewTenantRepository(db)
 	userRoleRepo := userRolesRepository.NewUserRoleRepository(db)
 	invRepo := invitationsRepo.NewInvitationRepository(db)
+	rRepo := rolesRepo.NewPostgresRepository(db)
 
 	// ── External clients ──────────────────────────────────────────────────────
 	supabaseClient := supabase.NewAdminClient(cfg.Supabase.URL, cfg.Supabase.ServiceRoleKey)
@@ -88,8 +90,8 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	// ── Use cases ─────────────────────────────────────────────────────────────
 	authUC := usecases.NewAuthUsecase(userRepo)
 	meUC := usecases.NewMeUsecase(db)
-	invUC := usecases.NewInvitationUsecase(invRepo, userRepo, userRoleRepo, supabaseClient, redisClient, cfg.Supabase.AppBaseURL, cfg.Supabase.InviteRateLimitHour)
-	passwordUC := usecases.NewPasswordUsecase(userRepo, supabaseClient, logger)
+	invUC := usecases.NewInvitationUsecase(invRepo, userRepo, userRoleRepo, tenantRepo, rRepo, supabaseClient, redisClient, cfg.Supabase.AppBaseURL, cfg.Supabase.InviteRateLimitHour)
+	passwordUC := usecases.NewPasswordUsecase(userRepo, supabaseClient, cfg.Supabase.AppBaseURL, logger)
 
 	// ── JWT verifier ──────────────────────────────────────────────────────────
 	verifier, err := security.NewJWKSVerifier(cfg.Supabase.JWKSUrl, cfg.Supabase.JWTIssuer, cfg.Supabase.JWTAudience)
@@ -112,6 +114,7 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 		apimw.JWTAuth(verifier, authUC, invUC),
 		apimw.TenantFromHeader(db),
 		apimw.PasswordChangeGuard(),
+		apimw.AppBaseURLFromHeader(apporigin.Parse(cfg.Supabase.AppAllowedOrigins), cfg.Supabase.AppBaseURL),
 		apimw.RequestID(),
 		apimw.Logger(),
 		apimw.CORS(),
@@ -176,7 +179,6 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	// Roles surface (/api/v1/roles)
 	// GET endpoints: sin RBAC adicional (cualquier usuario autenticado puede listar/ver roles)
 	// POST/PUT/DELETE: requieren permiso users:write (solo administradores)
-	rRepo := rolesRepo.NewPostgresRepository(db)
 	rService := rolesApp.NewService(rRepo, logger)
 	rolesWriteGroup := v1.Group("", apimw.RBACCheck("users:write"))
 	rolesHandler.RegisterRoutes(v1, rolesWriteGroup, rService)

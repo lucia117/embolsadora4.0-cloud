@@ -25,6 +25,8 @@ type InvitationUsecase struct {
 	invRepo        invitations.InvitationRepository
 	userRepo       users.UserRepository
 	userRoleRepo   userRoles.UserRoleRepository
+	tenantRepo     TenantNameLookup
+	roleRepo       RoleNameLookup
 	supabaseClient supabase.AdminClient
 	redis          *redis.Client
 	appBaseURL     string
@@ -35,6 +37,8 @@ func NewInvitationUsecase(
 	invRepo invitations.InvitationRepository,
 	userRepo users.UserRepository,
 	userRoleRepo userRoles.UserRoleRepository,
+	tenantRepo TenantNameLookup,
+	roleRepo RoleNameLookup,
 	supabaseClient supabase.AdminClient,
 	redisClient *redis.Client,
 	appBaseURL string,
@@ -44,6 +48,8 @@ func NewInvitationUsecase(
 		invRepo:        invRepo,
 		userRepo:       userRepo,
 		userRoleRepo:   userRoleRepo,
+		tenantRepo:     tenantRepo,
+		roleRepo:       roleRepo,
 		supabaseClient: supabaseClient,
 		redis:          redisClient,
 		appBaseURL:     appBaseURL,
@@ -90,8 +96,15 @@ func (uc *InvitationUsecase) CreateInvitation(ctx context.Context, email, roleID
 	}
 
 	// Send invite email via Supabase Admin API
-	redirectTo := fmt.Sprintf("%s/s/%s/auth/callback", uc.appBaseURL, tenantID)
-	if err := uc.supabaseClient.InviteUserByEmail(ctx, email, redirectTo); err != nil {
+	names := resolveInviteDisplayNames(ctx, uc.tenantRepo, uc.roleRepo, tenantID, roleID)
+	inviteErr := uc.supabaseClient.InviteUserByEmail(ctx, supabase.InviteParams{
+		Email:       email,
+		RedirectTo:  callbackURL(ctx, uc.appBaseURL, tenantID),
+		TenantName:  names.TenantName,
+		InviterName: callerUser.Name,
+		RoleName:    names.RoleName,
+	})
+	if inviteErr != nil {
 		// Rollback: mark invitation as revoked since Supabase failed
 		if rbErr := uc.invRepo.UpdateStatus(ctx, created.ID, domain.InvitationStatusRevoked); rbErr != nil {
 			Log.Error("failed to rollback invitation after supabase error",
@@ -99,7 +112,7 @@ func (uc *InvitationUsecase) CreateInvitation(ctx context.Context, email, roleID
 				zap.Error(rbErr),
 			)
 		}
-		return nil, fmt.Errorf("supabase invite failed: %w", err)
+		return nil, fmt.Errorf("supabase invite failed: %w", inviteErr)
 	}
 
 	Log.Info("invitation created",
@@ -121,8 +134,23 @@ func (uc *InvitationUsecase) ResendInvitation(ctx context.Context, invID string)
 		return domain.ErrInvitationNotPending
 	}
 
-	redirectTo := fmt.Sprintf("%s/s/%s/auth/callback", uc.appBaseURL, tenantID)
-	if err := uc.supabaseClient.InviteUserByEmail(ctx, inv.Email, redirectTo); err != nil {
+	names := resolveInviteDisplayNames(ctx, uc.tenantRepo, uc.roleRepo, tenantID, inv.RoleID)
+
+	// InviterName sale de quien esta reenviando, no de quien invito originalmente:
+	// el nombre del invitador original exigiria una consulta mas por un dato
+	// decorativo, y quien reenvia es igual de valido como referencia para el invitado.
+	var inviterName string
+	if u, ok := platform.DomainUser(ctx).(*domain.User); ok && u != nil {
+		inviterName = u.Name
+	}
+
+	if err := uc.supabaseClient.InviteUserByEmail(ctx, supabase.InviteParams{
+		Email:       inv.Email,
+		RedirectTo:  callbackURL(ctx, uc.appBaseURL, tenantID),
+		TenantName:  names.TenantName,
+		InviterName: inviterName,
+		RoleName:    names.RoleName,
+	}); err != nil {
 		return err
 	}
 	Log.Info("invitation resent", zap.String("invitation_id", invID), zap.String("email_domain", emailDomain(inv.Email)))
