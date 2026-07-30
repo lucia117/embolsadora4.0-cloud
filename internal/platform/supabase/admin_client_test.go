@@ -101,20 +101,22 @@ func TestAdminClient_InviteUserByEmail_5xxRetry(t *testing.T) {
 
 func TestAdminClient_SendPasswordResetEmail_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/auth/v1/admin/generate_link", r.URL.Path)
+		// /auth/v1/recover es el endpoint que efectivamente envia. El anterior,
+		// /auth/v1/admin/generate_link, solo devuelve el link en la respuesta.
+		assert.Equal(t, "/auth/v1/recover", r.URL.Path)
+		assert.Equal(t, "https://app.example.com/s/demo/auth/callback", r.URL.Query().Get("redirect_to"))
 		assert.Equal(t, "Bearer test-service-key", r.Header.Get("Authorization"))
 
 		var body map[string]string
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
-		assert.Equal(t, "recovery", body["type"])
 		assert.Equal(t, "user@example.com", body["email"])
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"action_link": "https://supabase.co/reset?token=abc"})
+		json.NewEncoder(w).Encode(map[string]string{})
 	}))
 	defer srv.Close()
 
 	client := supabase.NewAdminClient(srv.URL, "test-service-key")
-	err := client.SendPasswordResetEmail(context.Background(), "user@example.com")
+	err := client.SendPasswordResetEmail(context.Background(), "user@example.com", "https://app.example.com/s/demo/auth/callback")
 	require.NoError(t, err)
 }

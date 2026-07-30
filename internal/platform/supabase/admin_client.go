@@ -29,7 +29,10 @@ type AdminClient interface {
 	InviteUserByEmail(ctx context.Context, p InviteParams) error
 
 	// SendPasswordResetEmail sends a password reset email via Supabase.
-	SendPasswordResetEmail(ctx context.Context, userEmail string) error
+	// redirectTo should be the full frontend callback URL including tenantId;
+	// GoTrue le agrega type=recovery y la pagina de callback redirige de ahi a
+	// la pantalla de cambio de contraseña.
+	SendPasswordResetEmail(ctx context.Context, userEmail, redirectTo string) error
 }
 
 type adminClient struct {
@@ -76,16 +79,17 @@ func (c *adminClient) InviteUserByEmail(ctx context.Context, p InviteParams) err
 	return c.doWithRetry(ctx, http.MethodPost, path, body)
 }
 
-func (c *adminClient) SendPasswordResetEmail(ctx context.Context, userEmail string) error {
-	body, err := json.Marshal(map[string]string{
-		"type":  "recovery",
-		"email": userEmail,
-	})
+func (c *adminClient) SendPasswordResetEmail(ctx context.Context, userEmail, redirectTo string) error {
+	body, err := json.Marshal(map[string]string{"email": userEmail})
 	if err != nil {
 		return fmt.Errorf("marshal recovery request: %w", err)
 	}
 
-	return c.doWithRetry(ctx, http.MethodPost, "/auth/v1/admin/generate_link", body)
+	// /auth/v1/recover es el endpoint que envia el mail. /auth/v1/admin/generate_link
+	// solo acuña el link y lo devuelve en la respuesta — que es lo que hacia esta
+	// funcion antes, por lo que el reset de contraseña no llegaba a destino.
+	path := "/auth/v1/recover?redirect_to=" + url.QueryEscape(redirectTo)
+	return c.doWithRetry(ctx, http.MethodPost, path, body)
 }
 
 // doWithRetry executes the request with 1 retry on 5xx responses.
