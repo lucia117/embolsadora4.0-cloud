@@ -11,13 +11,24 @@ import (
 	"time"
 )
 
+// InviteParams lleva todo lo que el mail de invitacion necesita. TenantName,
+// InviterName y RoleName son best-effort: aterrizan en el user_metadata del
+// invitado y la plantilla cae a una frase generica cuando estan vacios.
+type InviteParams struct {
+	Email       string
+	RedirectTo  string
+	TenantName  string
+	InviterName string
+	RoleName    string
+}
+
 // AdminClient interacts with the Supabase Admin REST API.
 type AdminClient interface {
 	// InviteUserByEmail sends an invitation email via Supabase.
-	// redirectTo should be the full frontend callback URL including tenantId.
-	InviteUserByEmail(ctx context.Context, email, redirectTo string) error
+	// p.RedirectTo should be the full frontend callback URL including tenantId.
+	InviteUserByEmail(ctx context.Context, p InviteParams) error
 
-	// SendPasswordResetEmail sends a password reset email via Supabase generate-link API.
+	// SendPasswordResetEmail sends a password reset email via Supabase.
 	SendPasswordResetEmail(ctx context.Context, userEmail string) error
 }
 
@@ -36,15 +47,32 @@ func NewAdminClient(supabaseURL, serviceRoleKey string) AdminClient {
 	}
 }
 
-func (c *adminClient) InviteUserByEmail(ctx context.Context, email, redirectTo string) error {
-	body, err := json.Marshal(map[string]string{"email": email})
+func (c *adminClient) InviteUserByEmail(ctx context.Context, p InviteParams) error {
+	data := map[string]string{}
+	if p.TenantName != "" {
+		data["tenant_name"] = p.TenantName
+	}
+	if p.InviterName != "" {
+		data["inviter_name"] = p.InviterName
+	}
+	if p.RoleName != "" {
+		data["role_name"] = p.RoleName
+	}
+
+	payload := map[string]any{"email": p.Email}
+	if len(data) > 0 {
+		payload["data"] = data
+	}
+
+	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("marshal invite request: %w", err)
 	}
 
 	// GoTrue expone el invite en /auth/v1/invite (no bajo /admin) y toma
-	// redirect_to como query param; los campos del body van a user_metadata.
-	path := "/auth/v1/invite?redirect_to=" + url.QueryEscape(redirectTo)
+	// redirect_to como query param; el campo data va a user_metadata y de ahi
+	// lo lee la plantilla con {{ .Data.tenant_name }}.
+	path := "/auth/v1/invite?redirect_to=" + url.QueryEscape(p.RedirectTo)
 	return c.doWithRetry(ctx, http.MethodPost, path, body)
 }
 
