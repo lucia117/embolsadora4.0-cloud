@@ -1632,7 +1632,42 @@ Sin esta tarea nada de lo anterior es visible para un usuario. No hay código: s
 - Consumes: todo lo anterior.
 - Produces: el sistema funcionando.
 
-- [ ] **Step 0 (CHECKPOINT — hacelo ANTES que todo lo demas): ¿el token viaja en la query o en el fragment?**
+- [x] **Step 0 (CHECKPOINT) — EJECUTADO 2026-07-30. Resultado: FALLÓ, se corrigió, y quedó verificado.**
+
+> **Lo que pasó.** El checkpoint hizo exactamente lo que se esperaba de él: encontró
+> el problema antes de que se invirtieran horas en Resend y DNS. Siguiendo
+> `/auth/v1/verify` con curl sin permitir redirects, GoTrue contestó
+> `303` con `location: …/auth/callback#access_token=…&type=invite` — el token en el
+> **fragment**, que nunca sale del navegador. La causa: estos links se acuñan del
+> lado del servidor sin `code_challenge` de PKCE, así que GoTrue cae al flujo
+> implícito.
+>
+> **La corrección aplicada** (commits `e6851ce` backend, `58d95ef` frontend): las
+> cuatro plantillas dejan de usar `{{ .ConfirmationURL }}` y linkean a
+> `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=<tipo>`, y el callback llama
+> `verifyOtp` en vez de `exchangeCodeForSession`. Eso saltea `/auth/v1/verify`, con
+> lo cual no se produce ningún fragment. `{{ .RedirectTo }}` trae el `redirect_to`
+> que arma el backend, así que el fix por instancia se preserva — verificado contra
+> el código de GoTrue (`internal/mailer/templatemailer/templatemailer.go:211-217`),
+> no asumido.
+>
+> **Verificación empírica del resultado.** Con un `hashed_token` real de
+> `generate_link`, un GET a
+> `/s/11b36b85-033d-4bb3-9e31-4c92161887c0/auth/callback?token_hash=…&type=invite`
+> —la forma exacta del link que se envía, con el UUID— devolvió:
+>
+> ```
+> HTTP/1.1 307 Temporary Redirect
+> location: http://localhost:3000/s/mrgsrl/dashboard
+> set-cookie: sb-cdjehkbidqqsldaajbui-auth-token=…
+> ```
+>
+> Los tres arreglos confirmados de una: el UUID se canonicaliza al slug (no hay
+> 404), la sesión persiste (la cookie se escribe), y no hay fragment.
+>
+> **Lo que queda para que esto se vea en un mail real:** publicar las plantillas con
+> `./scripts/publish-email-templates.sh`, que necesita un personal access token de
+> Supabase. Hasta entonces los mails salen con las plantillas viejas.
 
 > **Por que va primero.** Los Steps 1 a 3 (Resend, DNS, SMTP) son varias horas
 > de trabajo y de espera de propagacion, y ademas tocan servicios externos que
