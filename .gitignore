@@ -27,3 +27,4 @@ specs/005-plc-events/
 
 # Subagent-driven-development scratch (superpowers:subagent-driven-development)
 .superpowers/
+tmp/emails/
