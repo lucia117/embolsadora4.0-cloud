@@ -12,6 +12,7 @@ type supabaseSubKeyType struct{}
 type domainUserKeyType struct{}
 type userEmailKeyType struct{}
 type tenantUUIDKeyType struct{}
+type appBaseURLKeyType struct{}
 
 var tenantKey = tenantKeyType{}
 var userKey = userKeyType{}
@@ -19,6 +20,7 @@ var supabaseSubKey = supabaseSubKeyType{}
 var domainUserKey = domainUserKeyType{}
 var userEmailKey = userEmailKeyType{}
 var tenantUUIDKey = tenantUUIDKeyType{}
+var appBaseURLKey = appBaseURLKeyType{}
 
 // WithTenantID returns a new context carrying the given tenant ID.
 func WithTenantID(ctx context.Context, tenantID string) context.Context {
@@ -115,4 +117,21 @@ func TenantUUID(ctx context.Context) *uuid.UUID {
 		return &id
 	}
 	return nil
+}
+
+// WithAppBaseURL guarda el base URL del frontend ya validado para este request.
+// Es el origin desde el que se disparo la accion, y determina a donde apuntan
+// los links que se envian por mail.
+func WithAppBaseURL(ctx context.Context, baseURL string) context.Context {
+	return context.WithValue(ctx, appBaseURLKey, baseURL)
+}
+
+// AppBaseURL extrae el base URL del frontend establecido para este request.
+// Devuelve string vacio si ningun middleware lo seteo, en cuyo caso el llamador
+// debe usar su propio valor por defecto.
+func AppBaseURL(ctx context.Context) string {
+	if s, ok := ctx.Value(appBaseURLKey).(string); ok {
+		return s
+	}
+	return ""
 }
