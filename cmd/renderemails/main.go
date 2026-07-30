@@ -11,11 +11,18 @@ import (
 	"path/filepath"
 )
 
+// templateData reproduce el mapa de datos que GoTrue le pasa a cada plantilla
+// (ver internal/mailer/templatemailer/templatemailer.go en supabase/auth). Las
+// plantillas ya no usan .ConfirmationURL — apuntan directo a nuestro callback
+// con .RedirectTo + .TokenHash como query params — pero el campo se mantiene
+// para seguir reflejando el contrato real de GoTrue.
 type templateData struct {
 	ConfirmationURL string
 	Email           string
 	SiteURL         string
 	Token           string
+	TokenHash       string
+	RedirectTo      string
 	Data            interface{}
 }
 
@@ -25,7 +32,18 @@ func main() {
 		panic(err)
 	}
 
-	const confirmURL = "https://cdjehkbidqqsldaajbui.supabase.co/auth/v1/verify?token=abc123&type=invite&redirect_to=https://embolsadora.site/s/11b36b85-033d-4bb3-9e31-4c92161887c0/auth/callback"
+	const confirmURL = "https://cdjehkbidqqsldaajbui.supabase.co/auth/v1/verify?token=abc123&type=invite&redirect_to=http://localhost:3000/s/11b36b85-033d-4bb3-9e31-4c92161887c0/auth/callback"
+
+	// redirectTo es exactamente el redirect_to que manda el backend: la URL de
+	// callback de la instancia, sin query propia. Es el valor que preserva la
+	// URL por instancia (el bug que arranco toda esta rama). Llega con el UUID
+	// del tenant porque el backend Go solo conoce UUIDs; el frontend lo
+	// canonicaliza a slug en el Route Handler.
+	const redirectTo = "http://localhost:3000/s/11b36b85-033d-4bb3-9e31-4c92161887c0/auth/callback"
+
+	// tokenHash imita el hash que emite GoTrue (ConfirmationToken para
+	// invite/signup, RecoveryToken para recovery/magiclink).
+	const tokenHash = "pkce_2f8a1c9e7b4d6a03f5e1c8b2d947a6e0f3c15b8d2a7e94c6b1f0d385"
 
 	cases := map[string]templateData{
 		"completo": {
@@ -33,6 +51,8 @@ func main() {
 			Email:           "usuario@ejemplo.com",
 			SiteURL:         "https://embolsadora.site",
 			Token:           "123456",
+			TokenHash:       tokenHash,
+			RedirectTo:      redirectTo,
 			Data: map[string]string{
 				"tenant_name":  "MRG SRL",
 				"inviter_name": "Federico De Giovanni",
@@ -44,6 +64,8 @@ func main() {
 			Email:           "usuario@ejemplo.com",
 			SiteURL:         "https://embolsadora.site",
 			Token:           "123456",
+			TokenHash:       tokenHash,
+			RedirectTo:      redirectTo,
 			Data:            map[string]string{},
 		},
 		"nil": {
@@ -51,6 +73,8 @@ func main() {
 			Email:           "usuario@ejemplo.com",
 			SiteURL:         "https://embolsadora.site",
 			Token:           "123456",
+			TokenHash:       tokenHash,
+			RedirectTo:      redirectTo,
 			Data:            nil,
 		},
 	}
