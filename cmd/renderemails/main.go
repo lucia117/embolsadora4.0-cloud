@@ -16,7 +16,7 @@ type templateData struct {
 	Email           string
 	SiteURL         string
 	Token           string
-	Data            map[string]string
+	Data            interface{}
 }
 
 func main() {
@@ -45,6 +45,13 @@ func main() {
 			SiteURL:         "https://embolsadora.site",
 			Token:           "123456",
 			Data:            map[string]string{},
+		},
+		"nil": {
+			ConfirmationURL: confirmURL,
+			Email:           "usuario@ejemplo.com",
+			SiteURL:         "https://embolsadora.site",
+			Token:           "123456",
+			Data:            nil,
 		},
 	}
 
