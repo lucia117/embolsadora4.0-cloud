@@ -247,7 +247,21 @@ func (uc *InvitationUsecase) ActivatePendingInvitations(ctx context.Context, ema
 		return nil
 	}
 
-	return uc.userRepo.SetStatus(ctx, userID, domain.UserStatusActive)
+	// Invited users come from Supabase's invite flow and never set a password;
+	// once their one-time invite session expires, email+password login is
+	// impossible without one. Force the change-password screen on next load
+	// so they set one while we know they're still authenticated.
+	//
+	// Both writes are best-effort side effects of an otherwise-successful
+	// activation: run them independently (a failure in one must not skip the
+	// other) and join their errors. Like SetStatus below, the caller
+	// (JWTAuth) only logs this error and does not abort the request — the
+	// user is mid-login and already provisioned; failing the request over a
+	// secondary flag write would be worse than a user who occasionally
+	// doesn't get prompted to set a password until their next visit.
+	statusErr := uc.userRepo.SetStatus(ctx, userID, domain.UserStatusActive)
+	pwErr := uc.userRepo.SetPasswordChangeRequired(ctx, userID, true)
+	return errors.Join(statusErr, pwErr)
 }
 
 // emailDomain returns only the domain part of an email for safe logging (e.g. "user@example.com" → "@example.com").
