@@ -1570,6 +1570,8 @@ curl -sS -X PATCH \
 echo "plantillas publicadas en el proyecto ${SUPABASE_PROJECT_REF}"
 ```
 
+> **Corrección aplicada durante la ejecución.** El `curl -sS` de arriba **no detecta fallas HTTP**: ante un 401 por token vencido imprime el JSON de error y el script igual dice "plantillas publicadas", con exit 0. Un script de publicación que reporta éxito cuando falló es peor que no tenerlo, porque se corre una sola vez y se le cree. La versión implementada captura el status code explícitamente y sale distinto de cero ante cualquier respuesta que no sea 2xx, imprimiendo status y body. Ver `scripts/publish-email-templates.sh` para la forma final.
+
 Hacerlo ejecutable: `chmod +x scripts/publish-email-templates.sh`
 
 - [ ] **Step 2: Documentar el flujo**
