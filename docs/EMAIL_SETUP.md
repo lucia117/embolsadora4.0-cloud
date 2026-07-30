@@ -4,11 +4,29 @@ Runbook operativo para que los mails de invitación, reset de contraseña,
 confirmación y magic link salgan desde `no-responder@embolsadora.site` en vez
 del mailer compartido de Supabase.
 
-**Estado al 2026-07-30:** el código está listo y las plantillas ya están
-publicadas en Supabase. Falta lo de este documento: arreglar el DNS y dar de
-alta el proveedor de envío. Mientras tanto los mails salen igual y con el
-diseño correcto, pero desde `noreply@mail.app.supabase.io` y con el rate limit
-del servicio compartido de Supabase, documentado como solo para desarrollo.
+**Estado al 2026-07-30: COMPLETADO.** Los Pasos 0 a 4 están ejecutados y
+verificados. Los mails de auth salen por Resend desde
+`no-responder@embolsadora.site`.
+
+Resumen de lo aplicado:
+
+- **Paso 0** — delegación DNS unificada en Vercel. El registrador quedó con
+  `ns1/ns2.vercel-dns.com` únicamente; propagó en 3 minutos. El CNAME inválido
+  del ápex desapareció y el sitio siguió respondiendo 200 durante todo el
+  cambio.
+- **Pasos 1 y 2** — dominio dado de alta en Resend (región `sa-east-1`). Con la
+  delegación arreglada, el "Auto configure" (Domain Connect) funcionó y escribió
+  los tres registros en Vercel. El DMARC se agregó aparte con `vercel dns add`.
+- **Paso 3** — API key creada con permiso *Sending access* únicamente. Verificado
+  que no puede listar dominios, solo enviar.
+- **Paso 4** — SMTP configurado en Supabase por Management API. Verificado con
+  read-back: host `smtp.resend.com`, puerto 465, remitente
+  `no-responder@embolsadora.site`, `smtp_max_frequency` en 60 segundos.
+
+El dominio se verificó funcionalmente antes de tocar el SMTP: se envió un mail
+de prueba por la API de Resend, que habría sido rechazado si el dominio no
+estuviese verificado. Ese orden importa — configurar el SMTP antes de que
+Resend verifique deja todos los mails de auth fallando.
 
 ---
 
