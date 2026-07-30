@@ -5,49 +5,92 @@ confirmación y magic link salgan desde `no-responder@embolsadora.site` en vez
 del mailer compartido de Supabase.
 
 **Estado al 2026-07-30:** el código está listo y las plantillas ya están
-publicadas en Supabase. Falta únicamente lo de este documento: el proveedor de
-envío. Hasta que se complete, los mails salen igual y con el diseño correcto,
-pero desde `noreply@mail.app.supabase.io` y con el rate limit del servicio
-compartido de Supabase, que está documentado como solo para desarrollo.
+publicadas en Supabase. Falta lo de este documento: arreglar el DNS y dar de
+alta el proveedor de envío. Mientras tanto los mails salen igual y con el
+diseño correcto, pero desde `noreply@mail.app.supabase.io` y con el rate limit
+del servicio compartido de Supabase, documentado como solo para desarrollo.
 
 ---
 
-## Lo que hay que saber antes de empezar
+## Paso 0 — Arreglar la delegación DNS (bloqueante)
 
-### El DNS está en DonWeb, no en Vercel
+**Hay que hacer esto antes que nada.** No es una mejora opcional: sin esto, la
+autenticación de los mails va a fallar de forma intermitente e imposible de
+diagnosticar.
 
-Aunque el sitio se sirve desde Vercel, la zona DNS de `embolsadora.site` la
-administra **DonWeb**. Verificado contra un resolver público:
+### El problema
+
+El dominio está delegado a **dos proveedores distintos al mismo tiempo**.
+Según los servidores autoritativos del TLD `.site`:
 
 ```
-$ dig @8.8.8.8 NS embolsadora.site
-embolsadora.site.  14400  IN  CNAME  cname.vercel-dns.com.
+embolsadora.site.  900  IN  NS  ns1.donweb.com.
+embolsadora.site.  900  IN  NS  ns2.donweb.com.
+embolsadora.site.  900  IN  NS  ns1.vercel-dns.com.
+embolsadora.site.  900  IN  NS  ns2.vercel-dns.com.
 ```
 
-DonWeb publica un CNAME en el ápex apuntando a Vercel. Los nameservers
-`ns1..4.vercel-dns-3.com` que aparecen en una consulta NS son los de *ese
-destino*, no los del dominio. Por eso el panel de Vercel muestra
-**"Nameservers: Third Party"**, y por eso los registros van cargados **en el
-panel de DonWeb**.
+DonWeb y Vercel sirven zonas **diferentes**, y cada resolver del mundo elige
+uno arbitrariamente. Para un sitio web da igual, porque los dos caminos llevan
+a Vercel. Para mails es fatal: si el DKIM se carga en un solo proveedor, Gmail
+lo va a encontrar únicamente cuando le toque consultar ese servidor. El resto
+de las veces el mail llega sin firma válida y cae en spam — de forma
+intermitente, que es la peor manera de fallar.
 
-### Por qué falla "Auto configure" en Resend
+Esto también explica por qué el botón **"Auto configure"** de Resend devuelve
+*"Domain Connect Failed — This domain is not using Vercel DNS"*: Vercel ve
+nameservers ajenos en la delegación y se niega a escribir.
 
-El botón usa Domain Connect, que le pide al proveedor de DNS que escriba los
-registros automáticamente. Resend detecta Vercel por el CNAME y le pide a
-Vercel; Vercel responde *"This domain is not using Vercel DNS"* y aborta.
+### Qué tiene cada zona hoy
 
-**Usar siempre "Manual setup".**
+Consultando cada servidor por separado:
 
-### El CNAME en el ápex limita qué se puede cargar
+| | `ns1.donweb.com` | `ns1.vercel-dns.com` |
+|---|---|---|
+| SOA | `ns3.hostmar.com` | `ns1.vercel-dns.com` |
+| Contenido | **un solo CNAME en el ápex** → `cname.vercel-dns.com` | zona completa: NS propios, A del sitio (`216.198.79.65`, `64.29.17.1`) |
+| MX / TXT / www | ninguno | ninguno |
 
-Un CNAME en el ápex impide cualquier otro registro en ese mismo nombre (RFC
-1034). O sea: **no se puede poner un TXT de SPF en `embolsadora.site` a secas.**
+La zona de DonWeb es un apaño para simular un ALIAS en el ápex: como todo
+cuelga de ese CNAME, cualquier consulta (A, MX, TXT) devuelve lo mismo. **No
+contiene nada que valga la pena conservar.**
 
-No es un problema para esto, porque Resend usa subdominios para todos sus
-registros (`send.embolsadora.site`, `resend._domainkey.embolsadora.site`) y los
-subdominios no están afectados. Pero conviene tenerlo presente si alguna vez
-hace falta un registro en el ápex — ahí habría que mover los nameservers a
-Vercel o a otro DNS que soporte ALIAS/ANAME.
+Además, un CNAME en el ápex es inválido según RFC 1034 — impide que ese mismo
+nombre tenga cualquier otro registro. Mientras exista, no se puede poner un SPF
+en `embolsadora.site` a secas.
+
+### La solución
+
+En el registrador (**Dattatec / DonWeb**), dejar **únicamente** los
+nameservers de Vercel:
+
+```
+ns1.vercel-dns.com
+ns2.vercel-dns.com
+```
+
+Es decir: quitar `ns1.donweb.com` y `ns2.donweb.com`.
+
+En el panel: *Mis servicios → Dominios → Gestionar → Nameservers y Zona DNS*.
+
+**Por qué es seguro:** el sitio ya resuelve a Vercel por los dos caminos, así
+que no cambia a dónde apunta. Y la zona de DonWeb no tiene ningún registro
+propio que se pierda.
+
+**Qué se gana:** Vercel pasa a ser la única autoridad, desaparece el CNAME
+inválido en el ápex (Vercel resuelve el ápex correctamente con A/ALIAS),
+el panel deja de decir "Third Party", y a partir de ahí los registros se
+cargan en Vercel — por UI o por CLI.
+
+### Verificar que se aplicó
+
+```bash
+whois embolsadora.site | grep -i "name server"
+dig @8.8.8.8 NS embolsadora.site +short
+```
+
+Ambos deben mostrar solo los dos de Vercel. La propagación de un cambio de
+nameservers puede tardar de minutos a 48 horas. **No seguir hasta que esté.**
 
 ---
 
@@ -56,9 +99,11 @@ Vercel o a otro DNS que soporte ALIAS/ANAME.
 1. Crear cuenta en https://resend.com/signup (gratis, sin tarjeta).
 2. **Domains → Add Domain →** `embolsadora.site`.
 3. Región de envío: **`sa-east-1` (São Paulo)**, la más cercana a Argentina.
-4. En la pantalla de DNS Records, elegir **"Manual setup"**.
+4. En DNS Records, una vez hecho el Paso 0, **"Auto configure"** debería
+   funcionar y escribir los registros en Vercel solo. Si igual falla, usar
+   **"Manual setup"** y seguir el Paso 2.
 
-Resend va a mostrar tres registros, todos sobre subdominios:
+Los registros que pide Resend son tres, todos sobre subdominios:
 
 | Tipo | Nombre | Valor | Notas |
 |------|--------|-------|-------|
@@ -71,34 +116,35 @@ Resend va a mostrar tres registros, todos sobre subdominios:
 
 ---
 
-## Paso 2 — Cargar los registros en DonWeb
+## Paso 2 — Cargar los registros en Vercel (si el auto-configure falla)
 
-Panel de DonWeb → zona DNS de `embolsadora.site` → agregar los tres registros
-del paso anterior.
+Ya con la delegación unificada, los registros van **en Vercel**, no en DonWeb.
 
-Ojo con dos cosas que rompen esto seguido:
+Por UI: *Vercel → Domains → embolsadora.site → DNS Records → Add*.
 
-- **El nombre es relativo.** Si el panel pide el nombre a secas, va `send` y
-  `resend._domainkey`, no `send.embolsadora.site`. Si el panel completa el
-  dominio solo y cargás el nombre completo, termina en
-  `send.embolsadora.site.embolsadora.site` y no funciona nada.
-- **La clave DKIM es larga y no debe cortarse.** Copiarla entera, sin espacios
-  ni saltos de línea agregados.
+Por CLI, que es más rápido y deja constancia:
 
-Agregar además el DMARC en modo observación, que Resend no siempre incluye:
+```bash
+cd ~/Develop/UTN/embolsadora-frontend
 
-| Tipo | Nombre | Valor |
-|------|--------|-------|
-| TXT | `_dmarc` | `v=DMARC1; p=none; rua=mailto:federicoadegiovanni@gmail.com` |
+vercel dns add embolsadora.site send MX feedback-smtp.sa-east-1.amazonses.com 10
+vercel dns add embolsadora.site send TXT "v=spf1 include:amazonses.com ~all"
+vercel dns add embolsadora.site resend._domainkey TXT "p=MIGfMA0GCSq..."
+vercel dns add embolsadora.site _dmarc TXT "v=DMARC1; p=none; rua=mailto:federicoadegiovanni@gmail.com"
 
-`p=none` significa "observá y reportá, no bloquees". Es el modo correcto para
-arrancar: si algo está mal configurado, los mails siguen llegando y los
-reportes avisan. Recién cuando lleguen reportes limpios durante un tiempo tiene
-sentido subirlo a `p=quarantine` y después a `p=reject`.
+vercel dns ls embolsadora.site
+```
+
+El nombre va **relativo** (`send`, no `send.embolsadora.site`): si se pone el
+nombre completo termina como `send.embolsadora.site.embolsadora.site`. Y la
+clave DKIM es larga: va entera, sin espacios ni saltos agregados.
+
+Sobre el DMARC: `p=none` significa "observá y reportá, no bloquees". Es el modo
+correcto para arrancar — si algo está mal, los mails siguen llegando y los
+reportes avisan. Recién con reportes limpios durante un tiempo tiene sentido
+subirlo a `p=quarantine` y después a `p=reject`.
 
 ### Verificar la propagación
-
-Desde la terminal, hasta que las tres respondan:
 
 ```bash
 dig @8.8.8.8 TXT send.embolsadora.site +short
@@ -108,14 +154,14 @@ dig @8.8.8.8 TXT _dmarc.embolsadora.site +short
 ```
 
 Después volver a Resend y esperar a que el dominio figure como **Verified**.
-Puede tardar de minutos a algunas horas. **No seguir hasta que verifique**: si
-se configura el SMTP antes, todos los mails de auth del proyecto van a fallar.
+**No seguir hasta que verifique**: si se configura el SMTP antes, todos los
+mails de auth del proyecto van a fallar.
 
 ---
 
 ## Paso 3 — Crear la API key en Resend
 
-**API Keys → Create API Key**, con permiso *Sending access*. Empieza con `re_`.
+**API Keys → Create API Key**, permiso *Sending access*. Empieza con `re_`.
 
 Esa key **es la contraseña SMTP**. Es un secreto: no pegarla en un chat, un
 issue ni un commit. Para dejarla disponible localmente:
@@ -140,7 +186,7 @@ Custom SMTP*:
 | Sender email | `no-responder@embolsadora.site` |
 | Sender name | `Embolsadora` |
 
-Equivalente por Management API, si se prefiere no usar el dashboard:
+Equivalente por Management API:
 
 ```bash
 curl -X PATCH "https://api.supabase.com/v1/projects/cdjehkbidqqsldaajbui/config/auth" \
@@ -159,7 +205,7 @@ curl -X PATCH "https://api.supabase.com/v1/projects/cdjehkbidqqsldaajbui/config/
 **Este paso tiene efecto inmediato y global.** Apenas se guarda, *todos* los
 mails de auth del proyecto salen por Resend.
 
-No hace falta crear ninguna casilla de correo: Resend permite enviar *desde*
+No hace falta crear ninguna casilla: Resend permite enviar *desde*
 `no-responder@embolsadora.site` con solo tener el dominio verificado. Es solo
 envío — si alguien responde, no llega a ningún lado, que es el comportamiento
 esperado de un "no responder".
@@ -189,8 +235,8 @@ Fuera del alcance de este documento, pero pendiente para que la feature quede
 completa en producción:
 
 - **Env vars en Cloud Run:** `APP_BASE_URL=https://embolsadora.site` y
-  `APP_ALLOWED_ORIGINS`. Ojo con la sintaxis de `gcloud` para un valor que
-  contiene comas — ver el Step 5 de
+  `APP_ALLOWED_ORIGINS`. Ojo con la sintaxis de `gcloud` para un valor con
+  comas — ver el Step 5 de
   `docs/superpowers/plans/2026-07-29-invitation-email.md`, que documenta la
   forma correcta del delimitador alternativo `^|^`.
 - **Deploy de ambos repos.** La rama del backend se mergea con **squash**: tres
@@ -204,3 +250,5 @@ completa en producción:
 - Plan de implementación: `docs/superpowers/plans/2026-07-29-invitation-email.md`
 - Pendientes y hallazgos diferidos: `docs/superpowers/plans/2026-07-29-invitation-email-followups.md`
 - Plantillas y cómo publicarlas: `emails/README.md`
+- Documentación de DonWeb sobre zona DNS:
+  https://soporte.donweb.com/hc/es/articles/18274192917012--C%C3%B3mo-crear-y-modificar-la-Zona-DNS
