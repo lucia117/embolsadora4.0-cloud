@@ -84,3 +84,33 @@ func TestResolveInviteDisplayNames_RoleIDVacioNoConsultaElRepo(t *testing.T) {
 	assert.Equal(t, "MRG SRL", names.TenantName)
 	assert.Empty(t, names.RoleName)
 }
+
+// TestResolveInviteDisplayNames_TenantNoEncontradoNoPierdeElRol cubre el caso
+// (t=nil, err=nil) que devuelve FindByID cuando el tenant_id es valido pero no
+// existe (pgx.ErrNoRows mapeado a nil,nil en tenants.repository.go). Es el
+// disparador mas realista de este best-effort: un tenant_id invalido/borrado,
+// no una caida de base de datos.
+func TestResolveInviteDisplayNames_TenantNoEncontradoNoPierdeElRol(t *testing.T) {
+	names := resolveInviteDisplayNames(
+		context.Background(),
+		fakeTenantLookup{},
+		fakeRoleLookup{role: &domain.Role{Name: "Operador"}},
+		testTenantID, "operator",
+	)
+	assert.Empty(t, names.TenantName)
+	assert.Equal(t, "Operador", names.RoleName, "un tenant no encontrado no puede arrastrar al rol")
+}
+
+// TestResolveInviteDisplayNames_AmbosLookupsNilNoPanica ejercita los guards
+// `tenants != nil` / `roles != nil`: pasar nil en ambos no debe panickear y
+// debe devolver ambos nombres vacios.
+func TestResolveInviteDisplayNames_AmbosLookupsNilNoPanica(t *testing.T) {
+	names := resolveInviteDisplayNames(
+		context.Background(),
+		nil,
+		nil,
+		testTenantID, "operator",
+	)
+	assert.Empty(t, names.TenantName)
+	assert.Empty(t, names.RoleName)
+}
