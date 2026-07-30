@@ -161,7 +161,7 @@ Solo `invite.html` usa datos de tenant. Las otras tres son genéricas con el mis
 
 Eso implica cambiar la firma de `SendPasswordResetEmail`, que hoy recibe solo el email y no tiene por dónde recibir un `redirect_to`. `ForcePasswordChange` (`internal/api/usecases/password_usecase.go:62`) es su único llamador.
 
-El destino del `redirect_to` de recovery no es el mismo que el de invite: la invitación va a `/s/{tenantId}/auth/callback`, mientras que el reset tiene que llevar a la pantalla de cambio de contraseña. **A definir en el plan de implementación** cuál es esa ruta exacta en el frontend.
+El `redirect_to` de recovery es **la misma URL** que la de invite: `{base}/s/{tenantId}/auth/callback`. La página de callback (`src/app/s/[tenantId]/auth/callback/page.tsx`) ya discrimina por el query param `type` que agrega GoTrue y redirige a `/s/{tenantId}/auth/change-password` cuando vale `recovery`. No hace falta ruta nueva ni cambio en el frontend para esto.
 
 ### 5. Observabilidad
 
@@ -206,7 +206,7 @@ Los comandos de Go corren vía Docker: en esta máquina no hay Go instalado en e
 
 ## Fuera de alcance
 
-- **Branding por tenant en el mail.** El theme (colores, logo) vive en `tenants/tenants.json` del frontend; la tabla `tenants` del backend solo tiene name, company_name, subdomain, description e is_active. Hacerlo requeriría propagar color y logo por toda la cadena o replicar el branding en la DB.
+- **Branding por tenant en el mail.** Queda afuera **por decisión de diseño**, no por imposibilidad técnica: se eligió la variante sobria con marca Embolsadora. Corrección a una suposición previa de este documento: la tabla `tenants` del backend **sí** tiene el theme completo (`domain.Tenant.Theme` con `PrimaryColor`, `SecondaryColor`, `AccentColor`, `LogoUrl`, `FaviconUrl`), así que si en el futuro se quisiera branding por tenant, los datos ya están disponibles y solo habría que sumarlos al payload de `data` y a la plantilla.
 - **Mails en más de un idioma.** Todo en español rioplatense.
 - **Cambiar el vencimiento de 7 días** del registro de invitación en la DB.
 - **Reemplazar Supabase como emisor.** El envío propio desde Go queda descartado en esta iteración.
