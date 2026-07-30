@@ -99,6 +99,20 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 		log.Fatalf("failed to initialize JWKS verifier: %v", err)
 	}
 
+	// ── Allow-list de origins para links de mail ──────────────────────────────
+	// Se parsea una sola vez y se deja constancia en el arranque: si la env var
+	// falta o todas sus entradas son invalidas la lista queda vacia, el header
+	// X-App-Base-URL se ignora en todos los requests y los mails vuelven a
+	// salir con APP_BASE_URL — exactamente el bug que esta feature arregla.
+	// Con los contadores en el log, esa mala config es un hecho observable al
+	// arrancar y no un Warn por request que alguien tiene que estar mirando.
+	appOrigins := apporigin.Parse(cfg.Supabase.AppAllowedOrigins)
+	logger.Info("app origin allow-list",
+		zap.Int("exact", appOrigins.ExactCount()),
+		zap.Int("wildcard", appOrigins.WildcardCount()),
+		zap.String("fallback", cfg.Supabase.AppBaseURL),
+	)
+
 	// ── Handlers ──────────────────────────────────────────────────────────────
 	meHandler := handlerMe.NewHandler(meUC)
 	createInvHandler := handlerCreateInvitation.NewHandler(invUC)
@@ -114,7 +128,7 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 		apimw.JWTAuth(verifier, authUC, invUC),
 		apimw.TenantFromHeader(db),
 		apimw.PasswordChangeGuard(),
-		apimw.AppBaseURLFromHeader(apporigin.Parse(cfg.Supabase.AppAllowedOrigins), cfg.Supabase.AppBaseURL),
+		apimw.AppBaseURLFromHeader(appOrigins, cfg.Supabase.AppBaseURL),
 		apimw.RequestID(),
 		apimw.Logger(),
 		apimw.CORS(),

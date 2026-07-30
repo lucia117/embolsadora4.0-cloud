@@ -1632,6 +1632,52 @@ Sin esta tarea nada de lo anterior es visible para un usuario. No hay código: s
 - Consumes: todo lo anterior.
 - Produces: el sistema funcionando.
 
+- [ ] **Step 0 (CHECKPOINT — hacelo ANTES que todo lo demas): ¿el token viaja en la query o en el fragment?**
+
+> **Por que va primero.** Los Steps 1 a 3 (Resend, DNS, SMTP) son varias horas
+> de trabajo y de espera de propagacion, y ademas tocan servicios externos que
+> no se deshacen con un `git revert`. Este chequeo cuesta cinco minutos y decide
+> si la pagina de callback tal como esta escrita puede llegar a funcionar. Si
+> sale mal y lo descubris recien en el Step 7, tiraste el dia.
+
+`src/app/s/[tenantId]/auth/callback/page.tsx` es un Server Component: lee
+`searchParams.code` y `searchParams.type`. El servidor **solo ve la query
+string**. Si GoTrue redirige con el token en el *fragment* de la URL
+(`#access_token=…&type=recovery`), ese pedazo nunca sale del navegador: el
+servidor no lo recibe, `exchangeCodeForSession` no corre, la rama
+`type === 'recovery'` no dispara y un reset de contraseña termina en
+`/dashboard` en vez de la pantalla de cambio de contraseña. Es el clasico
+tropiezo de Supabase con SSR.
+
+Como verificarlo (no hace falta SMTP propio: alcanza el mailer default de
+Supabase, que ya manda con las plantillas publicadas en la Task 10):
+
+1. Invitar a `federicoadegiovanni+checkpoint@gmail.com` desde el frontend.
+2. Abrir el mail y **copiar el href del boton sin hacerle click** (el click
+   quema el token de un solo uso).
+3. Mirar la URL final a la que redirige `…/auth/v1/verify?…`. Lo que importa
+   es como llega el token al frontend:
+   - `…/s/<tenant>/auth/callback?code=<uuid>` → **bien**, seguí con el Step 1.
+   - `…/s/<tenant>/auth/callback#access_token=…&type=invite` → **pará acá**.
+
+Si es fragment, antes de seguir hay que:
+
+- Cambiar las cuatro plantillas de `emails/` para que armen el link con
+  `{{ .TokenHash }}` en vez de `{{ .ConfirmationURL }}`, y republicarlas con
+  `./scripts/publish-email-templates.sh`.
+- Reemplazar la pagina de callback por una que llame a
+  `supabase.auth.verifyOtp({ token_hash, type })` con los valores que ahora
+  vienen por query.
+- Recien despues arrancar con el Step 1.
+
+De paso, en el mismo chequeo confirmá que al abrir el link quedás
+**efectivamente logueado** (el dashboard carga y no te rebota al login). Si te
+rebota, el problema no es el token sino donde se escribe la cookie de sesion:
+un Server Component no puede setear cookies y `createClient()` de
+`src/lib/supabase/server.ts` se traga ese error en un `catch` vacio. El remedio
+es el mismo que arriba — mover el callback a un Route Handler
+(`auth/callback/route.ts`) que sí puede escribir cookies.
+
 - [ ] **Step 1: Alta del dominio en Resend**
 
 Crear cuenta en resend.com, agregar el dominio `embolsadora.site`, y copiar los registros DNS que muestra (típicamente un TXT de SPF, un TXT/CNAME de DKIM, y opcionalmente uno de DMARC).
@@ -1664,12 +1710,16 @@ Sin esto GoTrue descarta el `redirect_to` y manda al Site URL — el fix del bac
 ```bash
 gcloud run services update embolsadora-api \
   --project embolsadora --region us-east1 \
-  --update-env-vars 'APP_BASE_URL=https://embolsadora.site,APP_ALLOWED_ORIGINS=https://embolsadora.site^|^http://localhost:3000'
+  --update-env-vars '^|^APP_BASE_URL=https://embolsadora.site|APP_ALLOWED_ORIGINS=https://embolsadora.site,http://localhost:3000'
 ```
 
-> `--update-env-vars` usa la coma como separador entre variables, así que una lista con comas adentro necesita delimitador alternativo. La sintaxis `^|^` le dice a gcloud que use `|` como separador. Verificar el resultado con
+> `--update-env-vars` usa la coma como separador entre variables, así que una lista con comas adentro necesita delimitador alternativo. La sintaxis `^|^` le dice a gcloud que use `|` como separador — y va como **prefijo del argumento entero**, no en el medio de un valor. Si se escribe en el medio, gcloud sigue partiendo por coma y `APP_ALLOWED_ORIGINS` queda con el literal `https://embolsadora.site^|^http://localhost:3000`, que `apporigin.Parse` descarta por host invalido: la allow-list queda **vacía** y todas las invitaciones vuelven a caer al fallback, o sea el bug original de vuelta pero en silencio. Verificar el resultado con
 > `gcloud run services describe embolsadora-api --project embolsadora --region us-east1 --format='value(spec.template.spec.containers[0].env)'`
 > y confirmar que `APP_ALLOWED_ORIGINS` quedó con las dos URLs separadas por coma.
+>
+> Segunda confirmación, esta desde el propio servicio: en los logs del arranque
+> tiene que aparecer `app origin allow-list` con `exact=2` y `wildcard=0`. Si
+> `exact` es 0, la env var no llegó bien y los mails van a salir con el fallback.
 
 Para desarrollo local, agregar en `.env.local` del backend: `APP_ALLOWED_ORIGINS=http://localhost:3000`.
 

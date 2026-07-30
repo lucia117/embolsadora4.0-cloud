@@ -58,3 +58,16 @@ func TestParse_EntradasInvalidasSeIgnoran(t *testing.T) {
 	assert.True(t, list.Allows("https://embolsadora.site"))
 	assert.False(t, list.Allows("ftp://embolsadora.site"))
 }
+
+// TestCounts_ReflejanLoQueRealmenteSeCargo respalda el log de arranque: las
+// entradas invalidas no se cuentan, asi que un contador en cero es la señal
+// de que la allow-list quedo inerte.
+func TestCounts_ReflejanLoQueRealmenteSeCargo(t *testing.T) {
+	list := apporigin.Parse("https://embolsadora.site,http://localhost:3000,https://*.vercel.app,no-es-una-url, ")
+	assert.Equal(t, 2, list.ExactCount())
+	assert.Equal(t, 1, list.WildcardCount())
+
+	vacia := apporigin.Parse("")
+	assert.Equal(t, 0, vacia.ExactCount())
+	assert.Equal(t, 0, vacia.WildcardCount())
+}

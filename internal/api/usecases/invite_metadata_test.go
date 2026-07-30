@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/tu-org/embolsadora-api/internal/domain"
+	"github.com/tu-org/embolsadora-api/internal/platform"
 )
 
 const testTenantID = "11b36b85-033d-4bb3-9e31-4c92161887c0"
@@ -113,4 +114,21 @@ func TestResolveInviteDisplayNames_AmbosLookupsNilNoPanica(t *testing.T) {
 	)
 	assert.Empty(t, names.TenantName)
 	assert.Empty(t, names.RoleName)
+}
+
+// TestCallbackURL_UsaElOriginDelContexto cubre la rama que da sentido a toda
+// la feature: si el middleware valido un origin y lo dejo en el contexto, el
+// link del mail se arma con ese origin y no con el default configurado.
+func TestCallbackURL_UsaElOriginDelContexto(t *testing.T) {
+	ctx := platform.WithAppBaseURL(context.Background(), "http://localhost:3000")
+	assert.Equal(t, "http://localhost:3000/s/"+testTenantID+"/auth/callback",
+		callbackURL(ctx, "https://embolsadora.site", testTenantID))
+}
+
+// TestCallbackURL_SinContextoCaeAlFallback cubre la otra rama: sin origin en
+// el contexto —header ausente o rechazado por la allow-list— se usa el
+// APP_BASE_URL configurado.
+func TestCallbackURL_SinContextoCaeAlFallback(t *testing.T) {
+	assert.Equal(t, "https://embolsadora.site/s/"+testTenantID+"/auth/callback",
+		callbackURL(context.Background(), "https://embolsadora.site", testTenantID))
 }

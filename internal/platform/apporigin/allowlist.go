@@ -100,3 +100,12 @@ func (a AllowList) Resolve(candidate, fallback string) (string, bool) {
 	}
 	return origin, true
 }
+
+// ExactCount devuelve cuantos origins exactos quedaron cargados. Existe para
+// que el arranque pueda dejar constancia de la config efectiva: una env var
+// ausente o con todas las entradas invalidas produce una lista vacia y el
+// servicio sigue andando, pero ignorando el header de todos los requests.
+func (a AllowList) ExactCount() int { return len(a.exact) }
+
+// WildcardCount devuelve cuantas entradas con comodin quedaron cargadas.
+func (a AllowList) WildcardCount() int { return len(a.wildcard) }
