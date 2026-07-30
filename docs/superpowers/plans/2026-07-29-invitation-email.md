@@ -1603,7 +1603,7 @@ Supabase Auth. Lo que esté cargado en el dashboard es una copia derivada.
 que los mails mostraran `http://localhost:3000` desde producción.
 ```
 
-- [ ] **Step 3: Publicar y verificar**
+- [x] **Step 3: Publicar y verificar — HECHO 2026-07-30**
 
 ```bash
 export SUPABASE_PROJECT_REF=cdjehkbidqqsldaajbui
@@ -1731,7 +1731,10 @@ Volver a Resend y esperar a que el dominio figure como verificado. La propagaci�
 
 Dashboard → Project Settings → Authentication → SMTP Settings. Habilitar "Enable Custom SMTP" y cargar host, puerto, usuario y contraseña que da Resend. Sender email: `no-responder@embolsadora.site`. Sender name: `Embolsadora`.
 
-- [ ] **Step 4: Cargar las Redirect URLs**
+- [x] **Step 4: Cargar las Redirect URLs — HECHO 2026-07-30 (via Management API)**
+
+> `site_url` = `https://embolsadora.site`, `uri_allow_list` = `https://embolsadora.site/**,http://localhost:3000/**`.
+> Verificado con tres sondeos de `generate_link`: localhost se preserva (solo posible por la allow-list, ya que dejo de ser el site_url), produccion se preserva, y `https://atacante.example.com/robar` se rechaza cayendo al site_url. Sin esto produccion habria seguido rota: GoTrue descarta un `redirect_to` que no este permitido y usa el Site URL, que era localhost.
 
 Dashboard → Authentication → URL Configuration:
 
