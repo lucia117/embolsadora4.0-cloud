@@ -1493,7 +1493,15 @@ open tmp/emails/completo-invite.html tmp/emails/vacio-invite.html
 
 Esperado: ocho archivos escritos sin panic. Abrir los dos de invite y confirmar que la versión "completo" dice *"Federico De Giovanni te invitó a sumarte a MRG SRL en Embolsadora con el rol de Operador."* y la "vacio" dice *"Te invitaron a sumarte a Embolsadora."* — sin comas huérfanas ni dobles espacios.
 
-> **Si `go run` explota con un error tipo `nil pointer evaluating interface {}.tenant_name`:** el acceso `.Data.tenant_name` no tolera un `.Data` nulo. Cambiar las cuatro plantillas a la forma `{{ if index .Data "tenant_name" }}` / `{{ index .Data "tenant_name" }}`, que sí lo tolera, y volver a correr.
+> **Corrección aplicada durante la ejecución.** Esta sección decía originalmente que si `go run` explotaba con `nil pointer evaluating interface {}.tenant_name`, había que cambiar las plantillas a `{{ if index .Data "tenant_name" }}`. **Eso es falso** y se verificó con un repro aislado en Go: `index` sobre un `interface{}` nulo tira `error calling index: index of untyped nil`. El remedio prescrito no arreglaba nada.
+>
+> Lo que sí funciona —y quedó implementado— es un guard externo sobre `.Data` antes de cualquier acceso:
+>
+> ```
+> {{ if .Data }}…{{ .Data.tenant_name }}…{{ else }}…copy genérica…{{ end }}
+> ```
+>
+> Un `interface{}` nulo evalúa como falso en ese `if` sin desreferenciar nada. Y el renderer necesita `Data interface{}` (no `map[string]string`) más un caso `nil`: con un map, los casos nulo, vacío y poblado se comportan igual y el panic **nunca** se reproduce, así que el harness daba una falsa sensación de seguridad. El panic era real: `invite.html` explotaba con `.Data` nulo, que es exactamente lo que GoTrue manda para usuarios sin `user_metadata` — la población que esta feature existe para atender.
 
 - [ ] **Step 5: Commit**
 
