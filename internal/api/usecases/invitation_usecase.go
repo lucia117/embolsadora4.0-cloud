@@ -17,8 +17,19 @@ import (
 	"go.uber.org/zap"
 )
 
-// Log is the package-level logger for invitation use cases.
+// Log is the package-level logger for invitation use cases. Defaults to a
+// no-op logger; call SetLogger during application startup to wire in a real one.
 var Log *zap.Logger = zap.NewNop()
+
+// SetLogger replaces the package-level logger. A nil argument is ignored so
+// callers can't accidentally silence logging by passing an uninitialized
+// logger.
+func SetLogger(l *zap.Logger) {
+	if l == nil {
+		return
+	}
+	Log = l
+}
 
 // InvitationUsecase handles invitation business logic.
 type InvitationUsecase struct {
@@ -252,16 +263,20 @@ func (uc *InvitationUsecase) ActivatePendingInvitations(ctx context.Context, ema
 	// impossible without one. Force the change-password screen on next load
 	// so they set one while we know they're still authenticated.
 	//
-	// Both writes are best-effort side effects of an otherwise-successful
-	// activation: run them independently (a failure in one must not skip the
-	// other) and join their errors. Like SetStatus below, the caller
-	// (JWTAuth) only logs this error and does not abort the request — the
-	// user is mid-login and already provisioned; failing the request over a
-	// secondary flag write would be worse than a user who occasionally
-	// doesn't get prompted to set a password until their next visit.
-	statusErr := uc.userRepo.SetStatus(ctx, userID, domain.UserStatusActive)
-	pwErr := uc.userRepo.SetPasswordChangeRequired(ctx, userID, true)
-	return errors.Join(statusErr, pwErr)
+	// Order matters here and it is not arbitrary: JWTAuth only calls this
+	// function while user.Status == 'invited' (see middleware.go), so once
+	// SetStatus below succeeds, this code never runs again for this user. If
+	// we flipped the status first and the flag write then failed, the user
+	// would be stuck 'active' with password_change_required stuck false —
+	// permanently, since nothing else ever sets that flag for invitation-flow
+	// users. Setting the flag first and gating the status flip on its success
+	// means a failure here leaves the user 'invited', so the next
+	// authenticated request retries the whole activation instead of leaving a
+	// user who can never log in with email+password.
+	if err := uc.userRepo.SetPasswordChangeRequired(ctx, userID, true); err != nil {
+		return err
+	}
+	return uc.userRepo.SetStatus(ctx, userID, domain.UserStatusActive)
 }
 
 // emailDomain returns only the domain part of an email for safe logging (e.g. "user@example.com" → "@example.com").

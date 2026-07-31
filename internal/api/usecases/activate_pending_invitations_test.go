@@ -96,6 +96,8 @@ func (f *fakeUserRoleRepoForActivation) UpdateStatus(ctx context.Context, userID
 type fakeUserRepoForActivation struct {
 	setStatusCalls                 []domain.UserStatus
 	setPasswordChangeRequiredCalls []bool
+
+	setPasswordChangeRequiredErr error
 }
 
 func (f *fakeUserRepoForActivation) UpsertBySupabaseID(ctx context.Context, supabaseUserID, email string) (*domain.User, error) {
@@ -117,7 +119,7 @@ func (f *fakeUserRepoForActivation) SetStatus(ctx context.Context, userID string
 
 func (f *fakeUserRepoForActivation) SetPasswordChangeRequired(ctx context.Context, userID string, value bool) error {
 	f.setPasswordChangeRequiredCalls = append(f.setPasswordChangeRequiredCalls, value)
-	return nil
+	return f.setPasswordChangeRequiredErr
 }
 
 func (f *fakeUserRepoForActivation) IsActiveMemberOfTenant(ctx context.Context, userID, tenantID string) (bool, error) {
@@ -166,6 +168,48 @@ func TestActivatePendingInvitations_ActivaYRequierePassword(t *testing.T) {
 
 	require.Len(t, invRepo.updateStatusCalls, 1)
 	assert.Equal(t, domain.InvitationStatusAccepted, invRepo.updateStatusCalls[0].status)
+}
+
+// TestActivatePendingInvitations_FallaFlagNoActivaUsuario prueba la propiedad
+// de auto-recuperacion: JWTAuth solo reintenta esta funcion mientras
+// user.Status siga en 'invited', asi que si el write del flag falla, el
+// status NO debe pasar a active — de lo contrario el usuario queda active con
+// password_change_required en false para siempre, porque el gate ya no se
+// vuelve a cumplir y nada mas en el codigo pone ese flag en true.
+func TestActivatePendingInvitations_FallaFlagNoActivaUsuario(t *testing.T) {
+	userID := uuid.New().String()
+	tenantID := uuid.New().String()
+	invitedBy := uuid.New().String()
+
+	invRepo := &fakeInvRepoForActivation{
+		pending: []domain.UserInvitation{
+			{
+				ID:        "inv-1",
+				TenantID:  tenantID,
+				Email:     "invited@example.com",
+				RoleID:    "operator",
+				Status:    domain.InvitationStatusPending,
+				InvitedBy: invitedBy,
+				ExpiresAt: time.Now().Add(24 * time.Hour),
+			},
+		},
+	}
+	userRoleRepo := &fakeUserRoleRepoForActivation{}
+	wantErr := assert.AnError
+	userRepo := &fakeUserRepoForActivation{setPasswordChangeRequiredErr: wantErr}
+
+	uc := &InvitationUsecase{
+		invRepo:      invRepo,
+		userRepo:     userRepo,
+		userRoleRepo: userRoleRepo,
+	}
+
+	err := uc.ActivatePendingInvitations(context.Background(), "invited@example.com", userID)
+
+	require.ErrorIs(t, err, wantErr)
+	assert.Empty(t, userRepo.setStatusCalls, "status must not flip to active when the password-change flag write failed")
+	require.Len(t, userRepo.setPasswordChangeRequiredCalls, 1)
+	assert.True(t, userRepo.setPasswordChangeRequiredCalls[0])
 }
 
 // TestActivatePendingInvitations_SinInvitacionesPendientesNoTocaFlag cubre el
