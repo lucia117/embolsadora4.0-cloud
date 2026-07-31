@@ -21,8 +21,20 @@ import (
 	"go.uber.org/zap"
 )
 
-// Log is the package-level Zap logger. Set via SetLogger during application startup.
+// Log is the package-level Zap logger. Defaults to a no-op logger; call
+// SetLogger during application startup (before any middleware runs) to wire
+// in a real one.
 var Log *zap.Logger = zap.NewNop()
+
+// SetLogger replaces the package-level logger. A nil argument is ignored so
+// callers can't accidentally silence logging by passing an uninitialized
+// logger.
+func SetLogger(l *zap.Logger) {
+	if l == nil {
+		return
+	}
+	Log = l
+}
 
 // JWTAuth validates the Supabase JWT, auto-provisions the user on first login,
 // and injects supabase sub + domain.User into the request context.

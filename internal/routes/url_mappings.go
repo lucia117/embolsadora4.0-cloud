@@ -86,6 +86,8 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	if err != nil {
 		log.Fatalf("failed to initialize logger: %v", err)
 	}
+	apimw.SetLogger(logger)
+	usecases.SetLogger(logger)
 
 	// ── Use cases ─────────────────────────────────────────────────────────────
 	authUC := usecases.NewAuthUsecase(userRepo)
