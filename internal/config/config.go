@@ -70,6 +70,7 @@ type SupabaseConfig struct {
 	ServiceRoleKey      string
 	AnonKey             string
 	AppBaseURL          string
+	AppAllowedOrigins   string
 	InviteRateLimitHour int
 }
 
@@ -122,6 +123,7 @@ func Load(env Environment) (*Config, error) {
 			ServiceRoleKey:      require("SUPABASE_SERVICE_ROLE_KEY"),
 			AnonKey:             getEnv("SUPABASE_ANON_KEY", ""),
 			AppBaseURL:          require("APP_BASE_URL"),
+			AppAllowedOrigins:   getEnv("APP_ALLOWED_ORIGINS", ""),
 			InviteRateLimitHour: getIntEnv("INVITATION_RATE_LIMIT_PER_HOUR", 20),
 		},
 		Observability: ObservabilityConfig{

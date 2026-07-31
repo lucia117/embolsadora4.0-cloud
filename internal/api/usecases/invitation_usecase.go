@@ -17,14 +17,27 @@ import (
 	"go.uber.org/zap"
 )
 
-// Log is the package-level logger for invitation use cases.
+// Log is the package-level logger for invitation use cases. Defaults to a
+// no-op logger; call SetLogger during application startup to wire in a real one.
 var Log *zap.Logger = zap.NewNop()
+
+// SetLogger replaces the package-level logger. A nil argument is ignored so
+// callers can't accidentally silence logging by passing an uninitialized
+// logger.
+func SetLogger(l *zap.Logger) {
+	if l == nil {
+		return
+	}
+	Log = l
+}
 
 // InvitationUsecase handles invitation business logic.
 type InvitationUsecase struct {
 	invRepo        invitations.InvitationRepository
 	userRepo       users.UserRepository
 	userRoleRepo   userRoles.UserRoleRepository
+	tenantRepo     TenantNameLookup
+	roleRepo       RoleNameLookup
 	supabaseClient supabase.AdminClient
 	redis          *redis.Client
 	appBaseURL     string
@@ -35,6 +48,8 @@ func NewInvitationUsecase(
 	invRepo invitations.InvitationRepository,
 	userRepo users.UserRepository,
 	userRoleRepo userRoles.UserRoleRepository,
+	tenantRepo TenantNameLookup,
+	roleRepo RoleNameLookup,
 	supabaseClient supabase.AdminClient,
 	redisClient *redis.Client,
 	appBaseURL string,
@@ -44,6 +59,8 @@ func NewInvitationUsecase(
 		invRepo:        invRepo,
 		userRepo:       userRepo,
 		userRoleRepo:   userRoleRepo,
+		tenantRepo:     tenantRepo,
+		roleRepo:       roleRepo,
 		supabaseClient: supabaseClient,
 		redis:          redisClient,
 		appBaseURL:     appBaseURL,
@@ -90,8 +107,15 @@ func (uc *InvitationUsecase) CreateInvitation(ctx context.Context, email, roleID
 	}
 
 	// Send invite email via Supabase Admin API
-	redirectTo := fmt.Sprintf("%s/s/%s/auth/callback", uc.appBaseURL, tenantID)
-	if err := uc.supabaseClient.InviteUserByEmail(ctx, email, redirectTo); err != nil {
+	names := resolveInviteDisplayNames(ctx, uc.tenantRepo, uc.roleRepo, tenantID, roleID)
+	inviteErr := uc.supabaseClient.InviteUserByEmail(ctx, supabase.InviteParams{
+		Email:       email,
+		RedirectTo:  callbackURL(ctx, uc.appBaseURL, tenantID),
+		TenantName:  names.TenantName,
+		InviterName: callerUser.Name,
+		RoleName:    names.RoleName,
+	})
+	if inviteErr != nil {
 		// Rollback: mark invitation as revoked since Supabase failed
 		if rbErr := uc.invRepo.UpdateStatus(ctx, created.ID, domain.InvitationStatusRevoked); rbErr != nil {
 			Log.Error("failed to rollback invitation after supabase error",
@@ -99,7 +123,7 @@ func (uc *InvitationUsecase) CreateInvitation(ctx context.Context, email, roleID
 				zap.Error(rbErr),
 			)
 		}
-		return nil, fmt.Errorf("supabase invite failed: %w", err)
+		return nil, fmt.Errorf("supabase invite failed: %w", inviteErr)
 	}
 
 	Log.Info("invitation created",
@@ -121,8 +145,23 @@ func (uc *InvitationUsecase) ResendInvitation(ctx context.Context, invID string)
 		return domain.ErrInvitationNotPending
 	}
 
-	redirectTo := fmt.Sprintf("%s/s/%s/auth/callback", uc.appBaseURL, tenantID)
-	if err := uc.supabaseClient.InviteUserByEmail(ctx, inv.Email, redirectTo); err != nil {
+	names := resolveInviteDisplayNames(ctx, uc.tenantRepo, uc.roleRepo, tenantID, inv.RoleID)
+
+	// InviterName sale de quien esta reenviando, no de quien invito originalmente:
+	// el nombre del invitador original exigiria una consulta mas por un dato
+	// decorativo, y quien reenvia es igual de valido como referencia para el invitado.
+	var inviterName string
+	if u, ok := platform.DomainUser(ctx).(*domain.User); ok && u != nil {
+		inviterName = u.Name
+	}
+
+	if err := uc.supabaseClient.InviteUserByEmail(ctx, supabase.InviteParams{
+		Email:       inv.Email,
+		RedirectTo:  callbackURL(ctx, uc.appBaseURL, tenantID),
+		TenantName:  names.TenantName,
+		InviterName: inviterName,
+		RoleName:    names.RoleName,
+	}); err != nil {
 		return err
 	}
 	Log.Info("invitation resent", zap.String("invitation_id", invID), zap.String("email_domain", emailDomain(inv.Email)))
@@ -219,6 +258,24 @@ func (uc *InvitationUsecase) ActivatePendingInvitations(ctx context.Context, ema
 		return nil
 	}
 
+	// Invited users come from Supabase's invite flow and never set a password;
+	// once their one-time invite session expires, email+password login is
+	// impossible without one. Force the change-password screen on next load
+	// so they set one while we know they're still authenticated.
+	//
+	// Order matters here and it is not arbitrary: JWTAuth only calls this
+	// function while user.Status == 'invited' (see middleware.go), so once
+	// SetStatus below succeeds, this code never runs again for this user. If
+	// we flipped the status first and the flag write then failed, the user
+	// would be stuck 'active' with password_change_required stuck false —
+	// permanently, since nothing else ever sets that flag for invitation-flow
+	// users. Setting the flag first and gating the status flip on its success
+	// means a failure here leaves the user 'invited', so the next
+	// authenticated request retries the whole activation instead of leaving a
+	// user who can never log in with email+password.
+	if err := uc.userRepo.SetPasswordChangeRequired(ctx, userID, true); err != nil {
+		return err
+	}
 	return uc.userRepo.SetStatus(ctx, userID, domain.UserStatusActive)
 }
 

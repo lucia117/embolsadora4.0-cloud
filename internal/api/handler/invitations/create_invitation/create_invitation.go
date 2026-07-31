@@ -8,6 +8,7 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/api/handler/invitations/create_invitation/models"
 	"github.com/tu-org/embolsadora-api/internal/api/usecases"
 	"github.com/tu-org/embolsadora-api/internal/domain"
+	"go.uber.org/zap"
 )
 
 type Handler struct {
@@ -35,6 +36,9 @@ func (h *Handler) Handle(c *gin.Context) {
 		case errors.Is(err, domain.ErrForbidden):
 			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		default:
+			// Sin esto, una falla de SMTP o de allow-list devuelve un 500 mudo:
+			// era el punto ciego que hacia invisible el bug de la URL.
+			usecases.Log.Error("create invitation failed", zap.Error(err))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		}
 		return

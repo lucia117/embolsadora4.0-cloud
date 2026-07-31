@@ -16,12 +16,25 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/api/usecases"
 	"github.com/tu-org/embolsadora-api/internal/domain"
 	"github.com/tu-org/embolsadora-api/internal/platform"
+	"github.com/tu-org/embolsadora-api/internal/platform/apporigin"
 	"github.com/tu-org/embolsadora-api/internal/security"
 	"go.uber.org/zap"
 )
 
-// Log is the package-level Zap logger. Set via SetLogger during application startup.
+// Log is the package-level Zap logger. Defaults to a no-op logger; call
+// SetLogger during application startup (before any middleware runs) to wire
+// in a real one.
 var Log *zap.Logger = zap.NewNop()
+
+// SetLogger replaces the package-level logger. A nil argument is ignored so
+// callers can't accidentally silence logging by passing an uninitialized
+// logger.
+func SetLogger(l *zap.Logger) {
+	if l == nil {
+		return
+	}
+	Log = l
+}
 
 // JWTAuth validates the Supabase JWT, auto-provisions the user on first login,
 // and injects supabase sub + domain.User into the request context.
@@ -305,7 +318,7 @@ func CORS() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Authorization,Content-Type,X-Tenant-ID,X-Request-ID")
+		c.Header("Access-Control-Allow-Headers", "Authorization,Content-Type,X-Tenant-ID,X-Request-ID,X-App-Base-URL")
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusNoContent)
 			return
@@ -325,4 +338,24 @@ func isExemptFromTenant(path string) bool {
 
 func isExemptFromPasswordGuard(path string) bool {
 	return path == "/api/v1/me" || path == "/api/v1/auth/change-password"
+}
+
+// AppBaseURLFromHeader resuelve el origin del frontend que origino este request
+// a partir del header X-App-Base-URL, validado contra el allow-list, y lo deja
+// en el contexto. Un valor ausente o rechazado cae al default configurado: un
+// mail con la URL de fallback vale mas que una invitacion que nunca se manda.
+func AppBaseURLFromHeader(allow apporigin.AllowList, fallback string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		candidate := c.GetHeader("X-App-Base-URL")
+		resolved, ok := allow.Resolve(candidate, fallback)
+		if !ok && candidate != "" {
+			Log.Warn("X-App-Base-URL rechazado, usando fallback",
+				zap.String("candidate", candidate),
+				zap.String("fallback", fallback),
+				zap.String("endpoint", c.Request.URL.Path),
+			)
+		}
+		c.Request = c.Request.WithContext(platform.WithAppBaseURL(c.Request.Context(), resolved))
+		c.Next()
+	}
 }

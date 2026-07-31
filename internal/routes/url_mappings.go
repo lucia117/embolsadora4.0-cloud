@@ -38,6 +38,7 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/config"
 	consumers "github.com/tu-org/embolsadora-api/internal/consumers"
 	consumermw "github.com/tu-org/embolsadora-api/internal/consumers/middleware"
+	"github.com/tu-org/embolsadora-api/internal/platform/apporigin"
 	"github.com/tu-org/embolsadora-api/internal/platform/edgeclient"
 	"github.com/tu-org/embolsadora-api/internal/platform/supabase"
 	alarmRulesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/alarm_rules"
@@ -75,6 +76,7 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	tenantRepo := tenantsRepository.NewTenantRepository(db)
 	userRoleRepo := userRolesRepository.NewUserRoleRepository(db)
 	invRepo := invitationsRepo.NewInvitationRepository(db)
+	rRepo := rolesRepo.NewPostgresRepository(db)
 
 	// ── External clients ──────────────────────────────────────────────────────
 	supabaseClient := supabase.NewAdminClient(cfg.Supabase.URL, cfg.Supabase.ServiceRoleKey)
@@ -84,18 +86,34 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	if err != nil {
 		log.Fatalf("failed to initialize logger: %v", err)
 	}
+	apimw.SetLogger(logger)
+	usecases.SetLogger(logger)
 
 	// ── Use cases ─────────────────────────────────────────────────────────────
 	authUC := usecases.NewAuthUsecase(userRepo)
 	meUC := usecases.NewMeUsecase(db)
-	invUC := usecases.NewInvitationUsecase(invRepo, userRepo, userRoleRepo, supabaseClient, redisClient, cfg.Supabase.AppBaseURL, cfg.Supabase.InviteRateLimitHour)
-	passwordUC := usecases.NewPasswordUsecase(userRepo, supabaseClient, logger)
+	invUC := usecases.NewInvitationUsecase(invRepo, userRepo, userRoleRepo, tenantRepo, rRepo, supabaseClient, redisClient, cfg.Supabase.AppBaseURL, cfg.Supabase.InviteRateLimitHour)
+	passwordUC := usecases.NewPasswordUsecase(userRepo, supabaseClient, cfg.Supabase.AppBaseURL, logger)
 
 	// ── JWT verifier ──────────────────────────────────────────────────────────
 	verifier, err := security.NewJWKSVerifier(cfg.Supabase.JWKSUrl, cfg.Supabase.JWTIssuer, cfg.Supabase.JWTAudience)
 	if err != nil {
 		log.Fatalf("failed to initialize JWKS verifier: %v", err)
 	}
+
+	// ── Allow-list de origins para links de mail ──────────────────────────────
+	// Se parsea una sola vez y se deja constancia en el arranque: si la env var
+	// falta o todas sus entradas son invalidas la lista queda vacia, el header
+	// X-App-Base-URL se ignora en todos los requests y los mails vuelven a
+	// salir con APP_BASE_URL — exactamente el bug que esta feature arregla.
+	// Con los contadores en el log, esa mala config es un hecho observable al
+	// arrancar y no un Warn por request que alguien tiene que estar mirando.
+	appOrigins := apporigin.Parse(cfg.Supabase.AppAllowedOrigins)
+	logger.Info("app origin allow-list",
+		zap.Int("exact", appOrigins.ExactCount()),
+		zap.Int("wildcard", appOrigins.WildcardCount()),
+		zap.String("fallback", cfg.Supabase.AppBaseURL),
+	)
 
 	// ── Handlers ──────────────────────────────────────────────────────────────
 	meHandler := handlerMe.NewHandler(meUC)
@@ -112,6 +130,7 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 		apimw.JWTAuth(verifier, authUC, invUC),
 		apimw.TenantFromHeader(db),
 		apimw.PasswordChangeGuard(),
+		apimw.AppBaseURLFromHeader(appOrigins, cfg.Supabase.AppBaseURL),
 		apimw.RequestID(),
 		apimw.Logger(),
 		apimw.CORS(),
@@ -176,7 +195,6 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	// Roles surface (/api/v1/roles)
 	// GET endpoints: sin RBAC adicional (cualquier usuario autenticado puede listar/ver roles)
 	// POST/PUT/DELETE: requieren permiso users:write (solo administradores)
-	rRepo := rolesRepo.NewPostgresRepository(db)
 	rService := rolesApp.NewService(rRepo, logger)
 	rolesWriteGroup := v1.Group("", apimw.RBACCheck("users:write"))
 	rolesHandler.RegisterRoutes(v1, rolesWriteGroup, rService)
