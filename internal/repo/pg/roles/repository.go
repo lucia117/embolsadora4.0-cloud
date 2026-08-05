@@ -14,9 +14,12 @@ import (
 
 // Repository define las operaciones de persistencia para roles.
 type Repository interface {
-	List(ctx context.Context, tenantID uuid.UUID) ([]*domain.Role, error)
+	// List devuelve los roles visibles para el tenant. includeGlobal habilita
+	// los roles is_global (super_admin, tenant_manager); solo debe ser true
+	// cuando el caller es super_admin (security.CanSeePlatformInternals).
+	List(ctx context.Context, tenantID uuid.UUID, includeGlobal bool) ([]*domain.Role, error)
 	GetByID(ctx context.Context, id string) (*domain.Role, error)
-	GetByIDForTenant(ctx context.Context, id string, tenantID uuid.UUID) (*domain.Role, error)
+	GetByIDForTenant(ctx context.Context, id string, tenantID uuid.UUID, includeGlobal bool) (*domain.Role, error)
 	CountCustomByTenant(ctx context.Context, tenantID uuid.UUID) (int, error)
 	Create(ctx context.Context, role *domain.Role) error
 	Update(ctx context.Context, role *domain.Role) error
@@ -34,22 +37,27 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{pool: pool}
 }
 
-// List devuelve todos los roles activos del tenant más los roles archetype del sistema
+// List devuelve los roles activos del tenant más los roles archetype del sistema
 // (tenant_id IS NULL, is_global=false), ordenados: roles del sistema primero, luego
-// alfabéticamente por nombre. Los roles is_global=TRUE (super_admin, tenant_manager) son
-// exclusivos del tenant plataforma de MRG y no aparecen para el resto de los tenants.
-// La regla vive en tenant_can_use_role() (migración 000004) — única fuente de verdad,
-// compartida con checkRoleAllowedForTenant y el trigger de enforcement en la DB.
-func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID) ([]*domain.Role, error) {
+// alfabéticamente por nombre.
+//
+// Dos ejes de visibilidad se combinan acá:
+//  1. tenant_can_use_role() (migración 000004): los roles is_global solo existen
+//     dentro del tenant plataforma de MRG.
+//  2. includeGlobal: aun dentro del tenant plataforma, los roles is_global solo
+//     son visibles para super_admin. Un platform_admin administra la plataforma
+//     sin saber que la capa super_admin existe.
+func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, includeGlobal bool) ([]*domain.Role, error) {
 	query := `
 		SELECT id, name, description, is_system_role, is_global, tenant_id, permissions, created_at, updated_at
 		FROM roles
 		WHERE (tenant_id = $1 OR tenant_id IS NULL)
 		  AND deleted_at IS NULL
 		  AND tenant_can_use_role($1, is_global)
+		  AND (NOT is_global OR $2)
 		ORDER BY is_system_role DESC, name ASC
 	`
-	rows, err := r.pool.Query(ctx, query, tenantID)
+	rows, err := r.pool.Query(ctx, query, tenantID, includeGlobal)
 	if err != nil {
 		return nil, err
 	}
@@ -92,18 +100,20 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id string) (*domain.Ro
 
 // GetByIDForTenant devuelve un rol por su ID, aplicando la misma regla de visibilidad
 // que List: los roles is_global=TRUE (super_admin, tenant_manager) solo son visibles
-// para el tenant plataforma de MRG. Devuelve ErrRoleNotFound tanto si el rol no existe
-// como si existe pero no es visible para este tenant (mismo error en ambos casos, para
-// no filtrar la existencia de roles de plataforma a otros tenants).
-func (r *PostgresRepository) GetByIDForTenant(ctx context.Context, id string, tenantID uuid.UUID) (*domain.Role, error) {
+// para el tenant plataforma de MRG, y solo cuando includeGlobal es true (caller
+// super_admin). Devuelve ErrRoleNotFound tanto si el rol no existe como si existe
+// pero no es visible para este caller (mismo error en ambos casos, para no filtrar
+// la existencia de roles de plataforma).
+func (r *PostgresRepository) GetByIDForTenant(ctx context.Context, id string, tenantID uuid.UUID, includeGlobal bool) (*domain.Role, error) {
 	query := `
 		SELECT id, name, description, is_system_role, is_global, tenant_id, permissions, created_at, updated_at
 		FROM roles
 		WHERE id = $1
 		  AND deleted_at IS NULL
 		  AND tenant_can_use_role($2, is_global)
+		  AND (NOT is_global OR $3)
 	`
-	row := r.pool.QueryRow(ctx, query, id, tenantID)
+	row := r.pool.QueryRow(ctx, query, id, tenantID, includeGlobal)
 	role, err := scanRole(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

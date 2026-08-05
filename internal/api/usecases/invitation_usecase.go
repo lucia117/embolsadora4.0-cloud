@@ -14,6 +14,7 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/repo/pg/invitations"
 	userRoles "github.com/tu-org/embolsadora-api/internal/repo/pg/user_roles"
 	"github.com/tu-org/embolsadora-api/internal/repo/pg/users"
+	"github.com/tu-org/embolsadora-api/internal/security"
 	"go.uber.org/zap"
 )
 
@@ -107,7 +108,8 @@ func (uc *InvitationUsecase) CreateInvitation(ctx context.Context, email, roleID
 	}
 
 	// Send invite email via Supabase Admin API
-	names := resolveInviteDisplayNames(ctx, uc.tenantRepo, uc.roleRepo, tenantID, roleID)
+	includeGlobal := security.CanSeePlatformInternals(ctx)
+	names := resolveInviteDisplayNames(ctx, uc.tenantRepo, uc.roleRepo, tenantID, roleID, includeGlobal)
 	inviteErr := uc.supabaseClient.InviteUserByEmail(ctx, supabase.InviteParams{
 		Email:       email,
 		RedirectTo:  callbackURL(ctx, uc.appBaseURL, tenantID),
@@ -145,7 +147,8 @@ func (uc *InvitationUsecase) ResendInvitation(ctx context.Context, invID string)
 		return domain.ErrInvitationNotPending
 	}
 
-	names := resolveInviteDisplayNames(ctx, uc.tenantRepo, uc.roleRepo, tenantID, inv.RoleID)
+	includeGlobal := security.CanSeePlatformInternals(ctx)
+	names := resolveInviteDisplayNames(ctx, uc.tenantRepo, uc.roleRepo, tenantID, inv.RoleID, includeGlobal)
 
 	// InviterName sale de quien esta reenviando, no de quien invito originalmente:
 	// el nombre del invitador original exigiria una consulta mas por un dato

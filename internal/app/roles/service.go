@@ -25,8 +25,9 @@ func NewService(repo rolesRepo.Repository, logger *zap.Logger) *Service {
 }
 
 // ListRoles devuelve los roles del sistema + roles custom del tenant.
-func (s *Service) ListRoles(ctx context.Context, tenantID uuid.UUID) ([]*domain.Role, error) {
-	roles, err := s.repo.List(ctx, tenantID)
+// includeGlobal lo decide el handler a partir de security.CanSeePlatformInternals.
+func (s *Service) ListRoles(ctx context.Context, tenantID uuid.UUID, includeGlobal bool) ([]*domain.Role, error) {
+	roles, err := s.repo.List(ctx, tenantID, includeGlobal)
 	if err != nil {
 		s.logger.Error("error listando roles", zap.String("tenant_id", tenantID.String()), zap.Error(err))
 		return nil, err
@@ -36,8 +37,8 @@ func (s *Service) ListRoles(ctx context.Context, tenantID uuid.UUID) ([]*domain.
 
 // GetRole devuelve un rol por su ID, visible solo si pertenece al tenant o es un
 // archetype/rol de plataforma que ese tenant puede ver (misma regla que ListRoles).
-func (s *Service) GetRole(ctx context.Context, id string, tenantID uuid.UUID) (*domain.Role, error) {
-	role, err := s.repo.GetByIDForTenant(ctx, id, tenantID)
+func (s *Service) GetRole(ctx context.Context, id string, tenantID uuid.UUID, includeGlobal bool) (*domain.Role, error) {
+	role, err := s.repo.GetByIDForTenant(ctx, id, tenantID, includeGlobal)
 	if err != nil {
 		if err != domain.ErrRoleNotFound {
 			s.logger.Error("error obteniendo rol", zap.String("role_id", id), zap.Error(err))

@@ -8,6 +8,7 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/api/handler/roles/dto"
 	appRoles "github.com/tu-org/embolsadora-api/internal/app/roles"
 	"github.com/tu-org/embolsadora-api/internal/platform"
+	"github.com/tu-org/embolsadora-api/internal/security"
 )
 
 func ListRoles(service *appRoles.Service) gin.HandlerFunc {
@@ -18,7 +19,9 @@ func ListRoles(service *appRoles.Service) gin.HandlerFunc {
 			return
 		}
 
-		roles, err := service.ListRoles(c.Request.Context(), tenantID)
+		includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+
+		roles, err := service.ListRoles(c.Request.Context(), tenantID, includeGlobal)
 		if err != nil {
 			HandleError(c, err)
 			return
