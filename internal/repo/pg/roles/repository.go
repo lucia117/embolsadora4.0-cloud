@@ -18,7 +18,6 @@ type Repository interface {
 	// los roles is_global (super_admin, tenant_manager); solo debe ser true
 	// cuando el caller es super_admin (security.CanSeePlatformInternals).
 	List(ctx context.Context, tenantID uuid.UUID, includeGlobal bool) ([]*domain.Role, error)
-	GetByID(ctx context.Context, id string) (*domain.Role, error)
 	GetByIDForTenant(ctx context.Context, id string, tenantID uuid.UUID, includeGlobal bool) (*domain.Role, error)
 	CountCustomByTenant(ctx context.Context, tenantID uuid.UUID) (int, error)
 	Create(ctx context.Context, role *domain.Role) error
@@ -80,36 +79,28 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, inclu
 	return roles, nil
 }
 
-// GetByID devuelve un rol por su ID (activo o del sistema).
-func (r *PostgresRepository) GetByID(ctx context.Context, id string) (*domain.Role, error) {
-	query := `
-		SELECT id, name, description, is_system_role, is_global, tenant_id, permissions, created_at, updated_at
-		FROM roles
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-	row := r.pool.QueryRow(ctx, query, id)
-	role, err := scanRole(row)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, domain.ErrRoleNotFound
-		}
-		return nil, err
-	}
-	return role, nil
-}
-
 // GetByIDForTenant devuelve un rol por su ID, aplicando la misma regla de visibilidad
-// que List: los roles is_global=TRUE (super_admin, tenant_manager) solo son visibles
-// para el tenant plataforma de MRG, y solo cuando includeGlobal es true (caller
-// super_admin). Devuelve ErrRoleNotFound tanto si el rol no existe como si existe
-// pero no es visible para este caller (mismo error en ambos casos, para no filtrar
-// la existencia de roles de plataforma).
+// que List. Dos ejes se combinan en el WHERE, ninguno opcional:
+//  1. Scoping por tenant: el rol tiene que pertenecer al tenant que pregunta
+//     (tenant_id = $2) o ser un archetype reusable por cualquier tenant
+//     (tenant_id IS NULL) — la misma condición que usa List. Sin esto, cualquier
+//     admin que conociera el id de un rol custom de otro tenant podía leerlo/
+//     editarlo/borrarlo con solo apuntar UpdateRole/DeleteRole a GetByID, que no
+//     filtraba por tenant en absoluto.
+//  2. tenant_can_use_role() + includeGlobal: los roles is_global=TRUE (super_admin,
+//     tenant_manager) solo son visibles dentro del tenant plataforma de MRG, y
+//     ahí solo cuando includeGlobal es true (caller super_admin).
+//
+// Devuelve ErrRoleNotFound tanto si el rol no existe como si existe pero no es
+// visible para este caller (mismo error en ambos casos: un 403 en su lugar
+// confirmaría que el rol existe, exactamente lo que esta función evita).
 func (r *PostgresRepository) GetByIDForTenant(ctx context.Context, id string, tenantID uuid.UUID, includeGlobal bool) (*domain.Role, error) {
 	query := `
 		SELECT id, name, description, is_system_role, is_global, tenant_id, permissions, created_at, updated_at
 		FROM roles
 		WHERE id = $1
 		  AND deleted_at IS NULL
+		  AND (tenant_id = $2 OR tenant_id IS NULL)
 		  AND tenant_can_use_role($2, is_global)
 		  AND (NOT is_global OR $3)
 	`

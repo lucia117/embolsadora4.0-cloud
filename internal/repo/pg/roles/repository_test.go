@@ -36,6 +36,26 @@ func roleIDs(roles []*domain.Role) []string {
 	return ids
 }
 
+// createTestTenant siembra un tenant descartable para aislar los tests de
+// scoping por tenant. El cleanup se registra antes de que exista ninguna fila
+// que dependa de él, siguiendo el mismo orden que openPool: primero el borrado
+// del tenant (los roles custom que cuelguen de él se van con el ON DELETE
+// CASCADE de roles.tenant_id), después nada más — el pool lo cierra
+// openPool.
+func createTestTenant(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
+	t.Helper()
+	id := uuid.New()
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM tenants WHERE id = $1`, id)
+	})
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO tenants (id, name, company_name, subdomain)
+		VALUES ($1, 'Tenant de test', 'Tenant de test', $2)
+	`, id, "test-"+id.String())
+	require.NoError(t, err)
+	return id
+}
+
 func TestListOcultaRolesGlobalesAlNoSuperadmin(t *testing.T) {
 	pool := openPool(t)
 	repo := rolesRepo.NewPostgresRepository(pool)
@@ -74,4 +94,58 @@ func TestGetByIDForTenantDevuelveNotFoundParaRolOculto(t *testing.T) {
 	role, err := repo.GetByIDForTenant(context.Background(), "super_admin", platformTenantUUID, true)
 	require.NoError(t, err)
 	require.Equal(t, "super_admin", role.ID)
+}
+
+// TestGetByIDForTenantOcultaRolCustomDeOtroTenant cubre la segunda mitad del
+// hallazgo crítico de la revisión: GetByIDForTenant no filtraba por tenant_id
+// para roles no globales (tenant_can_use_role devuelve TRUE incondicionalmente
+// cuando is_global=false), así que un admin de cualquier tenant que conociera
+// el id de un rol custom ajeno podía leerlo/editarlo/borrarlo. El WHERE ahora
+// exige tenant_id = $2 OR tenant_id IS NULL, igual que List.
+func TestGetByIDForTenantOcultaRolCustomDeOtroTenant(t *testing.T) {
+	pool := openPool(t)
+	repo := rolesRepo.NewPostgresRepository(pool)
+	ctx := context.Background()
+
+	tenantA := createTestTenant(t, pool)
+	tenantB := createTestTenant(t, pool)
+
+	roleA := &domain.Role{
+		ID:          "custom_" + uuid.New().String()[:6],
+		Name:        "Rol custom de A",
+		Permissions: []string{},
+		TenantID:    &tenantA,
+	}
+	require.NoError(t, repo.Create(ctx, roleA))
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM roles WHERE id = $1`, roleA.ID)
+	})
+
+	// tenant B no puede ver (ni por lo tanto editar/borrar) el rol custom de tenant A.
+	_, err := repo.GetByIDForTenant(ctx, roleA.ID, tenantB, false)
+	require.ErrorIs(t, err, domain.ErrRoleNotFound, "un rol custom de otro tenant debe ser invisible, no solo protegido por el chequeo de IsSystemRole")
+
+	// tenant A sigue viendo su propio rol.
+	got, err := repo.GetByIDForTenant(ctx, roleA.ID, tenantA, false)
+	require.NoError(t, err)
+	require.Equal(t, roleA.ID, got.ID)
+}
+
+// TestGetByIDForTenantRolGlobalDevuelveNotFoundNoSystemRole es el test que la
+// revisión pidió explícitamente: confirma, a nivel de la consulta que
+// UpdateRole/DeleteRole ahora usan, que un caller no-superadmin recibe
+// ErrRoleNotFound para un rol global — nunca llega a existir la oportunidad de
+// devolver ErrRoleIsSystemRole, porque el rol ni siquiera sale de la consulta.
+// El test de service-level equivalente (que ejercita el orden de checks
+// GetByIDForTenant → IsSystemRole con un fake) vive en
+// internal/app/roles/service_test.go.
+func TestGetByIDForTenantRolGlobalDevuelveNotFoundNoSystemRole(t *testing.T) {
+	pool := openPool(t)
+	repo := rolesRepo.NewPostgresRepository(pool)
+	ctx := context.Background()
+
+	role, err := repo.GetByIDForTenant(ctx, "super_admin", platformTenantUUID, false)
+	require.Nil(t, role)
+	require.ErrorIs(t, err, domain.ErrRoleNotFound)
+	require.NotErrorIs(t, err, domain.ErrRoleIsSystemRole, "un rol oculto nunca debe llegar a la etapa donde se evalúa IsSystemRole")
 }

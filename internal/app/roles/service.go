@@ -86,8 +86,16 @@ func (s *Service) CreateRole(ctx context.Context, tenantID uuid.UUID, name, desc
 
 // UpdateRole actualiza nombre, descripción y permisos de un rol personalizado.
 // Los roles del sistema no pueden modificarse.
-func (s *Service) UpdateRole(ctx context.Context, id, name, description string, permissions []string) (*domain.Role, error) {
-	role, err := s.repo.GetByID(ctx, id)
+//
+// Resuelve el rol con GetByIDForTenant (tenant + includeGlobal), no con un
+// lookup sin scope: un rol invisible para el caller tiene que devolver
+// ErrRoleNotFound (404) antes de llegar al chequeo de IsSystemRole. Si el
+// chequeo de sistema corriera primero sobre un lookup sin scope, un admin de
+// cualquier tenant podría distinguir "existe pero es de sistema" (403) de
+// "no existe" (404) para roles que ni siquiera debería poder ver — y de paso
+// tocar roles custom de otros tenants con solo conocer su id.
+func (s *Service) UpdateRole(ctx context.Context, id string, tenantID uuid.UUID, includeGlobal bool, name, description string, permissions []string) (*domain.Role, error) {
+	role, err := s.repo.GetByIDForTenant(ctx, id, tenantID, includeGlobal)
 	if err != nil {
 		return nil, err
 	}
@@ -113,8 +121,12 @@ func (s *Service) UpdateRole(ctx context.Context, id, name, description string, 
 // DeleteRole elimina (soft delete) un rol personalizado.
 // Los roles del sistema no pueden eliminarse.
 // Los roles con asignaciones activas no pueden eliminarse.
-func (s *Service) DeleteRole(ctx context.Context, id string) error {
-	role, err := s.repo.GetByID(ctx, id)
+//
+// Mismo razonamiento que UpdateRole: resuelve con GetByIDForTenant para que un
+// rol invisible dé 404 antes de que el chequeo de IsSystemRole tenga chance de
+// devolver 403 y confirmar su existencia.
+func (s *Service) DeleteRole(ctx context.Context, id string, tenantID uuid.UUID, includeGlobal bool) error {
+	role, err := s.repo.GetByIDForTenant(ctx, id, tenantID, includeGlobal)
 	if err != nil {
 		return err
 	}
