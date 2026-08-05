@@ -81,13 +81,37 @@ func (uc *InvitationUsecase) CreateInvitation(ctx context.Context, email, roleID
 		return nil, domain.ErrForbidden
 	}
 
+	includeGlobal := security.CanSeePlatformInternals(ctx)
+
+	// El role_id pedido tiene que ser visible/asignable para este caller ANTES
+	// de crear nada: sin este chequeo, un platform_admin podía invitar con
+	// role_id="super_admin" y el rol no tiene FK que lo impida (user_invitations.
+	// role_id es un varchar libre). Eso no es una fuga de visibilidad, es
+	// escalada de privilegios — el invitado terminaría con el rol de plataforma
+	// al aceptar. Mismo criterio que ListRoles/GetRole: un role_id inexistente y
+	// uno que existe pero es is_global y está oculto devuelven el mismo
+	// ErrRoleNotFound, para no confirmar por status cuál de los dos pasó.
+	tenantUUID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, domain.ErrForbidden
+	}
+	if _, err := uc.roleRepo.GetByIDForTenant(ctx, roleID, tenantUUID, includeGlobal); err != nil {
+		if errors.Is(err, domain.ErrRoleNotFound) {
+			return nil, domain.ErrRoleNotFound
+		}
+		return nil, fmt.Errorf("validate invitation role: %w", err)
+	}
+
 	// Rate limit: max N invitations per tenant per hour using Redis
 	if err := uc.checkRateLimit(ctx, tenantID); err != nil {
 		return nil, err
 	}
 
-	// Check for existing pending invitation
-	existing, err := uc.invRepo.GetPendingByEmailAndTenant(ctx, email, tenantID)
+	// Check for existing pending invitation. includeGlobal en el mismo criterio
+	// que ListByTenant: si no, un caller no-super_admin podría reintentar la
+	// invitación con un rol distinto, recibir "ya pendiente" y así confirmar
+	// que existe una invitación oculta que la lista no le muestra.
+	existing, err := uc.invRepo.GetPendingByEmailAndTenant(ctx, email, tenantID, includeGlobal)
 	if err != nil && !errors.Is(err, domain.ErrNotFound) {
 		return nil, err
 	}
@@ -108,7 +132,6 @@ func (uc *InvitationUsecase) CreateInvitation(ctx context.Context, email, roleID
 	}
 
 	// Send invite email via Supabase Admin API
-	includeGlobal := security.CanSeePlatformInternals(ctx)
 	names := resolveInviteDisplayNames(ctx, uc.tenantRepo, uc.roleRepo, tenantID, roleID, includeGlobal)
 	inviteErr := uc.supabaseClient.InviteUserByEmail(ctx, supabase.InviteParams{
 		Email:       email,
@@ -137,9 +160,15 @@ func (uc *InvitationUsecase) CreateInvitation(ctx context.Context, email, roleID
 }
 
 // ResendInvitation re-sends the invitation email for an existing pending invitation.
-func (uc *InvitationUsecase) ResendInvitation(ctx context.Context, invID string) error {
+// includeGlobal lo decide el handler vía security.CanSeePlatformInternals. Se
+// aplica en el GetByID de abajo, ANTES de cualquier otra cosa: una invitación
+// a un rol is_global tiene que ser indistinguible de una inexistente para un
+// caller no-super_admin — mismo ErrNotFound, y sobre todo ningún mail
+// reenviado. Es el mismo patrón que ForcePasswordChange (Task 5): un efecto
+// observable sobre algo que el caller no debería poder ver.
+func (uc *InvitationUsecase) ResendInvitation(ctx context.Context, invID string, includeGlobal bool) error {
 	tenantID := platform.TenantID(ctx)
-	inv, err := uc.invRepo.GetByID(ctx, invID, tenantID)
+	inv, err := uc.invRepo.GetByID(ctx, invID, tenantID, includeGlobal)
 	if err != nil {
 		return err
 	}
@@ -147,7 +176,6 @@ func (uc *InvitationUsecase) ResendInvitation(ctx context.Context, invID string)
 		return domain.ErrInvitationNotPending
 	}
 
-	includeGlobal := security.CanSeePlatformInternals(ctx)
 	names := resolveInviteDisplayNames(ctx, uc.tenantRepo, uc.roleRepo, tenantID, inv.RoleID, includeGlobal)
 
 	// InviterName sale de quien esta reenviando, no de quien invito originalmente:
@@ -172,9 +200,14 @@ func (uc *InvitationUsecase) ResendInvitation(ctx context.Context, invID string)
 }
 
 // RevokeInvitation soft-deletes an invitation by setting its status to revoked.
-func (uc *InvitationUsecase) RevokeInvitation(ctx context.Context, invID string) (*domain.UserInvitation, error) {
+// includeGlobal lo decide el handler vía security.CanSeePlatformInternals. Sin
+// esto, revocar una invitación oculta no solo cambiaba su estado real (el
+// mismo error que Task 5 encontró en DeleteUser): la respuesta 200 devuelve
+// el invitation completo, RoleID incluido, filtrando "super_admin" en el
+// cuerpo JSON.
+func (uc *InvitationUsecase) RevokeInvitation(ctx context.Context, invID string, includeGlobal bool) (*domain.UserInvitation, error) {
 	tenantID := platform.TenantID(ctx)
-	inv, err := uc.invRepo.GetByID(ctx, invID, tenantID)
+	inv, err := uc.invRepo.GetByID(ctx, invID, tenantID, includeGlobal)
 	if err != nil {
 		return nil, err
 	}
@@ -188,9 +221,10 @@ func (uc *InvitationUsecase) RevokeInvitation(ctx context.Context, invID string)
 }
 
 // ListInvitations returns all invitations for the current tenant, optionally filtered by status.
-func (uc *InvitationUsecase) ListInvitations(ctx context.Context, status *string) ([]domain.UserInvitation, error) {
+// includeGlobal lo decide el handler vía security.CanSeePlatformInternals.
+func (uc *InvitationUsecase) ListInvitations(ctx context.Context, status *string, includeGlobal bool) ([]domain.UserInvitation, error) {
 	tenantID := platform.TenantID(ctx)
-	return uc.invRepo.ListByTenant(ctx, tenantID, status)
+	return uc.invRepo.ListByTenant(ctx, tenantID, status, includeGlobal)
 }
 
 // ActivatePendingInvitations is called by JWTAuth after provisioning a user whose

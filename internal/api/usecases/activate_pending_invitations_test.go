@@ -30,7 +30,7 @@ func (f *fakeInvRepoForActivation) Create(ctx context.Context, inv *domain.UserI
 	return nil, nil
 }
 
-func (f *fakeInvRepoForActivation) GetPendingByEmailAndTenant(ctx context.Context, email, tenantID string) (*domain.UserInvitation, error) {
+func (f *fakeInvRepoForActivation) GetPendingByEmailAndTenant(ctx context.Context, email, tenantID string, includeGlobal bool) (*domain.UserInvitation, error) {
 	return nil, nil
 }
 
@@ -38,11 +38,11 @@ func (f *fakeInvRepoForActivation) ListPendingByEmail(ctx context.Context, email
 	return f.pending, nil
 }
 
-func (f *fakeInvRepoForActivation) GetByID(ctx context.Context, id, tenantID string) (*domain.UserInvitation, error) {
+func (f *fakeInvRepoForActivation) GetByID(ctx context.Context, id, tenantID string, includeGlobal bool) (*domain.UserInvitation, error) {
 	return nil, nil
 }
 
-func (f *fakeInvRepoForActivation) ListByTenant(ctx context.Context, tenantID string, status *string) ([]domain.UserInvitation, error) {
+func (f *fakeInvRepoForActivation) ListByTenant(ctx context.Context, tenantID string, status *string, includeGlobal bool) ([]domain.UserInvitation, error) {
 	return nil, nil
 }
 

@@ -14,10 +14,26 @@ import (
 // InvitationRepository defines persistence operations for user invitations.
 type InvitationRepository interface {
 	Create(ctx context.Context, inv *domain.UserInvitation) (*domain.UserInvitation, error)
-	GetPendingByEmailAndTenant(ctx context.Context, email, tenantID string) (*domain.UserInvitation, error)
+	// GetPendingByEmailAndTenant busca una invitación pendiente para email+tenant.
+	// includeGlobal=false oculta las que apuntan a un rol is_global (super_admin,
+	// tenant_manager): si no se ocultara, un caller no-super_admin podría invitar
+	// de nuevo a ese email con un rol cualquiera, recibir "ya pendiente" y así
+	// confirmar que existe una invitación oculta — la misma lista (ListByTenant)
+	// ya la esconde, así que este chequeo de duplicados tiene que estar de acuerdo.
+	GetPendingByEmailAndTenant(ctx context.Context, email, tenantID string, includeGlobal bool) (*domain.UserInvitation, error)
+	// ListPendingByEmail devuelve TODAS las invitaciones pendientes de un email,
+	// sin cloaking: la usa ActivatePendingInvitations en nombre del propio
+	// usuario que se está logueando (self-action), no de un tercero.
 	ListPendingByEmail(ctx context.Context, email string) ([]domain.UserInvitation, error)
-	GetByID(ctx context.Context, id, tenantID string) (*domain.UserInvitation, error)
-	ListByTenant(ctx context.Context, tenantID string, status *string) ([]domain.UserInvitation, error)
+	// GetByID busca una invitación por id dentro de un tenant. includeGlobal=false
+	// la oculta (ErrNotFound) si su rol es is_global — la usan Resend y Revoke
+	// para no reenviar mail ni revelar el role_id de una invitación oculta.
+	GetByID(ctx context.Context, id, tenantID string, includeGlobal bool) (*domain.UserInvitation, error)
+	// ListByTenant devuelve las invitaciones del tenant, opcionalmente filtradas
+	// por status. includeGlobal=false oculta las invitaciones a roles is_global
+	// (super_admin, tenant_manager): una invitación pendiente delata el rol igual
+	// que un miembro activo.
+	ListByTenant(ctx context.Context, tenantID string, status *string, includeGlobal bool) ([]domain.UserInvitation, error)
 	UpdateStatus(ctx context.Context, id string, status domain.InvitationStatus) error
 }
 
@@ -40,14 +56,17 @@ func (r *pgInvitationRepo) Create(ctx context.Context, inv *domain.UserInvitatio
 	return scanInvitation(row)
 }
 
-func (r *pgInvitationRepo) GetPendingByEmailAndTenant(ctx context.Context, email, tenantID string) (*domain.UserInvitation, error) {
+func (r *pgInvitationRepo) GetPendingByEmailAndTenant(ctx context.Context, email, tenantID string, includeGlobal bool) (*domain.UserInvitation, error) {
 	const q = `
-		SELECT id, tenant_id, email, role_id, status, invited_by, created_at, updated_at, expires_at
-		FROM user_invitations
-		WHERE email = $1 AND tenant_id = $2 AND status = 'pending'
+		SELECT i.id, i.tenant_id, i.email, i.role_id, i.status, i.invited_by,
+		       i.created_at, i.updated_at, i.expires_at
+		FROM user_invitations i
+		LEFT JOIN roles r ON r.id = i.role_id
+		WHERE i.email = $1 AND i.tenant_id = $2 AND i.status = 'pending'
+		  AND (COALESCE(r.is_global, FALSE) = FALSE OR $3)
 		LIMIT 1`
 
-	row := r.db.QueryRow(ctx, q, email, tenantID)
+	row := r.db.QueryRow(ctx, q, email, tenantID, includeGlobal)
 	inv, err := scanInvitation(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -83,14 +102,17 @@ func (r *pgInvitationRepo) ListPendingByEmail(ctx context.Context, email string)
 	return result, rows.Err()
 }
 
-func (r *pgInvitationRepo) GetByID(ctx context.Context, id, tenantID string) (*domain.UserInvitation, error) {
+func (r *pgInvitationRepo) GetByID(ctx context.Context, id, tenantID string, includeGlobal bool) (*domain.UserInvitation, error) {
 	const q = `
-		SELECT id, tenant_id, email, role_id, status, invited_by, created_at, updated_at, expires_at
-		FROM user_invitations
-		WHERE id = $1 AND tenant_id = $2
+		SELECT i.id, i.tenant_id, i.email, i.role_id, i.status, i.invited_by,
+		       i.created_at, i.updated_at, i.expires_at
+		FROM user_invitations i
+		LEFT JOIN roles r ON r.id = i.role_id
+		WHERE i.id = $1 AND i.tenant_id = $2
+		  AND (COALESCE(r.is_global, FALSE) = FALSE OR $3)
 		LIMIT 1`
 
-	row := r.db.QueryRow(ctx, q, id, tenantID)
+	row := r.db.QueryRow(ctx, q, id, tenantID, includeGlobal)
 	inv, err := scanInvitation(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -101,20 +123,26 @@ func (r *pgInvitationRepo) GetByID(ctx context.Context, id, tenantID string) (*d
 	return inv, nil
 }
 
-func (r *pgInvitationRepo) ListByTenant(ctx context.Context, tenantID string, status *string) ([]domain.UserInvitation, error) {
+// ListByTenant devuelve las invitaciones del tenant, opcionalmente filtradas por status.
+// includeGlobal=false oculta las invitaciones a roles is_global (super_admin,
+// tenant_manager): una invitación pendiente delata el rol igual que un miembro activo.
+func (r *pgInvitationRepo) ListByTenant(ctx context.Context, tenantID string, status *string, includeGlobal bool) ([]domain.UserInvitation, error) {
 	var rows pgx.Rows
 	var err error
 
+	const base = `SELECT i.id, i.tenant_id, i.email, i.role_id, i.status, i.invited_by,
+	                     i.created_at, i.updated_at, i.expires_at
+	              FROM user_invitations i
+	              LEFT JOIN roles r ON r.id = i.role_id
+	              WHERE i.tenant_id = $1
+	                AND (COALESCE(r.is_global, FALSE) = FALSE OR $2)`
+
 	if status != nil {
-		rows, err = r.db.Query(ctx,
-			`SELECT id, tenant_id, email, role_id, status, invited_by, created_at, updated_at, expires_at
-			 FROM user_invitations WHERE tenant_id = $1 AND status = $2 ORDER BY created_at DESC`,
-			tenantID, *status)
+		rows, err = r.db.Query(ctx, base+` AND i.status = $3 ORDER BY i.created_at DESC`,
+			tenantID, includeGlobal, *status)
 	} else {
-		rows, err = r.db.Query(ctx,
-			`SELECT id, tenant_id, email, role_id, status, invited_by, created_at, updated_at, expires_at
-			 FROM user_invitations WHERE tenant_id = $1 ORDER BY created_at DESC`,
-			tenantID)
+		rows, err = r.db.Query(ctx, base+` ORDER BY i.created_at DESC`,
+			tenantID, includeGlobal)
 	}
 	if err != nil {
 		return nil, err
