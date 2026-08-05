@@ -30,11 +30,12 @@ func NewService(repo usersRepo.Repository, userRoleRepo userRolesRepo.UserRoleRe
 	}
 }
 
-// ListUsers retrieves paginated users for a tenant
-func (s *Service) ListUsers(ctx context.Context, tenantID string, limit, offset int) ([]*domainUsers.User, int64, error) {
+// ListUsers retrieves paginated users for a tenant.
+// includeGlobal lo decide el handler vía security.CanSeePlatformInternals.
+func (s *Service) ListUsers(ctx context.Context, tenantID string, limit, offset int, includeGlobal bool) ([]*domainUsers.User, int64, error) {
 	s.logger.Debug("listing users", zap.String("tenant_id", tenantID), zap.Int("limit", limit), zap.Int("offset", offset))
 
-	users, total, err := s.repo.ListByTenant(ctx, tenantID, limit, offset)
+	users, total, err := s.repo.ListByTenant(ctx, tenantID, limit, offset, includeGlobal)
 	if err != nil {
 		s.logger.Error("failed to list users", zap.String("tenant_id", tenantID), zap.Error(err))
 		return nil, 0, err
@@ -44,11 +45,12 @@ func (s *Service) ListUsers(ctx context.Context, tenantID string, limit, offset 
 	return users, total, nil
 }
 
-// GetUser retrieves a single user by ID
-func (s *Service) GetUser(ctx context.Context, tenantID, userID string) (*domainUsers.User, error) {
+// GetUser retrieves a single user by ID.
+// includeGlobal lo decide el handler vía security.CanSeePlatformInternals.
+func (s *Service) GetUser(ctx context.Context, tenantID, userID string, includeGlobal bool) (*domainUsers.User, error) {
 	s.logger.Debug("getting user", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 
-	user, err := s.repo.GetByID(ctx, tenantID, userID)
+	user, err := s.repo.GetByID(ctx, tenantID, userID, includeGlobal)
 	if err != nil {
 		if errors.Is(err, domainUsers.ErrNotFound) {
 			s.logger.Debug("user not found", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
@@ -63,10 +65,11 @@ func (s *Service) GetUser(ctx context.Context, tenantID, userID string) (*domain
 }
 
 // GetUserWithRoles retrieves a user and their active role assignment in the tenant.
-func (s *Service) GetUserWithRoles(ctx context.Context, tenantID, userID string) (*domainUsers.UserWithRoles, error) {
+// includeGlobal lo decide el handler vía security.CanSeePlatformInternals.
+func (s *Service) GetUserWithRoles(ctx context.Context, tenantID, userID string, includeGlobal bool) (*domainUsers.UserWithRoles, error) {
 	s.logger.Debug("getting user with roles", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 
-	uwr, err := s.repo.GetByIDWithRoles(ctx, tenantID, userID)
+	uwr, err := s.repo.GetByIDWithRoles(ctx, tenantID, userID, includeGlobal)
 	if err != nil {
 		if errors.Is(err, domainUsers.ErrNotFound) {
 			s.logger.Debug("user not found", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
@@ -138,8 +141,11 @@ func (s *Service) CreateUser(ctx context.Context, tenantID string, cmd *domainUs
 	return created, nil
 }
 
-// UpdateUser updates user fields (name, role, image)
-func (s *Service) UpdateUser(ctx context.Context, tenantID, userID string, cmd *domainUsers.UpdateUserCommand) (*domainUsers.User, error) {
+// UpdateUser updates user fields (name, role, image).
+// includeGlobal lo decide el handler vía security.CanSeePlatformInternals: resuelve
+// el usuario actual con el mismo scoping que GetUser, para que un usuario oculto dé
+// 404 antes de llegar al UPDATE — no 200/403, que confirmarían su existencia.
+func (s *Service) UpdateUser(ctx context.Context, tenantID, userID string, includeGlobal bool, cmd *domainUsers.UpdateUserCommand) (*domainUsers.User, error) {
 	if err := cmd.Validate(); err != nil {
 		s.logger.Warn("invalid update user command", zap.String("tenant_id", tenantID), zap.String("user_id", userID), zap.Error(err))
 		return nil, fmt.Errorf("%w: %v", domainUsers.ErrValidation, err)
@@ -148,7 +154,7 @@ func (s *Service) UpdateUser(ctx context.Context, tenantID, userID string, cmd *
 	s.logger.Debug("updating user", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 
 	// Get current user
-	current, err := s.repo.GetByID(ctx, tenantID, userID)
+	current, err := s.repo.GetByID(ctx, tenantID, userID, includeGlobal)
 	if err != nil {
 		if errors.Is(err, domainUsers.ErrNotFound) {
 			s.logger.Debug("user not found for update", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
@@ -182,9 +188,26 @@ func (s *Service) UpdateUser(ctx context.Context, tenantID, userID string, cmd *
 	return updated, nil
 }
 
-// DeleteUser soft-deletes a user
-func (s *Service) DeleteUser(ctx context.Context, tenantID, userID string) error {
+// DeleteUser soft-deletes a user.
+// includeGlobal lo decide el handler vía security.CanSeePlatformInternals.
+//
+// Resuelve el usuario con GetByID (mismo scoping que GetUser/UpdateUser) antes de
+// tocar el repo.Delete: repo.Delete no filtra por rol, así que sin este precheck un
+// caller no-superadmin podría soft-borrar a un usuario con rol global aunque no
+// pudiera verlo — un efecto observable (el usuario oculto deja de poder operar)
+// que delata su existencia igual que un 403. Con el precheck, un usuario oculto
+// da 404 y el DELETE nunca se ejecuta.
+func (s *Service) DeleteUser(ctx context.Context, tenantID, userID string, includeGlobal bool) error {
 	s.logger.Debug("deleting user", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
+
+	if _, err := s.repo.GetByID(ctx, tenantID, userID, includeGlobal); err != nil {
+		if errors.Is(err, domainUsers.ErrNotFound) {
+			s.logger.Debug("user not found for deletion", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
+			return err
+		}
+		s.logger.Error("failed to get user for deletion", zap.String("tenant_id", tenantID), zap.String("user_id", userID), zap.Error(err))
+		return err
+	}
 
 	err := s.repo.Delete(ctx, tenantID, userID)
 	if err != nil {
@@ -201,10 +224,11 @@ func (s *Service) DeleteUser(ctx context.Context, tenantID, userID string) error
 }
 
 // ListPendingUsers returns users with a pending role assignment in the tenant.
-func (s *Service) ListPendingUsers(ctx context.Context, tenantID string) ([]*domainUsers.User, error) {
+// includeGlobal lo decide el handler vía security.CanSeePlatformInternals.
+func (s *Service) ListPendingUsers(ctx context.Context, tenantID string, includeGlobal bool) ([]*domainUsers.User, error) {
 	s.logger.Debug("listing pending users", zap.String("tenant_id", tenantID))
 
-	users, err := s.repo.ListPendingByTenant(ctx, tenantID)
+	users, err := s.repo.ListPendingByTenant(ctx, tenantID, includeGlobal)
 	if err != nil {
 		s.logger.Error("failed to list pending users", zap.String("tenant_id", tenantID), zap.Error(err))
 		return nil, err
@@ -217,7 +241,10 @@ func (s *Service) ListPendingUsers(ctx context.Context, tenantID string) ([]*dom
 // UpdateUserStatus changes the UTR status for a user in the tenant.
 // callerID is the ID of the authenticated admin making the request.
 // Allowed status values: "active", "inactive", "suspended".
-func (s *Service) UpdateUserStatus(ctx context.Context, tenantID, userID, callerID, status string) (*domainUsers.User, error) {
+// includeGlobal lo decide el handler vía security.CanSeePlatformInternals: así un
+// platform_admin tampoco puede cambiarle el estado a un superadmin invisible, y
+// recibe el mismo 404 coherente con GetUser/ListUsers.
+func (s *Service) UpdateUserStatus(ctx context.Context, tenantID, userID, callerID, status string, includeGlobal bool) (*domainUsers.User, error) {
 	// Guard: admin cannot deactivate themselves
 	if userID == callerID {
 		return nil, domainUsers.ErrCannotDeactivateSelf
@@ -237,7 +264,7 @@ func (s *Service) UpdateUserStatus(ctx context.Context, tenantID, userID, caller
 	}
 
 	// Verify user belongs to this tenant (existence check only)
-	if _, err := s.repo.GetByID(ctx, tenantID, userID); err != nil {
+	if _, err := s.repo.GetByID(ctx, tenantID, userID, includeGlobal); err != nil {
 		if errors.Is(err, domainUsers.ErrNotFound) {
 			s.logger.Debug("user not found for status update", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 			return nil, err
@@ -273,7 +300,7 @@ func (s *Service) UpdateUserStatus(ctx context.Context, tenantID, userID, caller
 		zap.String("status", status))
 
 	// Re-fetch to return the latest state (updatedAt reflects the mutation)
-	updated, err := s.repo.GetByID(ctx, tenantID, userID)
+	updated, err := s.repo.GetByID(ctx, tenantID, userID, includeGlobal)
 	if err != nil {
 		s.logger.Error("failed to re-fetch user after status update",
 			zap.String("tenant_id", tenantID), zap.String("user_id", userID), zap.Error(err))

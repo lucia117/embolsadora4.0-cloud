@@ -30,16 +30,23 @@ func NewPostgresRepository(db *pgxpool.Pool) Repository {
 // A user belongs to the tenant if users.tenant_id matches (management CRUD) or
 // if they hold an active membership in user_tenant_roles (auth-provisioned
 // users have tenant_id NULL — their membership is the source of truth).
-func (r *PostgresRepository) ListByTenant(ctx context.Context, tenantID string, limit, offset int) ([]*users.User, int64, error) {
-	// Get total count
+//
+// includeGlobal=false oculta a los miembros cuyo rol es is_global (super_admin,
+// tenant_manager). El filtro se aplica en el COUNT y en el SELECT: filtrar solo
+// el SELECT dejaría un `total` mayor que las filas devueltas y la paginación
+// mostraría una página final vacía.
+func (r *PostgresRepository) ListByTenant(ctx context.Context, tenantID string, limit, offset int, includeGlobal bool) ([]*users.User, int64, error) {
 	var totalCount int64
 	countQuery := `
 		SELECT COUNT(*)
 		FROM users u
 		LEFT JOIN user_tenant_roles utr
 			ON utr.user_id = u.id AND utr.tenant_id = $1 AND utr.status = 'active'
-		WHERE u.deleted_at IS NULL AND (u.tenant_id = $1 OR utr.id IS NOT NULL)`
-	if err := r.db.QueryRow(ctx, countQuery, tenantID).Scan(&totalCount); err != nil {
+		LEFT JOIN roles r ON r.id = utr.role_id
+		WHERE u.deleted_at IS NULL
+		  AND (u.tenant_id = $1 OR utr.id IS NOT NULL)
+		  AND (COALESCE(r.is_global, FALSE) = FALSE OR $2)`
+	if err := r.db.QueryRow(ctx, countQuery, tenantID, includeGlobal).Scan(&totalCount); err != nil {
 		return nil, 0, fmt.Errorf("failed to count users: %w", err)
 	}
 
@@ -56,12 +63,15 @@ func (r *PostgresRepository) ListByTenant(ctx context.Context, tenantID string, 
 		FROM users u
 		LEFT JOIN user_tenant_roles utr
 			ON utr.user_id = u.id AND utr.tenant_id = $1 AND utr.status = 'active'
-		WHERE u.deleted_at IS NULL AND (u.tenant_id = $1 OR utr.id IS NOT NULL)
+		LEFT JOIN roles r ON r.id = utr.role_id
+		WHERE u.deleted_at IS NULL
+		  AND (u.tenant_id = $1 OR utr.id IS NOT NULL)
+		  AND (COALESCE(r.is_global, FALSE) = FALSE OR $2)
 		ORDER BY u.created_at DESC
-		LIMIT $2 OFFSET $3
+		LIMIT $3 OFFSET $4
 	`
 
-	rows, err := r.db.Query(ctx, query, tenantID, limit, offset)
+	rows, err := r.db.Query(ctx, query, tenantID, includeGlobal, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to query users: %w", err)
 	}
@@ -85,7 +95,11 @@ func (r *PostgresRepository) ListByTenant(ctx context.Context, tenantID string, 
 
 // GetByID retrieves a single user by ID (returns ErrNotFound if soft-deleted).
 // Membership via user_tenant_roles also qualifies (see ListByTenant).
-func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, userID string) (*users.User, error) {
+//
+// includeGlobal=false hace que un miembro con rol is_global sea indistinguible
+// de uno inexistente: ambos devuelven ErrNotFound → 404. Un 403 confirmaría que
+// el usuario existe, que es justamente lo que hay que no filtrar.
+func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, userID string, includeGlobal bool) (*users.User, error) {
 	query := `
 		SELECT u.id,
 		       COALESCE(u.tenant_id, $2) AS tenant_id,
@@ -97,10 +111,14 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, userID strin
 		FROM users u
 		LEFT JOIN user_tenant_roles utr
 			ON utr.user_id = u.id AND utr.tenant_id = $2 AND utr.status = 'active'
-		WHERE u.id = $1 AND u.deleted_at IS NULL AND (u.tenant_id = $2 OR utr.id IS NOT NULL)
+		LEFT JOIN roles r ON r.id = utr.role_id
+		WHERE u.id = $1
+		  AND u.deleted_at IS NULL
+		  AND (u.tenant_id = $2 OR utr.id IS NOT NULL)
+		  AND (COALESCE(r.is_global, FALSE) = FALSE OR $3)
 	`
 
-	row := r.db.QueryRow(ctx, query, userID, tenantID)
+	row := r.db.QueryRow(ctx, query, userID, tenantID, includeGlobal)
 	user, err := scanUser(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -272,7 +290,13 @@ func (r *PostgresRepository) Delete(ctx context.Context, tenantID, userID string
 // GetByIDWithRoles retrieves a user with their active role assignment in the tenant.
 // Uses LEFT JOINs so users without an active UTR still return with Roles: [].
 // Membership via user_tenant_roles also qualifies (see ListByTenant).
-func (r *PostgresRepository) GetByIDWithRoles(ctx context.Context, tenantID, userID string) (*users.UserWithRoles, error) {
+//
+// includeGlobal=false aplica la misma regla de cloaking que GetByID: un miembro
+// con rol is_global es indistinguible de uno inexistente (ErrNotFound → 404).
+// Esta consulta expone además el nombre y permisos del rol, así que sin este
+// filtro el ?include=roles delataría no solo la existencia del super_admin sino
+// su rol completo — una fuga peor que la de GetByID.
+func (r *PostgresRepository) GetByIDWithRoles(ctx context.Context, tenantID, userID string, includeGlobal bool) (*users.UserWithRoles, error) {
 	query := `
 		SELECT u.id,
 		       COALESCE(u.tenant_id, $2) AS tenant_id,
@@ -293,10 +317,13 @@ func (r *PostgresRepository) GetByIDWithRoles(ctx context.Context, tenantID, use
 		LEFT JOIN roles r
 		    ON r.id = utr.role_id
 		    AND r.deleted_at IS NULL
-		WHERE u.id = $1 AND u.deleted_at IS NULL AND (u.tenant_id = $2 OR utr.id IS NOT NULL)
+		WHERE u.id = $1
+		  AND u.deleted_at IS NULL
+		  AND (u.tenant_id = $2 OR utr.id IS NOT NULL)
+		  AND (COALESCE(r.is_global, FALSE) = FALSE OR $3)
 	`
 
-	row := r.db.QueryRow(ctx, query, userID, tenantID)
+	row := r.db.QueryRow(ctx, query, userID, tenantID, includeGlobal)
 
 	var u users.User
 	var roleID *string
@@ -341,20 +368,34 @@ func (r *PostgresRepository) GetByIDWithRoles(ctx context.Context, tenantID, use
 }
 
 // ListPendingByTenant retrieves users with a pending role assignment in the tenant.
-func (r *PostgresRepository) ListPendingByTenant(ctx context.Context, tenantID string) ([]*users.User, error) {
+// includeGlobal=false oculta las membresías pendientes a roles globales: una
+// invitación pendiente a super_admin delata su existencia igual que un miembro activo.
+//
+// COALESCE en tenant_id/first_name/last_name: igual que en ListByTenant/GetByID,
+// un usuario pending puede venir de auth (tenant_id NULL, sin first_name/last_name
+// hasta completar el onboarding) — sin el COALESCE, escanear esa fila entra en
+// panic de tipo al intentar volcar NULL en un string no-puntero.
+func (r *PostgresRepository) ListPendingByTenant(ctx context.Context, tenantID string, includeGlobal bool) ([]*users.User, error) {
 	query := `
-		SELECT u.id, u.tenant_id, u.first_name, u.last_name, u.email, u.role, u.image,
-		       u.created_at, u.updated_at, u.deleted_at
+		SELECT u.id,
+		       COALESCE(u.tenant_id, $1) AS tenant_id,
+		       COALESCE(u.first_name, u.name, '') AS first_name,
+		       COALESCE(u.last_name, '') AS last_name,
+		       u.email,
+		       COALESCE(utr.role_id, u.role) AS role,
+		       u.image, u.created_at, u.updated_at, u.deleted_at
 		FROM users u
 		JOIN user_tenant_roles utr
 		    ON utr.user_id = u.id
 		    AND utr.tenant_id = $1
 		    AND utr.status = 'pending'
+		LEFT JOIN roles r ON r.id = utr.role_id
 		WHERE u.deleted_at IS NULL
+		  AND (COALESCE(r.is_global, FALSE) = FALSE OR $2)
 		ORDER BY utr.created_at DESC
 	`
 
-	rows, err := r.db.Query(ctx, query, tenantID)
+	rows, err := r.db.Query(ctx, query, tenantID, includeGlobal)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query pending users: %w", err)
 	}
