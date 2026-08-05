@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tu-org/embolsadora-api/internal/domain"
 )
@@ -45,6 +46,16 @@ func NewInvitationRepository(db *pgxpool.Pool) InvitationRepository {
 	return &pgInvitationRepo{db: db}
 }
 
+// Create inserta la invitación. idx_user_invitations_pending (único sobre
+// (tenant_id, email) WHERE status='pending') puede rechazar el INSERT aunque
+// GetPendingByEmailAndTenant no haya visto nada: ese chequeo previo está
+// cloakeado (includeGlobal) y una invitación pendiente oculta a rol global es
+// invisible ahí a propósito, pero el índice de la DB no sabe de cloaking y la
+// ve igual. Sin capturar el 23505 acá, ese choque se propagaba como error
+// genérico (500) — un status distinto del 409 que ve un duplicado visible, y
+// por lo tanto una forma más de distinguir "no hay nada" de "hay algo oculto".
+// Mapeado al mismo domain.ErrInvitationAlreadyPending que devuelve el chequeo
+// previo, para que ambos casos produzcan la misma respuesta 409.
 func (r *pgInvitationRepo) Create(ctx context.Context, inv *domain.UserInvitation) (*domain.UserInvitation, error) {
 	const q = `
 		INSERT INTO user_invitations (id, tenant_id, email, role_id, status, invited_by, created_at, updated_at, expires_at)
@@ -53,7 +64,15 @@ func (r *pgInvitationRepo) Create(ctx context.Context, inv *domain.UserInvitatio
 
 	id := uuid.New().String()
 	row := r.db.QueryRow(ctx, q, id, inv.TenantID, inv.Email, inv.RoleID, inv.InvitedBy)
-	return scanInvitation(row)
+	created, err := scanInvitation(row)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "idx_user_invitations_pending" {
+			return nil, domain.ErrInvitationAlreadyPending
+		}
+		return nil, err
+	}
+	return created, nil
 }
 
 func (r *pgInvitationRepo) GetPendingByEmailAndTenant(ctx context.Context, email, tenantID string, includeGlobal bool) (*domain.UserInvitation, error) {
