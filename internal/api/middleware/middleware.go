@@ -190,8 +190,8 @@ func TenantFromHeader(db *pgxpool.Pool) gin.HandlerFunc {
 				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"success": false, "error": "tenant access denied"})
 				return
 			}
-		} else if isPlatformTenant && roleID == "admin" {
-			roleID = "platform_admin"
+		} else {
+			roleID = security.EffectiveRole(roleID, isPlatformTenant)
 		}
 
 		ctx := platform.WithTenantID(c.Request.Context(), tenantID)
