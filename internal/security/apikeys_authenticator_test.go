@@ -2,6 +2,7 @@ package security_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -14,16 +15,30 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/security"
 )
 
+// errRepoUnavailable simula un fallo de Postgres (timeout, conexion caida,
+// etc.) que no es "key inexistente". Sirve para probar que ese caso NO se
+// colapsa en ErrAPIKeyInvalid (I-1): un outage de base no es una credencial
+// invalida.
+var errRepoUnavailable = errors.New("fakeRepo: postgres no disponible")
+
 // fakeRepo implementa domainapikeys.Repository en memoria. El autenticador se
 // testea sin Postgres ni Redis: sus reglas son de decision, no de storage.
 type fakeRepo struct {
 	byKeyID map[string]*domainapikeys.Credential
 	touched []uuid.UUID
 	calls   int
+
+	// lookupErr, si esta seteado, hace que GetByKeyID lo devuelva en vez de
+	// consultar byKeyID. Deja el comportamiento existente intacto cuando es
+	// nil, para que los demas subtests sigan probando lo mismo que hoy.
+	lookupErr error
 }
 
 func (f *fakeRepo) GetByKeyID(_ context.Context, keyID string) (*domainapikeys.Credential, error) {
 	f.calls++
+	if f.lookupErr != nil {
+		return nil, f.lookupErr
+	}
 	c, ok := f.byKeyID[keyID]
 	if !ok {
 		return nil, domainapikeys.ErrKeyNotFound
@@ -120,6 +135,22 @@ func TestAuthenticateFailureModes(t *testing.T) {
 		_, err := auth.Authenticate(context.Background(), plaintext)
 		assert.ErrorIs(t, err, security.ErrAPIKeyInvalid)
 	})
+}
+
+// Un error de Postgres que no sea ErrKeyNotFound es una falla de infraestructura,
+// no una credencial invalida (I-1): debe propagarse intacto para que el
+// middleware lo traduzca a 500 y el Edge reintente, en vez de a un 403 que
+// haria pasar un outage de base por "key mala". Se comprueban las dos caras:
+// que el error real llegue sin envolver, y que no se haya colapsado en
+// ErrAPIKeyInvalid.
+func TestAuthenticatePropagatesNonNotFoundRepositoryError(t *testing.T) {
+	auth, plaintext, repo := newAuth(t, nil)
+	repo.lookupErr = errRepoUnavailable
+
+	_, err := auth.Authenticate(context.Background(), plaintext)
+
+	assert.ErrorIs(t, err, errRepoUnavailable)
+	assert.NotErrorIs(t, err, security.ErrAPIKeyInvalid)
 }
 
 func TestAuthenticateAcceptsFutureExpiry(t *testing.T) {
