@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	domain "github.com/tu-org/embolsadora-api/internal/domain/ingest"
+	"github.com/tu-org/embolsadora-api/internal/telemetry"
 )
 
 // Service orquesta la ingesta de un batch.
@@ -52,7 +53,9 @@ func (s *Service) IngestBatch(ctx context.Context, dev domain.DeviceContext, raw
 	}
 
 	if len(valid) > 0 {
+		start := time.Now()
 		report, err := s.repo.InsertMany(ctx, valid)
+		telemetry.IngestBatchDuration.Observe(time.Since(start).Seconds())
 		if err != nil {
 			s.log.Error("fallo total al persistir el batch",
 				zap.Error(err),

@@ -9,7 +9,7 @@ var (
 	// IngestBatchesTotal cuenta batches procesados por desenlace (ok/error).
 	IngestBatchesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "ingest_batches_total",
-		Help: "Total de batches de eventos recibidos, por desenlace",
+		Help: "Total de batches de eventos procesados, por desenlace",
 	}, []string{"status"})
 
 	// IngestEventsAcceptedTotal cuenta eventos efectivamente persistidos.
