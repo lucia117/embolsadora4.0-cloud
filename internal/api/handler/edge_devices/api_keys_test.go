@@ -3,6 +3,7 @@ package edge_devices_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -96,4 +97,52 @@ func TestCreateAPIKeyMalformedBodyReturns400(t *testing.T) {
 				"un body malformado no puede convertirse en una key sin nombre y sin vencimiento")
 		})
 	}
+}
+
+// disabledDeviceRepo devuelve un device DISABLED valido, para el camino feliz
+// de CreateAPIKey.
+type disabledDeviceRepo struct{ domainedge.Repository }
+
+func (disabledDeviceRepo) GetByID(_ context.Context, tenantID, deviceID uuid.UUID) (*domainedge.EdgeDevice, error) {
+	return &domainedge.EdgeDevice{ID: deviceID, TenantID: tenantID, Status: "DISABLED"}, nil
+}
+
+// recordingAPIKeysRepo implementa Create sin persistir de verdad, solo para
+// que CreateAPIKey pueda completar el camino feliz.
+type recordingAPIKeysRepo struct{ domainapikeys.Repository }
+
+func (recordingAPIKeysRepo) Create(context.Context, *domainapikeys.APIKey) error { return nil }
+
+// Item 7 de la review final: Active (domainapikeys.APIKey.IsActive) solo
+// responde si la key en si no esta revocada ni vencida, pero el
+// autenticador ADEMAS exige que el device este ACTIVE. Antes de este fix,
+// una key nominalmente activa en un device DISABLED se veia identica en la
+// respuesta a una key que autentica de verdad. Este test crea la key sobre
+// un device DISABLED y verifica que DeviceStatus lo refleje, sin tocar
+// Active (que sigue respondiendo solo por la key).
+func TestCreateAPIKeyResponseSurfacesDeviceStatus(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	tenantID := uuid.New()
+	deviceID := uuid.New()
+	svc := appedge.NewService(disabledDeviceRepo{}, nil, zap.NewNop(), recordingAPIKeysRepo{}, nil)
+	r.POST("/devices/:deviceId/api-keys", func(c *gin.Context) {
+		c.Request = c.Request.WithContext(platform.WithTenantUUID(c.Request.Context(), tenantID))
+		c.Params = gin.Params{{Key: "deviceId", Value: deviceID.String()}}
+		edge_devices.CreateAPIKey(svc)(c)
+	})
+
+	w := doCreateAPIKeyRequest(r, "")
+	require.Equal(t, http.StatusCreated, w.Code)
+
+	var body struct {
+		Data struct {
+			Active       bool   `json:"active"`
+			DeviceStatus string `json:"deviceStatus"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	assert.True(t, body.Data.Active, "la key recien creada no esta revocada ni vencida: Active sigue respondiendo eso")
+	assert.Equal(t, "DISABLED", body.Data.DeviceStatus,
+		"DeviceStatus debe reflejar el device real, distinto de si la key en si esta activa")
 }

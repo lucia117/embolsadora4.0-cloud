@@ -16,6 +16,13 @@ type Repository struct {
 	db *pgxpool.Pool
 }
 
+// var _ domainapikeys.Repository = (*Repository)(nil) fuerza en tiempo de
+// compilacion que Repository siga implementando la interfaz completa. Sin
+// esto, un cambio de firma en domainapikeys.Repository que este paquete no
+// siguiera solo se notaria en el call site que lo usa (routes/url_mappings.go
+// via NewRepository), potencialmente lejos de aca.
+var _ domainapikeys.Repository = (*Repository)(nil)
+
 // NewRepository construye el repositorio de API keys.
 func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}

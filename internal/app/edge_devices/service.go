@@ -358,16 +358,20 @@ func (s *Service) ListEvents(ctx context.Context, tenantID, deviceID uuid.UUID) 
 }
 
 // CreateAPIKey genera una credencial nueva para el device y devuelve el valor
-// en claro, que el llamador debe mostrar UNA sola vez.
-func (s *Service) CreateAPIKey(ctx context.Context, tenantID, deviceID uuid.UUID, name string, expiresAt *time.Time, createdBy *uuid.UUID) (*domainapikeys.APIKey, string, error) {
+// en claro, que el llamador debe mostrar UNA sola vez, junto con el status
+// ACTUAL del device ("ACTIVE" | "DISABLED"): el llamador lo necesita para
+// completar dto.APIKeyResponse.DeviceStatus sin un segundo roundtrip -- ya se
+// pidio el device aca abajo para verificar que existiera.
+func (s *Service) CreateAPIKey(ctx context.Context, tenantID, deviceID uuid.UUID, name string, expiresAt *time.Time, createdBy *uuid.UUID) (*domainapikeys.APIKey, string, string, error) {
 	// Verificar que el device exista y sea del tenant antes de emitir nada.
-	if _, err := s.repo.GetByID(ctx, tenantID, deviceID); err != nil {
-		return nil, "", err
+	device, err := s.repo.GetByID(ctx, tenantID, deviceID)
+	if err != nil {
+		return nil, "", "", err
 	}
 
-	plaintext, keyID, hash, err := domainapikeys.Generate()
-	if err != nil {
-		return nil, "", err
+	plaintext, keyID, hash, genErr := domainapikeys.Generate()
+	if genErr != nil {
+		return nil, "", "", genErr
 	}
 
 	key := &domainapikeys.APIKey{
@@ -385,19 +389,25 @@ func (s *Service) CreateAPIKey(ctx context.Context, tenantID, deviceID uuid.UUID
 	}
 
 	if err := s.apiKeys.Create(ctx, key); err != nil {
-		return nil, "", err
+		return nil, "", "", err
 	}
 	s.logger.Info("api key creada",
 		zap.String("device_id", deviceID.String()), zap.String("key_id", keyID))
-	return key, plaintext, nil
+	return key, plaintext, device.Status, nil
 }
 
-// ListAPIKeys devuelve las keys del device, incluidas las revocadas.
-func (s *Service) ListAPIKeys(ctx context.Context, tenantID, deviceID uuid.UUID) ([]*domainapikeys.APIKey, error) {
-	if _, err := s.repo.GetByID(ctx, tenantID, deviceID); err != nil {
-		return nil, err
+// ListAPIKeys devuelve las keys del device, incluidas las revocadas, junto
+// con el status ACTUAL del device -- ver el comentario de CreateAPIKey.
+func (s *Service) ListAPIKeys(ctx context.Context, tenantID, deviceID uuid.UUID) ([]*domainapikeys.APIKey, string, error) {
+	device, err := s.repo.GetByID(ctx, tenantID, deviceID)
+	if err != nil {
+		return nil, "", err
 	}
-	return s.apiKeys.ListByDevice(ctx, tenantID, deviceID)
+	keys, err := s.apiKeys.ListByDevice(ctx, tenantID, deviceID)
+	if err != nil {
+		return nil, "", err
+	}
+	return keys, device.Status, nil
 }
 
 // RevokeAPIKey revoca una key e invalida su entrada de cache.

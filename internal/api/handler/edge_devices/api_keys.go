@@ -18,16 +18,17 @@ import (
 
 func timeNow() time.Time { return time.Now().UTC() }
 
-func toAPIKeyResponse(k *domainapikeys.APIKey) dto.APIKeyResponse {
+func toAPIKeyResponse(k *domainapikeys.APIKey, deviceStatus string) dto.APIKeyResponse {
 	return dto.APIKeyResponse{
-		ID:         k.ID.String(),
-		KeyID:      k.KeyID,
-		Name:       k.Name,
-		CreatedAt:  k.CreatedAt,
-		ExpiresAt:  k.ExpiresAt,
-		RevokedAt:  k.RevokedAt,
-		LastUsedAt: k.LastUsedAt,
-		Active:     k.IsActive(timeNow()),
+		ID:           k.ID.String(),
+		KeyID:        k.KeyID,
+		Name:         k.Name,
+		CreatedAt:    k.CreatedAt,
+		ExpiresAt:    k.ExpiresAt,
+		RevokedAt:    k.RevokedAt,
+		LastUsedAt:   k.LastUsedAt,
+		Active:       k.IsActive(timeNow()),
+		DeviceStatus: deviceStatus,
 	}
 }
 
@@ -65,7 +66,7 @@ func CreateAPIKey(service *appedge.Service) gin.HandlerFunc {
 			req = dto.CreateAPIKeyRequest{}
 		}
 
-		key, plaintext, err := service.CreateAPIKey(
+		key, plaintext, deviceStatus, err := service.CreateAPIKey(
 			c.Request.Context(), *tenantID, deviceID, req.Name, req.ExpiresAt, platform.UserID(c.Request.Context()))
 		if err != nil {
 			if errors.Is(err, edgeerrors.ErrDeviceNotFound) {
@@ -77,7 +78,7 @@ func CreateAPIKey(service *appedge.Service) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusCreated, gin.H{"success": true, "data": dto.CreateAPIKeyResponse{
-			APIKeyResponse: toAPIKeyResponse(key),
+			APIKeyResponse: toAPIKeyResponse(key, deviceStatus),
 			Key:            plaintext,
 		}})
 	}
@@ -97,7 +98,7 @@ func ListAPIKeys(service *appedge.Service) gin.HandlerFunc {
 			return
 		}
 
-		keys, err := service.ListAPIKeys(c.Request.Context(), *tenantID, deviceID)
+		keys, deviceStatus, err := service.ListAPIKeys(c.Request.Context(), *tenantID, deviceID)
 		if err != nil {
 			if errors.Is(err, edgeerrors.ErrDeviceNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "device no encontrado"})
@@ -109,7 +110,7 @@ func ListAPIKeys(service *appedge.Service) gin.HandlerFunc {
 
 		out := make([]dto.APIKeyResponse, 0, len(keys))
 		for _, k := range keys {
-			out = append(out, toAPIKeyResponse(k))
+			out = append(out, toAPIKeyResponse(k, deviceStatus))
 		}
 		c.JSON(http.StatusOK, gin.H{"success": true, "data": out})
 	}
