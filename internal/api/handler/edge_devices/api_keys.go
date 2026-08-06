@@ -2,6 +2,7 @@ package edge_devices
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"time"
 
@@ -49,7 +50,18 @@ func CreateAPIKey(service *appedge.Service) gin.HandlerFunc {
 
 		var req dto.CreateAPIKeyRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			// El body es opcional: una key sin nombre ni vencimiento es valida.
+			// El body es opcional: una key sin nombre ni vencimiento es valida,
+			// y un body vacio (io.EOF) es exactamente ese caso. Pero cualquier
+			// OTRO error de decode -JSON invalido, un expiresAt que no parsea
+			// como fecha, etc.- es un body MAL FORMADO, no un body ausente:
+			// colapsar los dos en el mismo default silenciaba el error y
+			// devolvia una key sin nombre y SIN vencimiento con 201, con el
+			// secreto en claro, como si el request hubiera sido el que el
+			// operador penso que mandaba.
+			if !errors.Is(err, io.EOF) {
+				c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "body invalido"})
+				return
+			}
 			req = dto.CreateAPIKeyRequest{}
 		}
 
