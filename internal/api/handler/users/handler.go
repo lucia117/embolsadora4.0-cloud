@@ -246,7 +246,8 @@ func (h *Handler) CreateUser(c *gin.Context) {
 		AssignedBy: callerUUID.String(),
 	}
 
-	user, err := h.service.CreateUser(c.Request.Context(), tenantID, cmd)
+	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+	user, err := h.service.CreateUser(c.Request.Context(), tenantID, cmd, includeGlobal)
 	if err != nil {
 		h.logger.Error("create user failed", zap.Error(err))
 		HandleError(c, err)

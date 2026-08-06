@@ -275,7 +275,12 @@ func (uc *InvitationUsecase) ActivatePendingInvitations(ctx context.Context, ema
 			utr.AssignedBy = &invitedBy
 		}
 
-		if _, err := uc.userRoleRepo.Create(ctx, utr); err != nil &&
+		// includeGlobal=true: esto no es un caller mirando datos ajenos, es la
+		// activación de la propia invitación durante el login (mismo criterio con el
+		// que ListPendingByEmail quedó sin cloaking). La invitación ya se validó
+		// contra el lookup cloakeado cuando se creó; aplicar el filtro acá rompería
+		// la activación legítima de un super_admin invitado.
+		if _, err := uc.userRoleRepo.Create(ctx, utr, true); err != nil &&
 			!errors.Is(err, domain.ErrUserAlreadyHasActiveRole) {
 			Log.Warn("failed to create membership from invitation",
 				zap.String("invitation_id", inv.ID),

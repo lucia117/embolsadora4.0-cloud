@@ -58,38 +58,38 @@ type fakeUserRoleRepoForActivation struct {
 	createErr error
 }
 
-func (f *fakeUserRoleRepoForActivation) FindByTenant(ctx context.Context, tenantID uuid.UUID, status *string) ([]domain.UserTenantRoleDetail, error) {
+func (f *fakeUserRoleRepoForActivation) FindByTenant(ctx context.Context, tenantID uuid.UUID, status *string, includeGlobal bool) ([]domain.UserTenantRoleDetail, error) {
 	return nil, nil
 }
 
-func (f *fakeUserRoleRepoForActivation) FindByID(ctx context.Context, id uuid.UUID) (*domain.UserTenantRole, error) {
+func (f *fakeUserRoleRepoForActivation) FindByID(ctx context.Context, id uuid.UUID, includeGlobal bool) (*domain.UserTenantRole, error) {
 	return nil, nil
 }
 
-func (f *fakeUserRoleRepoForActivation) Create(ctx context.Context, utr *domain.UserTenantRole) (*domain.UserTenantRole, error) {
+func (f *fakeUserRoleRepoForActivation) Create(ctx context.Context, utr *domain.UserTenantRole, includeGlobal bool) (*domain.UserTenantRole, error) {
 	if f.createErr != nil {
 		return nil, f.createErr
 	}
 	return utr, nil
 }
 
-func (f *fakeUserRoleRepoForActivation) Update(ctx context.Context, utr *domain.UserTenantRole) (*domain.UserTenantRole, error) {
+func (f *fakeUserRoleRepoForActivation) Update(ctx context.Context, utr *domain.UserTenantRole, includeGlobal bool) (*domain.UserTenantRole, error) {
 	return nil, nil
 }
 
-func (f *fakeUserRoleRepoForActivation) Revoke(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*domain.UserTenantRole, error) {
+func (f *fakeUserRoleRepoForActivation) Revoke(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, includeGlobal bool) (*domain.UserTenantRole, error) {
 	return nil, nil
 }
 
-func (f *fakeUserRoleRepoForActivation) BulkCreate(ctx context.Context, utrs []domain.UserTenantRole) ([]domain.UserTenantRole, error) {
+func (f *fakeUserRoleRepoForActivation) BulkCreate(ctx context.Context, utrs []domain.UserTenantRole, includeGlobal bool) ([]domain.UserTenantRole, error) {
 	return nil, nil
 }
 
-func (f *fakeUserRoleRepoForActivation) FindByUser(ctx context.Context, userID uuid.UUID) ([]domain.UserRoleWithContext, error) {
+func (f *fakeUserRoleRepoForActivation) FindByUser(ctx context.Context, userID, tenantID uuid.UUID, crossTenant, includeGlobal bool) ([]domain.UserRoleWithContext, error) {
 	return nil, nil
 }
 
-func (f *fakeUserRoleRepoForActivation) UpdateStatus(ctx context.Context, userID, tenantID uuid.UUID, status domain.UserRoleStatus) (*domain.UserTenantRole, error) {
+func (f *fakeUserRoleRepoForActivation) UpdateStatus(ctx context.Context, userID, tenantID uuid.UUID, status domain.UserRoleStatus, includeGlobal bool) (*domain.UserTenantRole, error) {
 	return nil, nil
 }
 

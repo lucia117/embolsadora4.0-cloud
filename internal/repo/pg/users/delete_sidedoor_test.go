@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	appUsers "github.com/tu-org/embolsadora-api/internal/app/users"
+	rolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/roles"
 	userRolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/user_roles"
 	usersRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/users"
 )
@@ -21,7 +22,7 @@ func TestDeleteUser_SideDoorFix_NoPuedeBorrarSuperadminOculto(t *testing.T) {
 	pool := poolOrSkip(t)
 	repo := usersRepo.NewPostgresRepository(pool)
 	urRepo := userRolesRepo.NewUserRoleRepository(pool)
-	svc := appUsers.NewService(repo, urRepo, zap.NewNop())
+	svc := appUsers.NewService(repo, urRepo, rolesRepo.NewPostgresRepository(pool), zap.NewNop())
 	ctx := context.Background()
 
 	superID := seedMemberWithRole(t, pool, "super_admin", "active")

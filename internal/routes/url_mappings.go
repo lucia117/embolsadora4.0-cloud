@@ -157,6 +157,7 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 		UserRoleRepo: userRoleRepo,
 		Logger:       logger,
 		UserRepo:     mgmtUserRepo,
+		RoleRepo:     rRepo,
 	}, api.Config{})
 
 	// ── Consumer surface (IoT devices, etc.) ──────────────────────────────────

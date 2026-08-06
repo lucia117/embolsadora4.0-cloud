@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 	domain "github.com/tu-org/embolsadora-api/internal/domain"
 	domainUsers "github.com/tu-org/embolsadora-api/internal/domain/users"
+	appRoles "github.com/tu-org/embolsadora-api/internal/app/roles"
+	rolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/roles"
 	usersRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/users"
 	userRolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/user_roles"
 	"go.uber.org/zap"
@@ -18,14 +20,16 @@ import (
 type Service struct {
 	repo         usersRepo.Repository
 	userRoleRepo userRolesRepo.UserRoleRepository
+	roleRepo     rolesRepo.Repository
 	logger       *zap.Logger
 }
 
 // NewService creates a new user service
-func NewService(repo usersRepo.Repository, userRoleRepo userRolesRepo.UserRoleRepository, logger *zap.Logger) *Service {
+func NewService(repo usersRepo.Repository, userRoleRepo userRolesRepo.UserRoleRepository, roleRepo rolesRepo.Repository, logger *zap.Logger) *Service {
 	return &Service{
 		repo:         repo,
 		userRoleRepo: userRoleRepo,
+		roleRepo:     roleRepo,
 		logger:       logger,
 	}
 }
@@ -84,7 +88,15 @@ func (s *Service) GetUserWithRoles(ctx context.Context, tenantID, userID string,
 }
 
 // CreateUser creates a new user in a tenant with an active role assignment.
-func (s *Service) CreateUser(ctx context.Context, tenantID string, cmd *domainUsers.CreateUserCommand) (*domainUsers.User, error) {
+//
+// includeGlobal lo decide el handler vía security.CanSeePlatformInternals y acá sirve
+// para una sola cosa, la más importante de este archivo: validar que el rol pedido sea
+// asignable por este caller ANTES de crear nada. Sin esa validación, POST /users
+// {"role":"super_admin"} desde el tenant plataforma creaba un usuario con UTR activa de
+// superadmin — la FK de user_tenant_roles.role_id no lo impide (el rol existe) y
+// tenant_can_use_role() tampoco (dentro de MRG devuelve TRUE para is_global). Con
+// force-password-change a continuación, eso es tomar la cuenta. Ver EnsureAssignable.
+func (s *Service) CreateUser(ctx context.Context, tenantID string, cmd *domainUsers.CreateUserCommand, includeGlobal bool) (*domainUsers.User, error) {
 	if err := cmd.Validate(); err != nil {
 		s.logger.Warn("invalid create user command", zap.String("tenant_id", tenantID), zap.Error(err))
 		return nil, fmt.Errorf("%w: %v", domainUsers.ErrValidation, err)
@@ -97,6 +109,12 @@ func (s *Service) CreateUser(ctx context.Context, tenantID string, cmd *domainUs
 	assignedByUUID, err := uuid.Parse(cmd.AssignedBy)
 	if err != nil {
 		return nil, fmt.Errorf("%w: invalid assigned_by: %v", domainUsers.ErrValidation, err)
+	}
+
+	if err := appRoles.EnsureAssignable(ctx, s.roleRepo, cmd.Role, tenantUUID, includeGlobal); err != nil {
+		s.logger.Warn("rol no asignable en create user",
+			zap.String("tenant_id", tenantID), zap.String("role", cmd.Role), zap.Error(err))
+		return nil, err
 	}
 
 	user := &domainUsers.User{
@@ -172,6 +190,21 @@ func (s *Service) UpdateUser(ctx context.Context, tenantID, userID string, inclu
 		current.LastName = *cmd.LastName
 	}
 	if cmd.Role != nil {
+		// users.role es la columna legada (la membresía real vive en
+		// user_tenant_roles, que es lo que lee /me), pero los listados la muestran
+		// vía COALESCE(utr.role_id, u.role) cuando no hay UTR activa. Escribir
+		// 'super_admin' acá no da permisos, y aun así se valida con el mismo lookup
+		// cloakeado: dejarla libre permitiría pintar a un usuario como superadmin y,
+		// peor, sacarlo del filtro de cloaking de los listados de users.
+		tenantUUID, err := uuid.Parse(tenantID)
+		if err != nil {
+			return nil, fmt.Errorf("%w: invalid tenant_id: %v", domainUsers.ErrValidation, err)
+		}
+		if err := appRoles.EnsureAssignable(ctx, s.roleRepo, *cmd.Role, tenantUUID, includeGlobal); err != nil {
+			s.logger.Warn("rol no asignable en update user",
+				zap.String("tenant_id", tenantID), zap.String("role", *cmd.Role), zap.Error(err))
+			return nil, err
+		}
 		current.Role = *cmd.Role
 	}
 	if cmd.Image != nil {
@@ -282,7 +315,7 @@ func (s *Service) UpdateUserStatus(ctx context.Context, tenantID, userID, caller
 		return nil, fmt.Errorf("invalid user_id: %w", err)
 	}
 
-	_, err = s.userRoleRepo.UpdateStatus(ctx, userUUID, tenantUUID, utrStatus)
+	_, err = s.userRoleRepo.UpdateStatus(ctx, userUUID, tenantUUID, utrStatus, includeGlobal)
 	if err != nil {
 		if errors.Is(err, domain.ErrNoActiveAssignment) {
 			s.logger.Warn("no active assignment found for status update",
