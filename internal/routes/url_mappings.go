@@ -40,6 +40,7 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/config"
 	consumers "github.com/tu-org/embolsadora-api/internal/consumers"
 	consumermw "github.com/tu-org/embolsadora-api/internal/consumers/middleware"
+	domainingest "github.com/tu-org/embolsadora-api/internal/domain/ingest"
 	"github.com/tu-org/embolsadora-api/internal/platform/apporigin"
 	"github.com/tu-org/embolsadora-api/internal/platform/edgeclient"
 	mongoplatform "github.com/tu-org/embolsadora-api/internal/platform/mongo"
@@ -165,20 +166,20 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	}, api.Config{})
 
 	// ── Consumer surface (Edge Pi Service) ────────────────────────────────────
-	// La ingesta necesita Mongo. Si no hay conexion, el proceso entero no
-	// arranca — log.Fatalf termina toda la API, no solo /api/v1/consumers: un
-	// cloud que aparece caido de punta a punta (conexion rechazada en todos
-	// los endpoints) es preferible a uno que queda arriba y acepta eventos que
-	// nunca se van a poder guardar.
-	mongoClient, err := mongoplatform.Connect(context.Background(), cfg.Mongo)
+	// La ingesta necesita Mongo, pero un Mongo inalcanzable AL ARRANCAR ya no
+	// tumba el proceso entero: I-1 (Mongo caido -> 500 -> el Edge reintenta
+	// con backoff sin perder datos) ya cubre exactamente este caso, y
+	// aplicarlo tambien aca es estrictamente mejor que log.Fatalf, que se
+	// llevaba puesto login, /me, dashboards y reglas de alarma por un fallo
+	// que el propio diseno de la ingesta esta hecho para sobrevivir. Se deja
+	// constancia con logger.Error (no Fatalf) y measurementRepo queda en un
+	// stub que devuelve error en cada InsertMany/Ping (measurementsRepo.Unavailable).
+	measurementRepo, err := connectMeasurementsRepo(context.Background(), cfg.Mongo, logger)
 	if err != nil {
-		log.Fatalf("no se pudo conectar a MongoDB: %v", err)
-	}
-
-	measurementRepo := measurementsRepo.New(mongoClient.Database())
-	if err := measurementRepo.EnsureIndexes(context.Background()); err != nil {
-		// Sin el indice unico sobre eventId no hay idempotencia, y cada reintento
-		// del Pi duplicaria mediciones en silencio. No se arranca sin el.
+		// connectMeasurementsRepo ya distingue "no se pudo crear los indices"
+		// (fatal: sin el indice unico no hay idempotencia y cada reintento del
+		// Pi duplicaria mediciones en silencio) de "no se pudo conectar"
+		// (degradado, no fatal). Si volvio error aca es SIEMPRE el primer caso.
 		log.Fatalf("no se pudieron crear los indices de measurements: %v", err)
 	}
 
@@ -293,4 +294,35 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	permissionsWriteGroup.POST("/permissions", pHandler.CreatePermission)
 	permissionsWriteGroup.PUT("/permissions/:id", pHandler.UpdatePermission)
 	permissionsWriteGroup.DELETE("/permissions/:id", pHandler.DeletePermission)
+}
+
+// connectMeasurementsRepo conecta a Mongo y crea sus indices.
+//
+// Si la CONEXION falla, devuelve un repo degradado
+// (measurementsRepo.Unavailable) y nil error: el llamador debe seguir
+// arrancando. La ingesta ya esta disenada para sobrevivir a Mongo caido —
+// I-1: 500 en cada request, el Edge reintenta con backoff sin perder datos —
+// y aplicar esa misma garantia a una caida al arrancar es estrictamente
+// mejor que tumbar login, /me, dashboards y reglas de alarma con log.Fatalf
+// por un problema que no los afecta.
+//
+// Si la conexion tuvo exito pero EnsureIndexes falla, devuelve el error: ese
+// caso SI es fatal y el llamador debe terminar el proceso. Sin el indice
+// unico sobre (tenantId, eventId) no hay idempotencia, y cada reintento del
+// Pi duplicaria mediciones en silencio.
+func connectMeasurementsRepo(ctx context.Context, cfg config.MongoConfig, logger *zap.Logger) (domainingest.Repository, error) {
+	mongoClient, err := mongoplatform.Connect(ctx, cfg)
+	if err != nil {
+		logger.Error("no se pudo conectar a MongoDB al arrancar; la ingesta respondera 500 y el Edge reintentara (I-1); el resto de la API sigue arriba",
+			zap.Error(err))
+		telemetry.SetMongoUp(false)
+		return measurementsRepo.Unavailable(err), nil
+	}
+
+	repo := measurementsRepo.New(mongoClient.Database())
+	if err := repo.EnsureIndexes(ctx); err != nil {
+		return nil, err
+	}
+	telemetry.SetMongoUp(true)
+	return repo, nil
 }

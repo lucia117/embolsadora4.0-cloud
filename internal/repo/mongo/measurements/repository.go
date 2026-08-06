@@ -6,6 +6,7 @@ package measurements
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	mongodriver "go.mongodb.org/mongo-driver/v2/mongo"
@@ -171,4 +172,30 @@ func (r *Repository) InsertMany(ctx context.Context, docs []ingest.Measurement) 
 // Ping verifica la conectividad con el primario.
 func (r *Repository) Ping(ctx context.Context) error {
 	return r.db.Client().Ping(ctx, readpref.Primary())
+}
+
+// unavailable implementa ingest.Repository sin ningun Mongo real detras:
+// InsertMany y Ping fallan siempre con el error de conexion original.
+//
+// Existe para que un fallo de conexion a Mongo AL ARRANCAR no tenga que
+// tumbar el proceso entero con log.Fatalf. Con esto en su lugar, la ingesta
+// devuelve 500 en cada request (el Edge reintenta con backoff, tal como
+// promete el invariante I-1) y el resto de la API -login, /me, dashboards,
+// reglas de alarma- sigue arriba con normalidad. Sin este stub, la unica
+// forma de dejar el mapeo de rutas de consumers registrado es tener un
+// Repository real, y no hay uno sin Mongo.
+type unavailable struct{ err error }
+
+// Unavailable construye un ingest.Repository degradado para el caso en que
+// mongo.Connect fallo al arrancar. Ver el comentario del tipo unavailable.
+func Unavailable(err error) ingest.Repository {
+	return &unavailable{err: err}
+}
+
+func (u *unavailable) InsertMany(context.Context, []ingest.Measurement) (ingest.InsertReport, error) {
+	return ingest.InsertReport{}, fmt.Errorf("mongo no disponible desde el arranque: %w", u.err)
+}
+
+func (u *unavailable) Ping(context.Context) error {
+	return fmt.Errorf("mongo no disponible desde el arranque: %w", u.err)
 }

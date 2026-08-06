@@ -133,6 +133,7 @@ docs/superpowers/plans/      — implementation plans (e.g. cloud-ingest-endpoin
 
 ## Pending Manual Steps
 
+- **Provisionar MongoDB y setear `MONGO_URI`**: la ingesta (`POST /api/v1/consumers/events`) persiste en MongoDB. `MONGO_URI` no tiene un default productivo (cae a `mongodb://localhost:27017`) — sin provisionar Mongo y setear la variable en el deploy, la ingesta arranca degradada (responde 500 en cada request; el resto de la API sigue funcionando con normalidad, ver `internal/routes/url_mappings.go`). Ver también `MONGO_DATABASE` y `MONGO_TIMEOUT` en `.env.example`.
 - **Deploy a Koyeb**: tras mergear, aplicar migraciones contra Koyeb Managed Postgres. Ver `migrations/README.md` (sección "Deploy a Koyeb") y `specs/014-consolidate-migrations/quickstart.md`.
 - **Activar admin MRG**: post-deploy, crear el admin en Supabase Auth y asignar el rol `super_admin` en el tenant MRG (`11b36b85-033d-4bb3-9e31-4c92161887c0`) — instrucciones en `migrations/README.md`.
 
