@@ -14,14 +14,22 @@ import (
 
 // Service orquesta la ingesta de un batch.
 type Service struct {
-	repo domain.Repository
-	log  *zap.Logger
-	now  func() time.Time
+	repo         domain.Repository
+	log          *zap.Logger
+	now          func() time.Time
+	mongoTimeout time.Duration
 }
 
 // NewService construye el service de ingesta.
-func NewService(repo domain.Repository, log *zap.Logger) *Service {
-	return &Service{repo: repo, log: log, now: func() time.Time { return time.Now().UTC() }}
+//
+// mongoTimeout acota CADA llamada a repo.InsertMany (item 6 de la review
+// final): sin un limite propio, un primario de Mongo colgado deja el
+// goroutine del request esperando indefinidamente en vez de devolver el 500
+// que el Edge sabe reintentar (I-1). "Colgado" no es lo mismo que "caido":
+// un primario caido falla rapido (conexion rechazada); uno colgado no falla
+// nunca por si solo, y es ese caso el que necesita un limite explicito.
+func NewService(repo domain.Repository, log *zap.Logger, mongoTimeout time.Duration) *Service {
+	return &Service{repo: repo, log: log, now: func() time.Time { return time.Now().UTC() }, mongoTimeout: mongoTimeout}
 }
 
 // IngestBatch valida el sobre de cada evento y persiste los validos.
@@ -68,8 +76,15 @@ func (s *Service) IngestBatch(ctx context.Context, dev domain.DeviceContext, raw
 	}
 
 	if len(valid) > 0 {
+		insertCtx := ctx
+		if s.mongoTimeout > 0 {
+			var cancel context.CancelFunc
+			insertCtx, cancel = context.WithTimeout(ctx, s.mongoTimeout)
+			defer cancel()
+		}
+
 		start := time.Now()
-		report, err := s.repo.InsertMany(ctx, valid)
+		report, err := s.repo.InsertMany(insertCtx, valid)
 		telemetry.IngestBatchDuration.Observe(time.Since(start).Seconds())
 		if err != nil {
 			s.log.Error("fallo total al persistir el batch",

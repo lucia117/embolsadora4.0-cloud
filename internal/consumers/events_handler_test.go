@@ -60,7 +60,7 @@ func newRouter(repo ingest.Repository) *gin.Engine {
 		c.Request = c.Request.WithContext(security.WithDeviceIdentity(c.Request.Context(), identity))
 		c.Next()
 	}, consumers.IngestEvents(
-		ingestapp.NewService(repo, zap.NewNop()),
+		ingestapp.NewService(repo, zap.NewNop(), 0),
 		consumers.HandlerConfig{MaxBodyBytes: 4194304, MaxEvents: 1000},
 		zap.NewNop(),
 	))

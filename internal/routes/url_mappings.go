@@ -215,7 +215,7 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 
 	apiKeyRepository := apiKeysRepo.NewRepository(db)
 	apiKeyAuth := security.NewAPIKeyAuthenticator(apiKeyRepository, redisClient, cfg.Ingest.APIKeyCacheTTL, logger)
-	ingestService := ingestapp.NewService(measurementRepo, logger)
+	ingestService := ingestapp.NewService(measurementRepo, logger, cfg.Mongo.Timeout)
 	rateLimiter := consumers.NewRateLimiter(redisClient, cfg.Ingest.RateLimitRPS, cfg.Ingest.RateLimitBurst)
 
 	c1 := r.Group(
