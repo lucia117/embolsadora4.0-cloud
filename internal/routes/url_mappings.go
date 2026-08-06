@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"time"
@@ -31,6 +32,7 @@ import (
 	alarmRulesApp "github.com/tu-org/embolsadora-api/internal/app/alarm_rules"
 	dashboardLayoutsApp "github.com/tu-org/embolsadora-api/internal/app/dashboard_layouts"
 	edgeDevicesApp "github.com/tu-org/embolsadora-api/internal/app/edge_devices"
+	ingestapp "github.com/tu-org/embolsadora-api/internal/app/ingest"
 	appLogs "github.com/tu-org/embolsadora-api/internal/app/logs"
 	appNotifications "github.com/tu-org/embolsadora-api/internal/app/notifications"
 	permissionsApp "github.com/tu-org/embolsadora-api/internal/app/permissions"
@@ -40,8 +42,11 @@ import (
 	consumermw "github.com/tu-org/embolsadora-api/internal/consumers/middleware"
 	"github.com/tu-org/embolsadora-api/internal/platform/apporigin"
 	"github.com/tu-org/embolsadora-api/internal/platform/edgeclient"
+	mongoplatform "github.com/tu-org/embolsadora-api/internal/platform/mongo"
 	"github.com/tu-org/embolsadora-api/internal/platform/supabase"
+	measurementsRepo "github.com/tu-org/embolsadora-api/internal/repo/mongo/measurements"
 	alarmRulesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/alarm_rules"
+	apiKeysRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/apikeys"
 	dashboardLayoutsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/dashboard_layouts"
 	edgeDevicesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/edge_devices"
 	invitationsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/invitations"
@@ -159,16 +164,71 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 		UserRepo:     mgmtUserRepo,
 	}, api.Config{})
 
-	// ── Consumer surface (IoT devices, etc.) ──────────────────────────────────
+	// ── Consumer surface (Edge Pi Service) ────────────────────────────────────
+	// La ingesta necesita Mongo. Si no hay conexion, la superficie de consumers
+	// NO se registra: es preferible que el Edge reciba un 404 —que reintenta—
+	// a que reciba un 200 por eventos que nunca se guardaron.
+	mongoClient, err := mongoplatform.Connect(context.Background(), cfg.Mongo)
+	if err != nil {
+		log.Fatalf("no se pudo conectar a MongoDB: %v", err)
+	}
+
+	measurementRepo := measurementsRepo.New(mongoClient.Database())
+	if err := measurementRepo.EnsureIndexes(context.Background()); err != nil {
+		// Sin el indice unico sobre eventId no hay idempotencia, y cada reintento
+		// del Pi duplicaria mediciones en silencio. No se arranca sin el.
+		log.Fatalf("no se pudieron crear los indices de measurements: %v", err)
+	}
+
+	// El health check detallado (a diferencia de /ping) necesita al repo de
+	// measurements para chequear Mongo, asi que se registra aca, una vez que
+	// measurementRepo ya existe.
+	r.GET("/health", func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
+		defer cancel()
+
+		checks := gin.H{"postgres": "ok", "mongo": "ok", "redis": "ok"}
+		status := http.StatusOK
+
+		if err := db.Ping(ctx); err != nil {
+			checks["postgres"] = "error"
+			status = http.StatusServiceUnavailable
+		}
+		if err := measurementRepo.Ping(ctx); err != nil {
+			checks["mongo"] = "error"
+			status = http.StatusServiceUnavailable
+		}
+		if redisClient == nil {
+			checks["redis"] = "no configurado"
+		} else if err := redisClient.Ping(ctx).Err(); err != nil {
+			// Redis degradado no tumba el servicio: la cache de keys y el rate
+			// limit fallan abiertos a proposito.
+			checks["redis"] = "error"
+		}
+
+		telemetry.SetMongoUp(checks["mongo"] == "ok")
+		c.JSON(status, gin.H{"status": map[bool]string{true: "ok", false: "degraded"}[status == http.StatusOK], "checks": checks})
+	})
+
+	apiKeyRepository := apiKeysRepo.NewRepository(db)
+	apiKeyAuth := security.NewAPIKeyAuthenticator(apiKeyRepository, redisClient, cfg.Ingest.APIKeyCacheTTL, logger)
+	ingestService := ingestapp.NewService(measurementRepo, logger)
+	rateLimiter := consumers.NewRateLimiter(redisClient, cfg.Ingest.RateLimitRPS, cfg.Ingest.RateLimitBurst)
+
 	c1 := r.Group(
 		"/api/v1/consumers",
-		consumermw.APIKeyAuth(),
-		consumermw.RateLimit(),
-		consumermw.Idempotency(),
+		apimw.RequestID(),
 		consumermw.NoCORS(),
-		consumermw.Timeout(),
+		consumermw.APIKeyAuth(apiKeyAuth, logger),
+		consumermw.RateLimit(rateLimiter),
 	)
-	consumers.RegisterConsumerRoutes(c1, consumers.Deps{}, consumers.Config{})
+	consumers.RegisterConsumerRoutes(c1, consumers.Deps{
+		Ingest: ingestService,
+		Log:    logger,
+	}, consumers.Config{
+		MaxBodyBytes: cfg.Ingest.MaxBodyBytes,
+		MaxEvents:    cfg.Ingest.MaxEvents,
+	})
 
 	// Superficie de edge devices (/api/v1/tenants/{tenantId}/edge-devices)
 	edgeDeviceTimeout := time.Duration(0) // usar timeout por defecto (10s)
