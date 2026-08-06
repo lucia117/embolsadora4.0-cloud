@@ -248,7 +248,7 @@ func seedFixture(t *testing.T, repo ingest.Repository) error {
 
 	docs := make([]ingest.Measurement, 0, len(batch.Events))
 	for _, raw := range batch.Events {
-		m, evErr := ingestapp.ValidateEvent(raw,
+		m, evErr, _ := ingestapp.ValidateEvent(raw,
 			ingest.DeviceContext{TenantID: "t1", DeviceID: "d1", MachineID: "EMB-DEV-001"},
 			time.Now().UTC())
 		require.Nil(t, evErr)

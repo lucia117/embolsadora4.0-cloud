@@ -29,18 +29,44 @@ const (
 	CodeStorageUnavailable = "STORAGE_UNAVAILABLE"
 )
 
-// Kinds admitidos por el contrato.
+// Kinds conocidos por este build. Un evento con un kind fuera de esta lista
+// NO se rechaza: se acepta y se persiste igual (ver SkewReason). Este cloud no
+// hace nada con `kind` mas alla de validarlo, y `payload` ya se guarda sin
+// validar (D-8), asi que un kind desconocido no cuesta nada guardarlo.
+// Rechazarlo con INVALID_SCHEMA lo mandaria a DEAD para siempre en el Edge la
+// primera vez que el fleet de Pi hable un kind nuevo antes de que el deploy
+// del cloud lo conozca — un orden de eventos que este proyecto ya vivio.
 const (
 	KindMetric    = "metric"
 	KindAlarm     = "alarm"
 	KindHeartbeat = "heartbeat"
 )
 
-// MaxSchemaVersion es la version de sobre mas alta que este cloud entiende.
-// Un evento con una version mayor se rechaza con VALIDATION_FAILED, no con
-// INVALID_SCHEMA: el sobre esta bien formado, simplemente es de un futuro que
-// esta build no conoce.
+// MaxSchemaVersion es la version de sobre mas alta que este cloud reconoce
+// explicitamente. Un evento con una version mayor NO se rechaza: se acepta y
+// se persiste igual, marcado con SkewReasonSchemaVersionAhead (ver
+// SkewReason). Aceptar de mas es reversible —se puede filtrar o borrar
+// despues—; rechazar de mas no lo es, porque el Edge borra el evento de su
+// outbox al recibir un codigo terminal. Ver tambien el comentario de Kinds.
 const MaxSchemaVersion = 1
+
+// SkewReason identifica por que un evento, aunque bien formado, trae un kind
+// o un schemaVersion que este build no conoce todavia. No es un motivo de
+// rechazo (ver comentarios de Kinds y MaxSchemaVersion): el evento se acepta
+// y se persiste igual. SkewReason solo existe para que ese desenlace quede
+// como un hecho observable —metrica + log— y no pase desapercibido: el cloud
+// tiene que enterarse de que el Edge esta mas adelante que el, aunque no haga
+// nada distinto con el dato.
+type SkewReason string
+
+const (
+	// SkewReasonNone: sin desajuste de version. El caso normal.
+	SkewReasonNone SkewReason = ""
+	// SkewReasonUnknownKind: `kind` no esta en Kinds.
+	SkewReasonUnknownKind SkewReason = "unknown_kind"
+	// SkewReasonSchemaVersionAhead: `schemaVersion` > MaxSchemaVersion.
+	SkewReasonSchemaVersionAhead SkewReason = "schema_version_ahead"
+)
 
 // DeviceContext es la identidad ya resuelta por la capa de auth. El service la
 // recibe en vez de leerla del body: tenantId y deviceId nunca salen del

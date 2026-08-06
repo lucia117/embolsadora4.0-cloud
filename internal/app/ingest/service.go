@@ -42,11 +42,26 @@ func (s *Service) IngestBatch(ctx context.Context, dev domain.DeviceContext, raw
 	errs := make([]domain.EventError, 0)
 
 	for i, item := range raw {
-		m, evErr := ValidateEvent(item, dev, now)
+		m, evErr, skew := ValidateEvent(item, dev, now)
 		if evErr != nil {
 			evErr.Index = i
 			errs = append(errs, *evErr)
 			continue
+		}
+		if skew != domain.SkewReasonNone {
+			// Aceptar un kind o schemaVersion que este build no conoce no
+			// puede ser silencioso: es la unica senal de que el Edge quedo
+			// mas adelante que el cloud desplegado (ver comentario de
+			// SkewReason).
+			telemetry.IngestVersionSkewTotal.WithLabelValues(string(skew)).Inc()
+			s.log.Warn("evento aceptado con version skew",
+				zap.String("reason", string(skew)),
+				zap.String("tenant_id", dev.TenantID),
+				zap.String("machine_id", dev.MachineID),
+				zap.String("event_id", m.EventID),
+				zap.String("kind", m.Kind),
+				zap.Int("schema_version", m.SchemaVersion),
+			)
 		}
 		valid = append(valid, m)
 		origIndex = append(origIndex, i)

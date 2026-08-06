@@ -62,63 +62,81 @@ func failed(format string, args ...any) *domain.EventError {
 //
 // El campo Index del EventError devuelto queda en 0: lo setea el llamador, que
 // es el unico que conoce la posicion en el array original (invariante I-3).
-func ValidateEvent(raw json.RawMessage, dev domain.DeviceContext, now time.Time) (domain.Measurement, *domain.EventError) {
+//
+// El tercer valor devuelto es domain.SkewReasonNone salvo que el evento haya
+// sido aceptado con un kind fuera de Kinds o un schemaVersion por encima de
+// MaxSchemaVersion (ver los comentarios de esas dos constantes en
+// internal/domain/ingest/measurement.go): esos dos casos ya NO se rechazan,
+// pero el llamador necesita saber que pasaron para dejar constancia
+// observable (metrica + log), que es lo que sostiene que "aceptar en
+// silencio" no sea lo mismo que "aceptar y que se note".
+func ValidateEvent(raw json.RawMessage, dev domain.DeviceContext, now time.Time) (domain.Measurement, *domain.EventError, domain.SkewReason) {
 	var e rawEvent
 	if err := json.Unmarshal(raw, &e); err != nil {
-		return domain.Measurement{}, invalid("evento no deserializable: %v", err)
+		return domain.Measurement{}, invalid("evento no deserializable: %v", err), domain.SkewReasonNone
 	}
 
 	switch {
 	case e.EventID == nil || *e.EventID == "":
-		return domain.Measurement{}, invalid("falta el campo requerido eventId")
+		return domain.Measurement{}, invalid("falta el campo requerido eventId"), domain.SkewReasonNone
 	case e.MachineID == nil || *e.MachineID == "":
-		return domain.Measurement{}, invalid("falta el campo requerido machineId")
+		return domain.Measurement{}, invalid("falta el campo requerido machineId"), domain.SkewReasonNone
 	case e.Ts == nil:
-		return domain.Measurement{}, invalid("falta el campo requerido ts")
+		return domain.Measurement{}, invalid("falta el campo requerido ts"), domain.SkewReasonNone
 	case e.Kind == nil:
-		return domain.Measurement{}, invalid("falta el campo requerido kind")
+		return domain.Measurement{}, invalid("falta el campo requerido kind"), domain.SkewReasonNone
 	case e.SchemaVersion == nil:
-		return domain.Measurement{}, invalid("falta el campo requerido schemaVersion")
+		return domain.Measurement{}, invalid("falta el campo requerido schemaVersion"), domain.SkewReasonNone
 	case e.Payload == nil:
-		return domain.Measurement{}, invalid("falta el campo requerido payload")
+		return domain.Measurement{}, invalid("falta el campo requerido payload"), domain.SkewReasonNone
 	}
 
 	ts, err := time.Parse(time.RFC3339, *e.Ts)
 	if err != nil {
-		return domain.Measurement{}, invalid("ts no es RFC3339: %q", *e.Ts)
+		return domain.Measurement{}, invalid("ts no es RFC3339: %q", *e.Ts), domain.SkewReasonNone
 	}
 
+	// kind fuera del enum: sobre bien formado, version que este build todavia
+	// no conoce. Se acepta (ver comentario de Kinds); skew queda marcado para
+	// el llamador.
+	skew := domain.SkewReasonNone
 	switch *e.Kind {
 	case domain.KindMetric, domain.KindAlarm, domain.KindHeartbeat:
 	default:
-		return domain.Measurement{}, invalid("kind fuera del enum: %q", *e.Kind)
+		skew = domain.SkewReasonUnknownKind
 	}
 
 	schemaVersion, ok := jsonInt(*e.SchemaVersion)
 	if !ok || schemaVersion < 1 {
-		return domain.Measurement{}, invalid("schemaVersion debe ser un entero >= 1")
+		return domain.Measurement{}, invalid("schemaVersion debe ser un entero >= 1"), domain.SkewReasonNone
 	}
 
 	var seq *int64
 	if e.Seq != nil {
 		n, ok := jsonInt(*e.Seq)
 		if !ok || n < 0 {
-			return domain.Measurement{}, invalid("seq debe ser un entero >= 0")
+			return domain.Measurement{}, invalid("seq debe ser un entero >= 0"), domain.SkewReasonNone
 		}
 		seq = &n
 	}
 
-	// A partir de aca el sobre es valido; lo que sigue son rechazos de
-	// VALIDATION_FAILED, que el Edge tambien manda a DEAD pero que significan
-	// otra cosa: el dato esta bien formado y aun asi no corresponde.
+	// A partir de aca el sobre es valido; lo que sigue (machineId) es el unico
+	// rechazo de VALIDATION_FAILED que queda: el dato esta bien formado y aun
+	// asi no corresponde a este device.
 
 	// Un Pi comprometido no puede escribir en nombre de otra maquina: el
-	// machineId del body solo se acepta si coincide con el device de la key.
+	// machineId del body solo se acepta si coincide con el de la key.
 	if *e.MachineID != dev.MachineID {
-		return domain.Measurement{}, failed("machineId %q no corresponde al device de la API key", *e.MachineID)
+		return domain.Measurement{}, failed("machineId %q no corresponde al device de la API key", *e.MachineID), domain.SkewReasonNone
 	}
-	if schemaVersion > domain.MaxSchemaVersion {
-		return domain.Measurement{}, failed("schemaVersion %d no soportada (maxima: %d)", schemaVersion, domain.MaxSchemaVersion)
+
+	// schemaVersion por encima de la maxima conocida: igual que kind
+	// desconocido, se acepta (ver comentario de MaxSchemaVersion). Si el kind
+	// YA disparo skew, esa es la razon que se reporta: son mutuamente
+	// excluyentes en la practica (el Edge no manda las dos cosas a la vez) y
+	// el llamador solo necesita una etiqueta por evento.
+	if schemaVersion > domain.MaxSchemaVersion && skew == domain.SkewReasonNone {
+		skew = domain.SkewReasonSchemaVersionAhead
 	}
 
 	return domain.Measurement{
@@ -133,5 +151,5 @@ func ValidateEvent(raw json.RawMessage, dev domain.DeviceContext, now time.Time)
 		SchemaVersion: int(schemaVersion),
 		Payload:       *e.Payload,
 		ReceivedAt:    now,
-	}, nil
+	}, nil, skew
 }

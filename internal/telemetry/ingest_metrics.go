@@ -40,6 +40,19 @@ var (
 		Help: "Total de requests rechazados por rate limit",
 	})
 
+	// IngestVersionSkewTotal cuenta eventos bien formados pero con un kind
+	// fuera del enum o un schemaVersion por encima de MaxSchemaVersion,
+	// aceptados y persistidos igual (ver domain.SkewReason). Sin esta
+	// metrica, "aceptar en vez de mandar a DEAD" seria indistinguible de
+	// "todo esta al dia": el equipo de cloud necesita enterarse de que el
+	// Edge quedo mas adelante que el deploy actual, aunque el dato no se
+	// pierda. El label "reason" distingue "unknown_kind" de
+	// "schema_version_ahead".
+	IngestVersionSkewTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ingest_version_skew_total",
+		Help: "Eventos aceptados con kind desconocido o schemaVersion por encima del maximo soportado, por motivo",
+	}, []string{"reason"})
+
 	// IngestBatchDuration mide la latencia del insertMany.
 	// Los buckets llegan hasta 2s porque SC-008 pide p95 < 500 ms con 1000
 	// eventos: sin buckets por encima del objetivo, el p95 no se puede medir.
