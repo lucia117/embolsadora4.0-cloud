@@ -105,16 +105,66 @@ func TestInsertManyReportsDuplicates(t *testing.T) {
 	assert.EqualValues(t, 2, count(t, db), "no se duplicaron documentos")
 }
 
-// ordered:false es lo que hace que un duplicado en el medio no aborte el resto.
-// Con ordered:true, "c2" frenaria el lote y "c3" se perderia.
-func TestInsertManyIsUnorderedAndReportsCorrectIndices(t *testing.T) {
+// docForTenant es como doc(), pero con TenantID explicito: doc() lo randomiza
+// (uuid.NewString()) precisamente porque cada test necesita un tenant propio
+// para no interferir con otros — pero esa randomizacion es la razon por la que
+// quince revisiones por tarea nunca vieron el bug de esta prueba: con
+// TenantID al azar, dos documentos jamas terminan compartiendo tenant a menos
+// que el test lo fuerce a mano.
+func docForTenant(eventID, tenantID string) ingest.Measurement {
+	d := doc(eventID)
+	d.TenantID = tenantID
+	return d
+}
+
+// El bug critico de la review final: eventId es sha256(machineId | aasPath |
+// ts_nano) y no lleva tenant, pero machineId solo es unico POR TENANT
+// (uq_edge_devices_tenant_machine). Dos tenants con un device "EMB-DEV-001"
+// leyendo el mismo aasPath en el mismo instante producen el MISMO eventId.
+//
+// Contra el indice viejo (unico solo por eventId), este test falla: el
+// segundo insert choca con E11000, se reporta como DUPLICATE, y solo queda un
+// documento en la coleccion — perteneciente a un solo tenant, mientras el
+// otro perdio la medicion sin que nadie se entere. Contra el indice nuevo
+// (unico por (tenantId, eventId)) los dos entran y la coleccion queda con 2.
+func TestInsertManySameEventIDDifferentTenantsBothPersist(t *testing.T) {
 	repo, db := newRepo(t)
 	ctx := context.Background()
 
-	_, err := repo.InsertMany(ctx, []ingest.Measurement{doc("c2")})
+	tenantA := uuid.NewString()
+	tenantB := uuid.NewString()
+	sharedEventID := "shared-event-cross-tenant-collision"
+
+	docs := []ingest.Measurement{
+		docForTenant(sharedEventID, tenantA),
+		docForTenant(sharedEventID, tenantB),
+	}
+	report, err := repo.InsertMany(ctx, docs)
 	require.NoError(t, err)
 
-	docs := []ingest.Measurement{doc("c1"), doc("c2"), doc("c3")}
+	assert.Empty(t, report.Duplicated, "el mismo eventId en dos tenants distintos NO es un duplicado")
+	assert.Empty(t, report.Failed)
+	assert.Equal(t, 2, report.Inserted(len(docs)))
+	assert.EqualValues(t, 2, count(t, db), "ambos tenants deben conservar su medicion; ninguna se pierde silenciosamente")
+}
+
+// ordered:false es lo que hace que un duplicado en el medio no aborte el resto.
+// Con ordered:true, "c2" frenaria el lote y "c3" se perderia.
+//
+// Las tres mediciones comparten tenant a proposito: el indice unico ahora es
+// (tenantId, eventId), asi que dos doc("c2") con TenantID al azar (como hace
+// doc() sin mas) ya NO colisionarian entre si y el test dejaria de probar lo
+// que dice probar. Un batch real siempre viene de un unico tenant de todas
+// formas, asi que fijarlo aca es mas fiel al caso real, no menos.
+func TestInsertManyIsUnorderedAndReportsCorrectIndices(t *testing.T) {
+	repo, db := newRepo(t)
+	ctx := context.Background()
+	tenant := uuid.NewString()
+
+	_, err := repo.InsertMany(ctx, []ingest.Measurement{docForTenant("c2", tenant)})
+	require.NoError(t, err)
+
+	docs := []ingest.Measurement{docForTenant("c1", tenant), docForTenant("c2", tenant), docForTenant("c3", tenant)}
 	report, err := repo.InsertMany(ctx, docs)
 	require.NoError(t, err)
 
@@ -182,9 +232,14 @@ func TestEnsureIndexesIsIdempotent(t *testing.T) {
 	var foundUnique, foundComposite, foundTenantTs bool
 	for _, i := range idx {
 		switch i.Name {
-		case "uq_eventId":
+		case "uq_tenant_eventId":
 			foundUnique = true
-			assert.True(t, i.Unique, "el indice de eventId DEBE ser unico")
+			assert.True(t, i.Unique, "el indice de (tenantId, eventId) DEBE ser unico")
+			assert.Equal(t,
+				[]string{"tenantId:1", "eventId:1"},
+				keyOrder(i.Key),
+				"la clave debe ser compuesta (tenantId, eventId): un eventId solo sin tenant permite que dos tenants con el mismo machineId choquen entre si",
+			)
 		case "ix_tenant_machine_path_ts":
 			foundComposite = true
 			// Sparse es lo que permite que un documento sin payload.aasPath se
@@ -203,7 +258,7 @@ func TestEnsureIndexesIsIdempotent(t *testing.T) {
 			assert.Equal(t, []string{"tenantId:1", "ts:-1"}, keyOrder(i.Key))
 		}
 	}
-	assert.True(t, foundUnique, "falta el indice unico sobre eventId")
+	assert.True(t, foundUnique, "falta el indice unico sobre (tenantId, eventId)")
 	assert.True(t, foundComposite, "falta el indice compuesto tenant/machine/path/ts")
 	assert.True(t, foundTenantTs, "falta el indice tenant/ts")
 }

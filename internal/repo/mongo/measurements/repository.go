@@ -33,15 +33,64 @@ func New(db *mongodriver.Database) *Repository {
 	return &Repository{coll: db.Collection(CollectionName), db: db}
 }
 
+// legacyUniqueEventIDIndexName es el nombre del indice unico global sobre
+// eventId que este paquete creaba antes de este fix. eventId es
+// sha256(machineId | aasPath | ts_nano) y NO lleva tenant, pero machineId solo
+// es unico POR TENANT (uq_edge_devices_tenant_machine): dos tenants con un
+// device "EMB-DEV-001" leyendo el mismo aasPath producen el mismo eventId, y
+// el indice global rechazaba el segundo como si fuera un reintento. Mongo
+// devolvia E11000, el service lo reportaba DUPLICATE, y el Edge del segundo
+// tenant ACKeaba y borraba de su outbox una medicion que jamas se guardo.
+//
+// EnsureIndexes no puede reemplazar este indice in place —Mongo no permite
+// redefinir las claves de un indice existente manteniendo el nombre—, asi que
+// hay que borrarlo explicitamente antes de crear uq_tenant_eventId. En una
+// base nueva este indice nunca existio y el borrado es un no-op tolerado. Este
+// borrado se puede eliminar una vez que todos los ambientes esten en una
+// version posterior a este fix (no antes: un despliegue viejo todavia podria
+// tener el indice global creado).
+const legacyUniqueEventIDIndexName = "uq_eventId"
+
+// indexNotFoundCode y namespaceNotFoundCode son codigos de error estandar del
+// servidor de Mongo (no son especificos de este driver). 27 aparece cuando la
+// coleccion existe pero el indice no; 26, cuando la coleccion (o la base)
+// todavia no existe — el caso de una base recien creada.
+const (
+	indexNotFoundCode     = 27
+	namespaceNotFoundCode = 26
+)
+
 // EnsureIndexes crea los indices de §6.3 si no existen. Es idempotente, asi que
 // se puede llamar en cada arranque.
 func (r *Repository) EnsureIndexes(ctx context.Context) error {
+	if err := r.coll.Indexes().DropOne(ctx, legacyUniqueEventIDIndexName); err != nil {
+		// "index not found" (o "namespace not found", si la coleccion ni
+		// siquiera existe todavia) es el caso esperado en cualquier base que
+		// jamas corrio el codigo viejo. Cualquier otro error (por ejemplo, un
+		// problema real de conectividad) se propaga: no queremos seguir y
+		// terminar con los dos indices coexistiendo sin saberlo.
+		var cmdErr mongodriver.CommandError
+		tolerated := errors.As(err, &cmdErr) &&
+			(cmdErr.Code == indexNotFoundCode || cmdErr.Code == namespaceNotFoundCode)
+		if !tolerated {
+			return err
+		}
+	}
+
 	_, err := r.coll.Indexes().CreateMany(ctx, []mongodriver.IndexModel{
 		{
 			// El indice critico: es toda la idempotencia del sistema. Sin el,
-			// cada reintento del Pi duplicaria mediciones en silencio.
-			Keys:    bson.D{{Key: "eventId", Value: 1}},
-			Options: options.Index().SetName("uq_eventId").SetUnique(true),
+			// cada reintento del Pi duplicaria mediciones en silencio. La clave
+			// compuesta (tenantId, eventId) —y no solo eventId— es lo que
+			// mantiene esa idempotencia acotada al tenant: eventId no lleva
+			// tenant (es sha256(machineId | aasPath | ts_nano)), y machineId
+			// solo es unico POR TENANT, asi que dos tenants pueden compartir un
+			// eventId de forma legitima.
+			Keys: bson.D{
+				{Key: "tenantId", Value: 1},
+				{Key: "eventId", Value: 1},
+			},
+			Options: options.Index().SetName("uq_tenant_eventId").SetUnique(true),
 		},
 		{
 			// Sirve las dos consultas previstas del frontend: "ultimo valor de
