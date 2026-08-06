@@ -73,11 +73,41 @@ func RateLimit(limiter *consumers.RateLimiter) gin.HandlerFunc {
 	}
 }
 
+// corsResponseHeaders son los headers que apimw.CORS() (registrado a nivel
+// del engine con r.Use en cmd/api/main.go, y por lo tanto ejecutado ANTES que
+// cualquier middleware de un grupo especifico) deja puestos en la respuesta.
+var corsResponseHeaders = []string{
+	"Access-Control-Allow-Origin",
+	"Access-Control-Allow-Methods",
+	"Access-Control-Allow-Headers",
+}
+
 // NoCORS marca la superficie de consumers como no navegable desde un browser:
-// la consumen dispositivos, no paginas. No emitir headers CORS hace que
-// cualquier preflight falle, que es exactamente lo que se quiere.
+// la consumen dispositivos, no paginas.
+//
+// No alcanza con simplemente no agregar headers propios: apimw.CORS() esta
+// registrado a nivel del engine (r.Use en main.go) y corre ANTES que este
+// middleware para TODAS las rutas, /api/v1/consumers incluido, asi que ya
+// dejo Access-Control-Allow-Origin: * (y el resto) puestos en la respuesta
+// para cualquier request que no sea OPTIONS. Confiar en el orden de registro
+// para que esos headers "no lleguen" es asumir algo que no es cierto: hoy no
+// es explotable solo porque X-Api-Key no esta en la whitelist global de
+// Access-Control-Allow-Headers, y cualquiera que la amplie por otra razon
+// habilita sin darse cuenta que este endpoint de device-ingest se pueda
+// invocar desde cualquier origen — con un middleware llamado NoCORS en la
+// cadena dando la falsa sensacion de que eso esta cubierto.
+//
+// Por eso este middleware BORRA activamente esos headers de la respuesta en
+// vez de asumir que nunca se van a haber puesto. El caso OPTIONS (preflight)
+// tambien se corta aca con 405 por prolijidad, aunque en la cadena real
+// apimw.CORS() ya lo aborta antes con 204 — ver el comentario del bloque de
+// item 4 en el PR: sacar apimw.CORS() del r.Use() global esta fuera de
+// alcance de este fix porque afecta a toda la superficie, no solo a esta.
 func NoCORS() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		for _, h := range corsResponseHeaders {
+			c.Writer.Header().Del(h)
+		}
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusMethodNotAllowed)
 			return

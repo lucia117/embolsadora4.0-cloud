@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	apimw "github.com/tu-org/embolsadora-api/internal/api/middleware"
 	"github.com/tu-org/embolsadora-api/internal/consumers"
 	consumermw "github.com/tu-org/embolsadora-api/internal/consumers/middleware"
 	domainapikeys "github.com/tu-org/embolsadora-api/internal/domain/apikeys"
@@ -173,4 +174,55 @@ func TestSC006RateLimitReturns429WithRetryAfter(t *testing.T) {
 	retryAfter, err := strconv.Atoi(retryAfterHeader)
 	require.NoError(t, err, "Retry-After debe ser un entero")
 	assert.GreaterOrEqual(t, retryAfter, 1, "Retry-After debe ser >= 1 segundo, nunca 0")
+}
+
+// El bug del item 4 de la review final: apimw.CORS() esta registrado con
+// r.Use() a nivel del engine en cmd/api/main.go, asi que corre ANTES que
+// cualquier middleware de un grupo especifico -incluido NoCORS()- para TODAS
+// las rutas, /api/v1/consumers incluido. Antes de este fix, NoCORS() no hacia
+// nada para un request normal (no-OPTIONS): la respuesta salia con
+// Access-Control-Allow-Origin: * puesto por el middleware global, exactamente
+// como si NoCORS() no existiera.
+//
+// Este test arma la cadena real -apimw.CORS() primero, NoCORS() despues- y
+// verifica que los headers CORS NO lleguen a la respuesta final.
+func TestNoCORSStripsHeadersLeftByGlobalCORS(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(apimw.CORS()) // el middleware global real tal como main.go lo registra
+	r.Use(consumermw.NoCORS())
+	r.GET("/events", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	req := httptest.NewRequest(http.MethodGet, "/events", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Empty(t, w.Header().Get("Access-Control-Allow-Origin"),
+		"NoCORS debe borrar el header que el CORS global ya dejo puesto")
+	assert.Empty(t, w.Header().Get("Access-Control-Allow-Methods"))
+	assert.Empty(t, w.Header().Get("Access-Control-Allow-Headers"))
+}
+
+// Un preflight (OPTIONS) contra una ruta que pasa por NoCORS() se rechaza con
+// 405 y nunca llega al handler final. En la cadena real de produccion,
+// apimw.CORS() (registrado antes) ya intercepta el OPTIONS con un 204 propio
+// -eso queda fuera de este test, que verifica el comportamiento de NoCORS()
+// en si mismo, no el orden completo de middlewares del engine.
+func TestNoCORSRefusesPreflight(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(consumermw.NoCORS())
+	reached := false
+	r.OPTIONS("/events", func(c *gin.Context) {
+		reached = true
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodOptions, "/events", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+	assert.False(t, reached, "NoCORS debe abortar el preflight antes de llegar al handler final")
 }
