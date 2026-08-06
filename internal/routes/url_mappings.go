@@ -165,9 +165,11 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	}, api.Config{})
 
 	// ── Consumer surface (Edge Pi Service) ────────────────────────────────────
-	// La ingesta necesita Mongo. Si no hay conexion, la superficie de consumers
-	// NO se registra: es preferible que el Edge reciba un 404 —que reintenta—
-	// a que reciba un 200 por eventos que nunca se guardaron.
+	// La ingesta necesita Mongo. Si no hay conexion, el proceso entero no
+	// arranca — log.Fatalf termina toda la API, no solo /api/v1/consumers: un
+	// cloud que aparece caido de punta a punta (conexion rechazada en todos
+	// los endpoints) es preferible a uno que queda arriba y acepta eventos que
+	// nunca se van a poder guardar.
 	mongoClient, err := mongoplatform.Connect(context.Background(), cfg.Mongo)
 	if err != nil {
 		log.Fatalf("no se pudo conectar a MongoDB: %v", err)
