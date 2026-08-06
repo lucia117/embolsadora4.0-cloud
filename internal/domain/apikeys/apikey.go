@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/tu-org/embolsadora-api/internal/domain/ingest"
 )
 
 // APIKey es el registro persistido de una credencial de edge device.
@@ -59,4 +61,14 @@ type DeviceIdentity struct {
 	MachineID string
 	KeyPK     uuid.UUID
 	KeyID     string
+}
+
+// ToDeviceContext convierte la identidad a la forma que espera el dominio de
+// ingesta, que trabaja con strings porque no le interesa que los ids sean UUID.
+func (d *DeviceIdentity) ToDeviceContext() ingest.DeviceContext {
+	return ingest.DeviceContext{
+		TenantID:  d.TenantID.String(),
+		DeviceID:  d.DeviceID.String(),
+		MachineID: d.MachineID,
+	}
 }

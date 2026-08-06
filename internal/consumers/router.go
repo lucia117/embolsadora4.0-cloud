@@ -1,24 +1,33 @@
 package consumers
 
 import (
-    "github.com/gin-gonic/gin"
-    "github.com/tu-org/embolsadora-api/internal/security"
+	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
+
+	ingestapp "github.com/tu-org/embolsadora-api/internal/app/ingest"
 )
 
-// TODO(Task 10): cablear middlewares reales.
+// Deps son las dependencias de la superficie de consumers.
 type Deps struct {
-    Auth security.Authenticator
+	Ingest *ingestapp.Service
+	Log    *zap.Logger
 }
 
-// TODO: fill in configuration as needed.
-type Config struct{}
+// Config son los limites de la ingesta.
+type Config struct {
+	MaxBodyBytes int64
+	MaxEvents    int
+}
 
-// RegisterConsumerRoutes wires Consumers routes under the provided group (e.g., /api/v1/consumers).
+// RegisterConsumerRoutes registra las rutas bajo el grupo dado
+// (ej. /api/v1/consumers). El grupo ya trae APIKeyAuth y RateLimit aplicados.
 func RegisterConsumerRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
+	g.POST("/events", IngestEvents(deps.Ingest, HandlerConfig{
+		MaxBodyBytes: cfg.MaxBodyBytes,
+		MaxEvents:    cfg.MaxEvents,
+	}, deps.Log))
 
-    // Events batch ingestion
-    g.POST("/events", IngestEvents)
-
-    // Device heartbeat
-    g.POST("/heartbeat", Heartbeat)
+	// Sigue siendo 501: el feature 002 del Edge no lo usa (events.KindHeartbeat
+	// esta reservado pero no se emite). Fuera del alcance de este plan.
+	g.POST("/heartbeat", Heartbeat)
 }
