@@ -149,3 +149,133 @@ func TestAssignRolNormalSigueFuncionando(t *testing.T) {
 	require.NotNil(t, res)
 	require.Equal(t, "operario", *res.RoleID)
 }
+
+// ── Des-anonimización por escritura ─────────────────────────────────────────
+//
+// El cloaking de user_tenant_roles es por fila: mira el rol de la fila. Pero acá
+// la fila la escribe el atacante y el rol lo elige él. Un admin de un tenant
+// cliente que conozca el uuid del super_admin hacía POST /user-roles con
+// {"userId": <super_admin>, "roleId": "operario"} contra SU tenant, y la UTR
+// quedaba escrita y visible en GET /user-roles con email y nombre reales.
+//
+// La regla es por identidad: si el destino es una cuenta de plataforma (membresía
+// no revocada a un rol is_global en algún tenant), el caller sin includeGlobal
+// recibe exactamente lo mismo que si el userId no existiera.
+
+func seedTenantAjeno(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
+	t.Helper()
+	id := uuid.New()
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM tenants WHERE id = $1`, id)
+	})
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO tenants (id, name, company_name, subdomain)
+		VALUES ($1, 'Cordoba test', 'Cordoba test', $2)
+	`, id, "cba-"+id.String())
+	require.NoError(t, err)
+	return id
+}
+
+// seedSuperAdmin siembra la cuenta interna: usuario + super_admin activo en MRG.
+func seedSuperAdmin(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
+	t.Helper()
+	id := seedUser(t, pool)
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO user_tenant_roles (id, user_id, tenant_id, role_id, status, assigned_at)
+		 VALUES ($1, $2, $3, 'super_admin', 'active', NOW())`,
+		uuid.New(), id, platformTenantUUID)
+	require.NoError(t, err)
+	return id
+}
+
+// TestAssignSobreSuperAdminDesdeTenantClienteFalla es el escenario del hallazgo.
+func TestAssignSobreSuperAdminDesdeTenantClienteFalla(t *testing.T) {
+	pool := poolOrSkip(t)
+	uc := newUseCase(pool)
+	ctx := context.Background()
+
+	cordoba := seedTenantAjeno(t, pool)
+	superadmin := seedSuperAdmin(t, pool)
+
+	res, err := uc.Execute(ctx, ucAssign.AssignRequest{
+		UserID:        superadmin,
+		TenantID:      cordoba,
+		RoleID:        "operario",
+		IncludeGlobal: false,
+	})
+	require.Nil(t, res)
+	require.ErrorIs(t, err, domain.ErrInvalidUserID,
+		"asignarle un rol a un usuario que no podés ver tiene que responder como userId inexistente (400)")
+
+	var count int
+	require.NoError(t, pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM user_tenant_roles WHERE user_id = $1 AND tenant_id = $2`,
+		superadmin, cordoba).Scan(&count))
+	require.Zero(t, count, "no puede quedar escrita ninguna membresía")
+}
+
+// TestAssignSobreSuperAdminConvergeConUsuarioInexistente: mismo error, mismo
+// mensaje, mismo status. Sin esto sigue siendo un oráculo.
+func TestAssignSobreSuperAdminConvergeConUsuarioInexistente(t *testing.T) {
+	pool := poolOrSkip(t)
+	uc := newUseCase(pool)
+	ctx := context.Background()
+
+	cordoba := seedTenantAjeno(t, pool)
+	superadmin := seedSuperAdmin(t, pool)
+
+	base := ucAssign.AssignRequest{TenantID: cordoba, RoleID: "operario", IncludeGlobal: false}
+
+	oculto := base
+	oculto.UserID = superadmin
+	_, errOculto := uc.Execute(ctx, oculto)
+
+	inexistente := base
+	inexistente.UserID = uuid.New()
+	_, errInexistente := uc.Execute(ctx, inexistente)
+
+	require.ErrorIs(t, errOculto, domain.ErrInvalidUserID)
+	require.ErrorIs(t, errInexistente, domain.ErrInvalidUserID)
+	require.Equal(t, errInexistente.Error(), errOculto.Error())
+}
+
+// TestAssignSobreSuperAdminComoSuperAdminFunciona: control positivo. El
+// superadmin legítimo sigue pudiendo darle una membresía a otro superadmin.
+func TestAssignSobreSuperAdminComoSuperAdminFunciona(t *testing.T) {
+	pool := poolOrSkip(t)
+	uc := newUseCase(pool)
+	ctx := context.Background()
+
+	cordoba := seedTenantAjeno(t, pool)
+	superadmin := seedSuperAdmin(t, pool)
+
+	res, err := uc.Execute(ctx, ucAssign.AssignRequest{
+		UserID:        superadmin,
+		TenantID:      cordoba,
+		RoleID:        "operario",
+		IncludeGlobal: true,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, res)
+	require.Equal(t, "operario", *res.RoleID)
+}
+
+// TestAssignSobreUsuarioComunEnOtroTenantSigueFuncionando: el caso principal de
+// POST /user-roles (usuario sin membresía previa en ese tenant) intacto.
+func TestAssignSobreUsuarioComunEnOtroTenantSigueFuncionando(t *testing.T) {
+	pool := poolOrSkip(t)
+	uc := newUseCase(pool)
+	ctx := context.Background()
+
+	cordoba := seedTenantAjeno(t, pool)
+	comun := seedUser(t, pool)
+
+	res, err := uc.Execute(ctx, ucAssign.AssignRequest{
+		UserID:        comun,
+		TenantID:      cordoba,
+		RoleID:        "operario",
+		IncludeGlobal: false,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, res)
+}

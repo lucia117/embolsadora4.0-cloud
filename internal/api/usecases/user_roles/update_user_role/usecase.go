@@ -51,5 +51,19 @@ func (uc *useCase) Execute(ctx context.Context, id uuid.UUID, tenantID uuid.UUID
 	}
 
 	utr.RoleID = &roleID
-	return uc.repo.Update(ctx, utr, includeGlobal)
+	updated, err := uc.repo.Update(ctx, utr, includeGlobal)
+	if err != nil {
+		return nil, err
+	}
+	// Update devuelve nil sin error cuando su WHERE no matcheó. Antes era
+	// inalcanzable (el FindByID de arriba usa el mismo predicado de fila), pero el
+	// guard de identidad de UpdateQuery agrega un segundo motivo: la fila tiene un
+	// rol NO global —así que FindByID la devolvió— pero su dueño es una cuenta de
+	// plataforma. Se traduce al mismo ErrAssignmentNotFound → 404 que un id
+	// inexistente. Sin este mapeo el handler recibía (nil, nil) y devolvía 200 con
+	// data null, que además de romper el contrato es observable.
+	if updated == nil {
+		return nil, domain.ErrAssignmentNotFound
+	}
+	return updated, nil
 }

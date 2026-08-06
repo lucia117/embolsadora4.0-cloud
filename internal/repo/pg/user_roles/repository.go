@@ -192,6 +192,15 @@ func mapForeignKeyViolation(pgErr *pgconn.PgError) error {
 	}
 }
 
+// Create escribe la membresía. Dos ejes de cloaking, independientes entre sí:
+//   - el ROL pedido (checkRoleAllowedForTenant): un rol global invisible responde
+//     como rol inexistente → ErrInvalidRoleID.
+//   - la IDENTIDAD destino (guard dentro de CreateQuery): un usuario que es cuenta
+//     de plataforma responde como usuario inexistente → ErrInvalidUserID.
+//
+// El segundo hacía falta porque el primero solo mira el rol que eligió el caller:
+// pedir 'operario' para el super_admin pasaba las dos validaciones de rol y dejaba
+// una UTR real y visible con el email y el nombre de la cuenta interna.
 func (r *userRoleRepository) Create(ctx context.Context, utr *domain.UserTenantRole, includeGlobal bool) (*domain.UserTenantRole, error) {
 	if utr.RoleID != nil {
 		if err := r.checkRoleAllowedForTenant(ctx, *utr.RoleID, utr.TenantID, includeGlobal); err != nil {
@@ -200,9 +209,17 @@ func (r *userRoleRepository) Create(ctx context.Context, utr *domain.UserTenantR
 	}
 
 	created, err := scanUTR(r.db.QueryRow(ctx, CreateQuery,
-		utr.ID, utr.UserID, utr.TenantID, utr.RoleID, utr.Status, utr.AssignedBy, utr.AssignedAt,
+		utr.ID, utr.UserID, utr.TenantID, utr.RoleID, utr.Status, utr.AssignedBy, utr.AssignedAt, includeGlobal,
 	))
 	if err != nil {
+		// Cero filas = el guard de identidad de CreateQuery suprimió el INSERT: el
+		// destino es una cuenta de plataforma y este caller no puede verla. Misma
+		// respuesta que el user_id inexistente (que llega por la violación de FK
+		// unas líneas más abajo) — es la convergencia que impide usar POST
+		// /user-roles como oráculo de identidad.
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrInvalidUserID
+		}
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
 			if pgErr.Code == errCodeUniqueViolation {
@@ -279,9 +296,16 @@ func (r *userRoleRepository) BulkCreate(ctx context.Context, utrs []domain.UserT
 	results := make([]domain.UserTenantRole, 0, len(utrs))
 	for _, utr := range utrs {
 		created, err := scanUTR(tx.QueryRow(ctx, CreateQuery,
-			utr.ID, utr.UserID, utr.TenantID, utr.RoleID, utr.Status, utr.AssignedBy, utr.AssignedAt,
+			utr.ID, utr.UserID, utr.TenantID, utr.RoleID, utr.Status, utr.AssignedBy, utr.AssignedAt, includeGlobal,
 		))
 		if err != nil {
+			// Mismo guard de identidad que Create, y el mismo error envuelto con el
+			// user id que el resto de los casos del lote. La transacción se
+			// rollbackea entera: el batch es all-or-nothing, así que el usuario
+			// legítimo que venía en el mismo lote tampoco entra.
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, fmt.Errorf("%w: user %s", domain.ErrInvalidUserID, utr.UserID)
+			}
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) {
 				if pgErr.Code == errCodeUniqueViolation {

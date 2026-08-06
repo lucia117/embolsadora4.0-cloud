@@ -53,9 +53,43 @@ const (
 	`
 
 	// CreateQuery inserts a new UTR assignment and returns the full created row.
+	//
+	// $8 = includeGlobal. Este es el único predicado del dominio que cloakea por
+	// IDENTIDAD y no por fila, y la razón es que acá la fila la escribe el caller:
+	// el resto de las consultas mira `r.is_global` de una fila que ya existe, pero
+	// en un INSERT el rol lo elige el atacante. Un admin de un tenant cliente que
+	// consiguiera el uuid del super_admin hacía POST /user-roles con roleId
+	// 'operario' contra su propio tenant: el rol pedido no es global (pasa
+	// checkRoleAllowedForTenant), no hay membresía activa previa ahí (no choca
+	// contra idx_utr_active_unique, así que resolveActiveUniqueViolation ni se
+	// dispara) y la UTR quedaba escrita — y visible en GET /user-roles con
+	// user_email y user_name reales. Des-anonimización completa y persistente.
+	//
+	// El NOT EXISTS define "identidad de plataforma": el usuario destino tiene una
+	// membresía NO REVOCADA a un rol is_global en ALGÚN tenant. Sin fijar tenant_id
+	// a propósito — el atacante escribe desde su tenant, donde el superadmin no
+	// tiene ninguna membresía, así que un lookup acotado al tenant del request no
+	// vería nada. El corte en `<> 'revoked'` incluye pending y suspended (un
+	// super_admin invitado y sin activar ya está cloakeado en ListPendingUsers y en
+	// invitations) y excluye revoked, para no bloquear para siempre la degradación
+	// legítima de un ex superadmin.
+	//
+	// El guard va en el INSERT y no en un precheck en Go por dos motivos: no hay
+	// ventana TOCTOU entre chequear y escribir, y BulkCreate comparte esta misma
+	// consulta dentro de su transacción sin código extra. Cero filas insertadas →
+	// pgx.ErrNoRows en el RETURNING → ErrInvalidUserID, byte-idéntico a lo que
+	// devuelve la violación de FK de un user_id inexistente (ver Create).
 	CreateQuery = `
 		INSERT INTO user_tenant_roles (id, user_id, tenant_id, role_id, status, assigned_by, assigned_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		SELECT $1, $2, $3, $4, $5, $6, $7
+		WHERE $8 OR NOT EXISTS (
+			SELECT 1
+			FROM user_tenant_roles otra
+			JOIN roles rg ON rg.id = otra.role_id
+			WHERE otra.user_id = $2
+			  AND otra.status <> 'revoked'
+			  AND COALESCE(rg.is_global, FALSE) = TRUE
+		)
 		RETURNING id, user_id, tenant_id, role_id, status, assigned_by, assigned_at, created_at, updated_at
 	`
 
@@ -77,11 +111,28 @@ const (
 	// no el nuevo): el repo se niega a mutar una asignación oculta aunque el precheck del
 	// usecase se saltee o se reordene. El rol NUEVO lo valida el usecase contra
 	// roles.GetByIDForTenant antes de llegar acá.
+	//
+	// El segundo predicado es el mismo guard de identidad de CreateQuery — ver el
+	// comentario largo allá. Cierra el eje que el cloaking por fila no cubre: una
+	// UTR con rol NO global (que el predicado de arriba deja pasar) cuyo dueño es
+	// una cuenta de plataforma. Es la fila que el superadmin legítimo puede crear,
+	// y que un admin de tenant no debería poder re-rolear. user_id sale de la fila
+	// (utr.user_id), no de lo que mandó el caller: el guard no depende de que el
+	// usecase haya poblado bien la struct. Cero filas → nil, nil →
+	// ErrAssignmentNotFound → 404, igual que un id inexistente.
 	UpdateQuery = `
 		UPDATE user_tenant_roles utr
 		SET role_id = $1, updated_at = NOW()
 		WHERE utr.id = $2
 		  AND (COALESCE((SELECT r.is_global FROM roles r WHERE r.id = utr.role_id), FALSE) = FALSE OR $3)
+		  AND ($3 OR NOT EXISTS (
+			SELECT 1
+			FROM user_tenant_roles otra
+			JOIN roles rg ON rg.id = otra.role_id
+			WHERE otra.user_id = utr.user_id
+			  AND otra.status <> 'revoked'
+			  AND COALESCE(rg.is_global, FALSE) = TRUE
+		  ))
 		RETURNING utr.id, utr.user_id, utr.tenant_id, utr.role_id, utr.status, utr.assigned_by, utr.assigned_at, utr.created_at, utr.updated_at
 	`
 

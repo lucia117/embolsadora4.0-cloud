@@ -439,6 +439,247 @@ func TestCreateSobreDuplicadoVisibleSigueDando409(t *testing.T) {
 	require.ErrorIs(t, err, domain.ErrUserAlreadyHasActiveRole)
 }
 
+// ── El residuo: cloaking por fila vs. cloaking por identidad ────────────────
+//
+// Todo lo de arriba cloakea POR FILA: el predicado mira el rol de la fila que se
+// lee o se muta. Pero POST /user-roles ESCRIBE la fila, y el rol lo elige el
+// atacante. Un admin de un tenant cliente que consiga el uuid del super_admin
+// hacía POST {"userId": <super_admin>, "roleId": "operario"} contra su propio
+// tenant: no hay conflicto con idx_utr_active_unique (el superadmin no tiene
+// membresía ahí), el rol pedido no es global, y el INSERT completaba. La fila
+// resultante es visible para él —su rol no es global— con user_email y user_name
+// reales. Des-anonimización completa y persistente, escrita por la víctima.
+//
+// La regla que cierra esto es por IDENTIDAD y no por fila: un caller que no ve a
+// un usuario tampoco puede escribirle una membresía. "No lo ve" acá significa que
+// el destino es una identidad de plataforma — tiene una membresía no revocada a un
+// rol is_global en ALGÚN tenant.
+
+// seedPlatformIdentity siembra una cuenta interna de plataforma: usuario + membresía
+// a un rol global en el tenant plataforma, con el status pedido.
+func seedPlatformIdentity(t *testing.T, pool *pgxpool.Pool, status string) seededUTR {
+	t.Helper()
+	return seedMembership(t, pool, platformTenantUUID, "super_admin", status)
+}
+
+func nuevaUTR(userID, tenantID uuid.UUID, roleID string) *domain.UserTenantRole {
+	now := time.Now()
+	return &domain.UserTenantRole{
+		ID: uuid.New(), UserID: userID, TenantID: tenantID,
+		RoleID: &roleID, Status: domain.UserRoleStatusActive, AssignedAt: &now,
+	}
+}
+
+func countUTRs(t *testing.T, pool *pgxpool.Pool, userID, tenantID uuid.UUID) int {
+	t.Helper()
+	var n int
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT COUNT(*) FROM user_tenant_roles WHERE user_id = $1 AND tenant_id = $2`,
+		userID, tenantID).Scan(&n))
+	return n
+}
+
+// TestCreateNoEscribeMembresiaAUsuarioDePlataforma es el escenario del hallazgo,
+// tal cual: el admin de Córdoba le asigna 'operario' al super_admin en Córdoba.
+func TestCreateNoEscribeMembresiaAUsuarioDePlataforma(t *testing.T) {
+	pool := poolOrSkip(t)
+	repo := user_roles.NewUserRoleRepository(pool)
+	ctx := context.Background()
+
+	cordoba := seedTenant(t, pool)
+	superadmin := seedPlatformIdentity(t, pool, "active")
+
+	created, err := repo.Create(ctx, nuevaUTR(superadmin.UserID, cordoba, "operario"), false)
+	require.Nil(t, created)
+	require.ErrorIs(t, err, domain.ErrInvalidUserID,
+		"el destino es invisible para este caller: misma respuesta que un userId inexistente")
+	require.Zero(t, countUTRs(t, pool, superadmin.UserID, cordoba),
+		"no puede quedar ninguna UTR escrita sobre la cuenta de plataforma")
+}
+
+// TestCreateSobreUsuarioDePlataformaConvergeConInexistente: la respuesta tiene que
+// ser byte-idéntica a la del usuario que no existe. Si no, sigue siendo un oráculo.
+func TestCreateSobreUsuarioDePlataformaConvergeConInexistente(t *testing.T) {
+	pool := poolOrSkip(t)
+	repo := user_roles.NewUserRoleRepository(pool)
+	ctx := context.Background()
+
+	cordoba := seedTenant(t, pool)
+	superadmin := seedPlatformIdentity(t, pool, "active")
+
+	_, errOculto := repo.Create(ctx, nuevaUTR(superadmin.UserID, cordoba, "operario"), false)
+	_, errInexistente := repo.Create(ctx, nuevaUTR(uuid.New(), cordoba, "operario"), false)
+
+	require.ErrorIs(t, errOculto, domain.ErrInvalidUserID)
+	require.ErrorIs(t, errInexistente, domain.ErrInvalidUserID)
+	require.Equal(t, errInexistente.Error(), errOculto.Error())
+}
+
+// TestCreateCloakeaTambienAlPendiente: un super_admin invitado y todavía sin
+// activar está cloakeado en ListPendingUsers y en las invitaciones (Tasks 5 y 6);
+// tiene que estarlo también acá, o el vector se reabre contra el mismo usuario un
+// minuto antes de que se loguee.
+func TestCreateCloakeaTambienAlPendiente(t *testing.T) {
+	pool := poolOrSkip(t)
+	repo := user_roles.NewUserRoleRepository(pool)
+	ctx := context.Background()
+
+	cordoba := seedTenant(t, pool)
+	pendiente := seedPlatformIdentity(t, pool, "pending")
+
+	_, err := repo.Create(ctx, nuevaUTR(pendiente.UserID, cordoba, "operario"), false)
+	require.ErrorIs(t, err, domain.ErrInvalidUserID)
+}
+
+// TestCreatePermiteUsuarioConGlobalRevocado: el corte es 'no revocada'. Un ex
+// super_admin cuya membresía global ya fue revocada no es una identidad de
+// plataforma, y degradarlo a operario es un flujo legítimo que no puede quedar
+// bloqueado para siempre.
+func TestCreatePermiteUsuarioConGlobalRevocado(t *testing.T) {
+	pool := poolOrSkip(t)
+	repo := user_roles.NewUserRoleRepository(pool)
+	ctx := context.Background()
+
+	cordoba := seedTenant(t, pool)
+	ex := seedPlatformIdentity(t, pool, "revoked")
+
+	created, err := repo.Create(ctx, nuevaUTR(ex.UserID, cordoba, "operario"), false)
+	require.NoError(t, err)
+	require.NotNil(t, created)
+}
+
+// TestCreateSobreUsuarioDePlataformaComoSuperadminFunciona: control positivo. El
+// superadmin legítimo no pierde nada.
+func TestCreateSobreUsuarioDePlataformaComoSuperadminFunciona(t *testing.T) {
+	pool := poolOrSkip(t)
+	repo := user_roles.NewUserRoleRepository(pool)
+	ctx := context.Background()
+
+	cordoba := seedTenant(t, pool)
+	superadmin := seedPlatformIdentity(t, pool, "active")
+
+	created, err := repo.Create(ctx, nuevaUTR(superadmin.UserID, cordoba, "operario"), true)
+	require.NoError(t, err, "includeGlobal=true sigue pudiendo asignar sobre cualquiera")
+	require.NotNil(t, created)
+}
+
+// TestCreateSobreUsuarioNormalSigueFuncionando: el caso principal de
+// POST /user-roles —asignar un rol a alguien sin membresía previa en ese tenant—
+// no se toca.
+func TestCreateSobreUsuarioNormalSigueFuncionando(t *testing.T) {
+	pool := poolOrSkip(t)
+	repo := user_roles.NewUserRoleRepository(pool)
+	ctx := context.Background()
+
+	cordoba := seedTenant(t, pool)
+	normal := seedMembership(t, pool, platformTenantUUID, "operario", "active")
+
+	created, err := repo.Create(ctx, nuevaUTR(normal.UserID, cordoba, "operario"), false)
+	require.NoError(t, err)
+	require.NotNil(t, created)
+}
+
+// TestBulkCreateNoEscribeMembresiaAUsuarioDePlataforma: el lote comparte el mismo
+// INSERT, y es all-or-nothing, así que el usuario limpio del batch tampoco entra.
+func TestBulkCreateNoEscribeMembresiaAUsuarioDePlataforma(t *testing.T) {
+	pool := poolOrSkip(t)
+	repo := user_roles.NewUserRoleRepository(pool)
+	ctx := context.Background()
+
+	cordoba := seedTenant(t, pool)
+	superadmin := seedPlatformIdentity(t, pool, "active")
+	normal := seedMembership(t, pool, platformTenantUUID, "operario", "active")
+
+	lote := []domain.UserTenantRole{
+		*nuevaUTR(normal.UserID, cordoba, "operario"),
+		*nuevaUTR(superadmin.UserID, cordoba, "operario"),
+	}
+
+	res, err := repo.BulkCreate(ctx, lote, false)
+	require.Nil(t, res)
+	require.ErrorIs(t, err, domain.ErrInvalidUserID)
+	require.Zero(t, countUTRs(t, pool, superadmin.UserID, cordoba))
+	require.Zero(t, countUTRs(t, pool, normal.UserID, cordoba), "la transacción es all-or-nothing")
+
+	// Control positivo: el mismo lote con includeGlobal=true entra completo.
+	res, err = repo.BulkCreate(ctx, lote, true)
+	require.NoError(t, err)
+	require.Len(t, res, 2)
+}
+
+// TestUpdateNoMutaMembresiaDeUsuarioDePlataforma cubre PUT /user-roles/:id. La
+// fila objetivo tiene un rol NO global (así que el cloaking por fila la deja
+// pasar) pero su dueño es una cuenta de plataforma.
+func TestUpdateNoMutaMembresiaDeUsuarioDePlataforma(t *testing.T) {
+	pool := poolOrSkip(t)
+	repo := user_roles.NewUserRoleRepository(pool)
+	ctx := context.Background()
+
+	cordoba := seedTenant(t, pool)
+	superadmin := seedPlatformIdentity(t, pool, "active")
+
+	// La membresía visible la escribe el superadmin legítimo (includeGlobal=true).
+	visible, err := repo.Create(ctx, nuevaUTR(superadmin.UserID, cordoba, "operario"), true)
+	require.NoError(t, err)
+
+	nuevoRol := "admin"
+	res, err := repo.Update(ctx, &domain.UserTenantRole{
+		ID: visible.ID, UserID: superadmin.UserID, TenantID: cordoba, RoleID: &nuevoRol,
+	}, false)
+	require.NoError(t, err)
+	require.Nil(t, res, "misma respuesta que un id inexistente → ErrAssignmentNotFound → 404")
+
+	var roleID string
+	require.NoError(t, pool.QueryRow(ctx,
+		`SELECT role_id FROM user_tenant_roles WHERE id = $1`, visible.ID).Scan(&roleID))
+	require.Equal(t, "operario", roleID, "no puede haber mutado")
+
+	// Control positivo: el superadmin sí puede.
+	res, err = repo.Update(ctx, &domain.UserTenantRole{
+		ID: visible.ID, UserID: superadmin.UserID, TenantID: cordoba, RoleID: &nuevoRol,
+	}, true)
+	require.NoError(t, err)
+	require.NotNil(t, res)
+	require.Equal(t, "admin", *res.RoleID)
+}
+
+// TestUpdateSobreUsuarioNormalSigueFuncionando: control de que el PUT cotidiano
+// no se rompió.
+func TestUpdateSobreUsuarioNormalSigueFuncionando(t *testing.T) {
+	pool := poolOrSkip(t)
+	repo := user_roles.NewUserRoleRepository(pool)
+	ctx := context.Background()
+
+	normal := seedMembership(t, pool, platformTenantUUID, "operario", "active")
+	nuevoRol := "admin"
+
+	res, err := repo.Update(ctx, &domain.UserTenantRole{
+		ID: normal.UTRID, UserID: normal.UserID, TenantID: platformTenantUUID, RoleID: &nuevoRol,
+	}, false)
+	require.NoError(t, err)
+	require.NotNil(t, res)
+	require.Equal(t, "admin", *res.RoleID)
+}
+
+// TestCreateNoRompeLaActivacionDeInvitacionDeSuperAdmin fija la interacción con
+// ActivatePendingInvitations (invitation_usecase.go): un super_admin invitado tiene
+// una UTR pending a un rol global, y al loguearse el flujo llama a Create con
+// includeGlobal=true a propósito (es self-action, no un caller mirando ajeno). Sin
+// ese true el guard de identidad se comería la activación — el usuario destino es,
+// justamente, una identidad de plataforma.
+func TestCreateNoRompeLaActivacionDeInvitacionDeSuperAdmin(t *testing.T) {
+	pool := poolOrSkip(t)
+	repo := user_roles.NewUserRoleRepository(pool)
+	ctx := context.Background()
+
+	invitado := seedPlatformIdentity(t, pool, "pending")
+
+	activada, err := repo.Create(ctx, nuevaUTR(invitado.UserID, platformTenantUUID, "super_admin"), true)
+	require.NoError(t, err, "la activación de la propia invitación no puede romperse")
+	require.NotNil(t, activada)
+	require.Equal(t, domain.UserRoleStatusActive, activada.Status)
+}
+
 // TestBulkCreateSobreUsuarioOcultoRespondeComoInexistente: la misma convergencia
 // en el lote, donde el error va envuelto con el user id.
 func TestBulkCreateSobreUsuarioOcultoRespondeComoInexistente(t *testing.T) {

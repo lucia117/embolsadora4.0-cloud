@@ -96,6 +96,16 @@ func (s *Service) GetUserWithRoles(ctx context.Context, tenantID, userID string,
 // superadmin — la FK de user_tenant_roles.role_id no lo impide (el rol existe) y
 // tenant_can_use_role() tampoco (dentro de MRG devuelve TRUE para is_global). Con
 // force-password-change a continuación, eso es tomar la cuenta. Ver EnsureAssignable.
+//
+// NO lleva el guard de identidad que sí llevan Create/BulkCreate/Update en el repo de
+// user_tenant_roles (CreateQuery, "identidad de plataforma"). Es deliberado: ahí el
+// caller elige a QUIÉN le escribe la membresía —el userId viaja en el body— y por eso
+// podía apuntar al super_admin. Acá el destino no existe todavía: CreateUserCommand no
+// tiene campo de id, y CreateWithRole inserta un users nuevo con uuid fresco en la misma
+// transacción, así que el sujeto de la UTR nunca puede ser una cuenta ya existente. El
+// guard sería código muerto. Tampoco hay oráculo por colisión de email: el único índice
+// es UNIQUE (tenant_id, email), o sea que reusar el email de una cuenta de plataforma
+// desde otro tenant crea una fila distinta y devuelve 201, no ErrEmailTaken.
 func (s *Service) CreateUser(ctx context.Context, tenantID string, cmd *domainUsers.CreateUserCommand, includeGlobal bool) (*domainUsers.User, error) {
 	if err := cmd.Validate(); err != nil {
 		s.logger.Warn("invalid create user command", zap.String("tenant_id", tenantID), zap.Error(err))
