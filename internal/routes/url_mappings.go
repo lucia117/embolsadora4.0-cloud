@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"time"
@@ -31,6 +32,7 @@ import (
 	alarmRulesApp "github.com/tu-org/embolsadora-api/internal/app/alarm_rules"
 	dashboardLayoutsApp "github.com/tu-org/embolsadora-api/internal/app/dashboard_layouts"
 	edgeDevicesApp "github.com/tu-org/embolsadora-api/internal/app/edge_devices"
+	ingestapp "github.com/tu-org/embolsadora-api/internal/app/ingest"
 	appLogs "github.com/tu-org/embolsadora-api/internal/app/logs"
 	appNotifications "github.com/tu-org/embolsadora-api/internal/app/notifications"
 	permissionsApp "github.com/tu-org/embolsadora-api/internal/app/permissions"
@@ -38,10 +40,14 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/config"
 	consumers "github.com/tu-org/embolsadora-api/internal/consumers"
 	consumermw "github.com/tu-org/embolsadora-api/internal/consumers/middleware"
+	domainingest "github.com/tu-org/embolsadora-api/internal/domain/ingest"
 	"github.com/tu-org/embolsadora-api/internal/platform/apporigin"
 	"github.com/tu-org/embolsadora-api/internal/platform/edgeclient"
+	mongoplatform "github.com/tu-org/embolsadora-api/internal/platform/mongo"
 	"github.com/tu-org/embolsadora-api/internal/platform/supabase"
+	measurementsRepo "github.com/tu-org/embolsadora-api/internal/repo/mongo/measurements"
 	alarmRulesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/alarm_rules"
+	apiKeysRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/apikeys"
 	dashboardLayoutsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/dashboard_layouts"
 	edgeDevicesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/edge_devices"
 	invitationsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/invitations"
@@ -159,22 +165,79 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 		UserRepo:     mgmtUserRepo,
 	}, api.Config{})
 
-	// ── Consumer surface (IoT devices, etc.) ──────────────────────────────────
+	// ── Consumer surface (Edge Pi Service) ────────────────────────────────────
+	// La ingesta necesita Mongo, pero un Mongo inalcanzable AL ARRANCAR ya no
+	// tumba el proceso entero: I-1 (Mongo caido -> 500 -> el Edge reintenta
+	// con backoff sin perder datos) ya cubre exactamente este caso, y
+	// aplicarlo tambien aca es estrictamente mejor que log.Fatalf, que se
+	// llevaba puesto login, /me, dashboards y reglas de alarma por un fallo
+	// que el propio diseno de la ingesta esta hecho para sobrevivir. Se deja
+	// constancia con logger.Error (no Fatalf) y measurementRepo queda en un
+	// stub que devuelve error en cada InsertMany/Ping (measurementsRepo.Unavailable).
+	measurementRepo, err := connectMeasurementsRepo(context.Background(), cfg.Mongo, logger)
+	if err != nil {
+		// connectMeasurementsRepo ya distingue "no se pudo crear los indices"
+		// (fatal: sin el indice unico no hay idempotencia y cada reintento del
+		// Pi duplicaria mediciones en silencio) de "no se pudo conectar"
+		// (degradado, no fatal). Si volvio error aca es SIEMPRE el primer caso.
+		log.Fatalf("no se pudieron crear los indices de measurements: %v", err)
+	}
+
+	// El health check detallado (a diferencia de /ping) necesita al repo de
+	// measurements para chequear Mongo, asi que se registra aca, una vez que
+	// measurementRepo ya existe.
+	r.GET("/health", func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
+		defer cancel()
+
+		checks := gin.H{"postgres": "ok", "mongo": "ok", "redis": "ok"}
+		status := http.StatusOK
+
+		if err := db.Ping(ctx); err != nil {
+			checks["postgres"] = "error"
+			status = http.StatusServiceUnavailable
+		}
+		if err := measurementRepo.Ping(ctx); err != nil {
+			checks["mongo"] = "error"
+			status = http.StatusServiceUnavailable
+		}
+		if redisClient == nil {
+			checks["redis"] = "no configurado"
+		} else if err := redisClient.Ping(ctx).Err(); err != nil {
+			// Redis degradado no tumba el servicio: la cache de keys y el rate
+			// limit fallan abiertos a proposito.
+			checks["redis"] = "error"
+		}
+
+		telemetry.SetMongoUp(checks["mongo"] == "ok")
+		c.JSON(status, gin.H{"status": map[bool]string{true: "ok", false: "degraded"}[status == http.StatusOK], "checks": checks})
+	})
+
+	apiKeyRepository := apiKeysRepo.NewRepository(db)
+	apiKeyAuth := security.NewAPIKeyAuthenticator(apiKeyRepository, redisClient, cfg.Ingest.APIKeyCacheTTL, logger)
+	ingestService := ingestapp.NewService(measurementRepo, logger, cfg.Mongo.Timeout)
+	rateLimiter := consumers.NewRateLimiter(redisClient, cfg.Ingest.RateLimitRPS, cfg.Ingest.RateLimitBurst)
+
 	c1 := r.Group(
 		"/api/v1/consumers",
-		consumermw.APIKeyAuth(),
-		consumermw.RateLimit(),
-		consumermw.Idempotency(),
+		apimw.RequestID(),
 		consumermw.NoCORS(),
-		consumermw.Timeout(),
+		consumermw.APIKeyAuth(apiKeyAuth, logger),
+		consumermw.RateLimit(rateLimiter),
 	)
-	consumers.RegisterConsumerRoutes(c1, consumers.Deps{}, consumers.Config{})
+	consumers.RegisterConsumerRoutes(c1, consumers.Deps{
+		Ingest: ingestService,
+		Log:    logger,
+	}, consumers.Config{
+		MaxBodyBytes: cfg.Ingest.MaxBodyBytes,
+		MaxEvents:    cfg.Ingest.MaxEvents,
+	})
 
 	// Superficie de edge devices (/api/v1/tenants/{tenantId}/edge-devices)
 	edgeDeviceTimeout := time.Duration(0) // usar timeout por defecto (10s)
 	edgeDeviceClient := edgeclient.NewHTTPClient(edgeDeviceTimeout)
 	edgeDeviceRepository := edgeDevicesRepo.NewPostgresRepository(db)
-	edgeDeviceService := edgeDevicesApp.NewService(edgeDeviceRepository, edgeDeviceClient, logger)
+	edgeDeviceService := edgeDevicesApp.NewService(edgeDeviceRepository, edgeDeviceClient, logger, apiKeyRepository, redisClient)
 
 	tenantsGroup := r.Group(
 		"/api/v1/tenants/:tenantId",
@@ -184,7 +247,8 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 		apimw.JWTAuth(verifier, authUC, invUC),
 		apimw.ResolveTenantAndCheckMembership(db),
 	)
-	edgeDevicesHandler.RegisterRoutes(tenantsGroup, edgeDeviceService)
+	edgeDevicesWriteGroup := tenantsGroup.Group("", apimw.RBACCheck("machines:write"))
+	edgeDevicesHandler.RegisterRoutes(tenantsGroup, edgeDevicesWriteGroup, edgeDeviceService)
 
 	// Dashboard Layouts surface (/api/v1/dashboard-layouts)
 	// tenant_id comes from X-Tenant-ID header, user_id from JWT context
@@ -230,4 +294,35 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	permissionsWriteGroup.POST("/permissions", pHandler.CreatePermission)
 	permissionsWriteGroup.PUT("/permissions/:id", pHandler.UpdatePermission)
 	permissionsWriteGroup.DELETE("/permissions/:id", pHandler.DeletePermission)
+}
+
+// connectMeasurementsRepo conecta a Mongo y crea sus indices.
+//
+// Si la CONEXION falla, devuelve un repo degradado
+// (measurementsRepo.Unavailable) y nil error: el llamador debe seguir
+// arrancando. La ingesta ya esta disenada para sobrevivir a Mongo caido —
+// I-1: 500 en cada request, el Edge reintenta con backoff sin perder datos —
+// y aplicar esa misma garantia a una caida al arrancar es estrictamente
+// mejor que tumbar login, /me, dashboards y reglas de alarma con log.Fatalf
+// por un problema que no los afecta.
+//
+// Si la conexion tuvo exito pero EnsureIndexes falla, devuelve el error: ese
+// caso SI es fatal y el llamador debe terminar el proceso. Sin el indice
+// unico sobre (tenantId, eventId) no hay idempotencia, y cada reintento del
+// Pi duplicaria mediciones en silencio.
+func connectMeasurementsRepo(ctx context.Context, cfg config.MongoConfig, logger *zap.Logger) (domainingest.Repository, error) {
+	mongoClient, err := mongoplatform.Connect(ctx, cfg)
+	if err != nil {
+		logger.Error("no se pudo conectar a MongoDB al arrancar; la ingesta respondera 500 y el Edge reintentara (I-1); el resto de la API sigue arriba",
+			zap.Error(err))
+		telemetry.SetMongoUp(false)
+		return measurementsRepo.Unavailable(err), nil
+	}
+
+	repo := measurementsRepo.New(mongoClient.Database())
+	if err := repo.EnsureIndexes(ctx); err != nil {
+		return nil, err
+	}
+	telemetry.SetMongoUp(true)
+	return repo, nil
 }
