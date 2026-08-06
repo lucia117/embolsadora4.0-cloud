@@ -236,7 +236,7 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	edgeDeviceTimeout := time.Duration(0) // usar timeout por defecto (10s)
 	edgeDeviceClient := edgeclient.NewHTTPClient(edgeDeviceTimeout)
 	edgeDeviceRepository := edgeDevicesRepo.NewPostgresRepository(db)
-	edgeDeviceService := edgeDevicesApp.NewService(edgeDeviceRepository, edgeDeviceClient, logger)
+	edgeDeviceService := edgeDevicesApp.NewService(edgeDeviceRepository, edgeDeviceClient, logger, apiKeyRepository, redisClient)
 
 	tenantsGroup := r.Group(
 		"/api/v1/tenants/:tenantId",
@@ -246,7 +246,8 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 		apimw.JWTAuth(verifier, authUC, invUC),
 		apimw.ResolveTenantAndCheckMembership(db),
 	)
-	edgeDevicesHandler.RegisterRoutes(tenantsGroup, edgeDeviceService)
+	edgeDevicesWriteGroup := tenantsGroup.Group("", apimw.RBACCheck("machines:write"))
+	edgeDevicesHandler.RegisterRoutes(tenantsGroup, edgeDevicesWriteGroup, edgeDeviceService)
 
 	// Dashboard Layouts surface (/api/v1/dashboard-layouts)
 	// tenant_id comes from X-Tenant-ID header, user_id from JWT context

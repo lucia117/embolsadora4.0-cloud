@@ -5,8 +5,10 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/app/edge_devices"
 )
 
-// RegisterRoutes registers all edge device endpoints on the given Gin group.
-func RegisterRoutes(g *gin.RouterGroup, service *edge_devices.Service) {
+// RegisterRoutes registra los endpoints de edge devices.
+// writeGroup lleva RBACCheck("machines:write"): emitir credenciales que dan
+// acceso de escritura a la ingesta no puede ser una operacion de solo-lectura.
+func RegisterRoutes(g *gin.RouterGroup, writeGroup *gin.RouterGroup, service *edge_devices.Service) {
 	// US1 – List
 	g.GET("/edge-devices", ListDevices(service))
 
@@ -34,4 +36,9 @@ func RegisterRoutes(g *gin.RouterGroup, service *edge_devices.Service) {
 
 	// US9 – Events
 	g.GET("/edge-devices/:deviceId/events", ListEvents(service))
+
+	// API keys del device
+	writeGroup.POST("/edge-devices/:deviceId/api-keys", CreateAPIKey(service))
+	g.GET("/edge-devices/:deviceId/api-keys", ListAPIKeys(service))
+	writeGroup.DELETE("/edge-devices/:deviceId/api-keys/:keyId", RevokeAPIKey(service))
 }
