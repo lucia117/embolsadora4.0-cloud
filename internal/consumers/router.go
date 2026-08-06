@@ -5,9 +5,9 @@ import (
     "github.com/tu-org/embolsadora-api/internal/security"
 )
 
-// TODO: fill in dependency set as needed.
-type Deps struct{
-    APIKeys security.APIKeyLookup
+// TODO(Task 10): cablear middlewares reales.
+type Deps struct {
+    Auth security.Authenticator
 }
 
 // TODO: fill in configuration as needed.
