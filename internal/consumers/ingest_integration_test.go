@@ -9,11 +9,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sort"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -94,7 +94,18 @@ func TestSC007ForeignMachineIDWritesNothing(t *testing.T) {
 	assert.Empty(t, repo.stored, "no se escribio ningun documento")
 }
 
-// SC-008: 1000 eventos por debajo de 500 ms.
+// SC-008: p95 de la latencia de un batch de 1000 eventos por debajo de 500 ms.
+//
+// Una sola muestra no alcanza para hablar de un percentil (la primera version
+// de este test tomaba una unica medicion): se corren 20 iteraciones y se
+// calcula el p95 sobre las 20 duraciones ordenadas.
+//
+// Cada iteracion usa un batch FRESCO —eventId distintos, via el parametro iter
+// de makeBatch— y no el mismo batch reenviado. Reenviar el mismo batch haria
+// que las iteraciones 2..20 midieran el camino de duplicado (un rechazo por
+// E11000 contra el indice unico, mucho mas barato que escribir 1000 documentos
+// nuevos) en lugar del camino de insercion real, lo que dejaria el numero sin
+// sentido: se estaria cronometrando el caso feliz equivocado.
 func TestSC008ThousandEventsLatency(t *testing.T) {
 	if os.Getenv("MONGO_URI") == "" {
 		t.Skip("MONGO_URI no seteada; se omite el benchmark")
@@ -102,15 +113,30 @@ func TestSC008ThousandEventsLatency(t *testing.T) {
 	repo, _ := newMongoRepo(t)
 	r := newRouter(repo)
 
-	body := makeBatch(t, 1000)
-	start := time.Now()
-	code, res := post(t, r, body)
-	elapsed := time.Since(start)
+	const iterations = 20
+	samples := make([]time.Duration, 0, iterations)
+	for i := 0; i < iterations; i++ {
+		body := makeBatch(t, 1000, i)
 
-	require.Equal(t, http.StatusOK, code)
-	require.Equal(t, 1000, res.Accepted)
-	assert.Less(t, elapsed, 500*time.Millisecond, "SC-008: 1000 eventos en menos de 500 ms")
-	t.Logf("1000 eventos en %v", elapsed)
+		start := time.Now()
+		code, res := post(t, r, body)
+		elapsed := time.Since(start)
+
+		require.Equal(t, http.StatusOK, code)
+		require.Equal(t, 1000, res.Accepted,
+			"iteracion %d: los 1000 deben ser inserciones nuevas, no duplicados", i)
+		samples = append(samples, elapsed)
+	}
+
+	sort.Slice(samples, func(a, b int) bool { return samples[a] < samples[b] })
+	p95Index := int(0.95 * float64(len(samples)))
+	if p95Index >= len(samples) {
+		p95Index = len(samples) - 1
+	}
+	min, p95, max := samples[0], samples[p95Index], samples[len(samples)-1]
+
+	t.Logf("SC-008: 1000 eventos x %d iteraciones — min=%v p95=%v max=%v", iterations, min, p95, max)
+	assert.Less(t, p95, 500*time.Millisecond, "SC-008: p95 de 1000 eventos debe ser menor a 500 ms")
 }
 
 // SC-009: la consulta "ultimo valor de una propiedad" resuelve por IXSCAN.
@@ -145,33 +171,13 @@ func TestSC009LatestValueQueryUsesIndex(t *testing.T) {
 	assert.NotContains(t, string(plan), "COLLSCAN", "no puede escanear la coleccion entera")
 }
 
-// SC-006: superado el limite, 429 con Retry-After.
-func TestSC006RateLimitReturns429WithRetryAfter(t *testing.T) {
-	url := os.Getenv("REDIS_URL")
-	if url == "" {
-		t.Skip("REDIS_URL no seteada; se omite el test de rate limit")
-	}
-	opt, err := redis.ParseURL(url)
-	require.NoError(t, err)
-	rdb := redis.NewClient(opt)
-	t.Cleanup(func() { _ = rdb.Close() })
-
-	// rps y burst chicos para agotar el bucket sin mandar 200 requests.
-	limiter := consumers.NewRateLimiter(rdb, 1, 3)
-	key := "test-" + time.Now().Format("150405.000")
-	ctx := context.Background()
-
-	for i := 0; i < 3; i++ {
-		allowed, _, err := limiter.Allow(ctx, key)
-		require.NoError(t, err)
-		require.True(t, allowed, "los primeros %d deben pasar (burst)", 3)
-	}
-
-	allowed, retryAfter, err := limiter.Allow(ctx, key)
-	require.NoError(t, err)
-	assert.False(t, allowed, "agotado el burst, se rechaza")
-	assert.GreaterOrEqual(t, retryAfter, 1, "Retry-After debe ser >= 1 segundo")
-}
+// SC-006 (429 con Retry-After al superar el limite) se prueba de punta a
+// punta, contra un status code y un header HTTP reales, en
+// internal/consumers/middleware/middleware_test.go
+// (TestSC006RateLimitReturns429WithRetryAfter). La primera version de este
+// test vivia aca y probaba unicamente RateLimiter.Allow() — una tupla
+// (bool, int) — sin emitir jamas un request HTTP ni leer un header; quedaba
+// en la capa equivocada para el criterio que dice testear.
 
 // El limitador sin Redis deja pasar todo: fail-open deliberado. Un Redis caido
 // no puede cortar la ingesta de datos reales.
@@ -212,8 +218,11 @@ func postRaw(t *testing.T, r *gin.Engine, body []byte) []byte {
 	return w.Body.Bytes()
 }
 
-// makeBatch arma un batch de n eventos validos y distintos.
-func makeBatch(t *testing.T, n int) []byte {
+// makeBatch arma un batch de n eventos validos y distintos. `iter` distingue
+// llamadas sucesivas (p.ej. las 20 iteraciones de SC-008): el eventId incluye
+// iter ademas de la posicion dentro del batch, asi que dos llamadas con iter
+// distinto nunca colisionan entre si, sin depender de la resolucion del reloj.
+func makeBatch(t *testing.T, n, iter int) []byte {
 	t.Helper()
 	var buf bytes.Buffer
 	buf.WriteString(`{"events":[`)
@@ -223,7 +232,7 @@ func makeBatch(t *testing.T, n int) []byte {
 		}
 		fmt.Fprintf(&buf, `{"eventId":"bench-%d-%d","machineId":"EMB-DEV-001",`+
 			`"ts":"2026-07-31T01:06:37Z","kind":"metric","schemaVersion":1,`+
-			`"payload":{"aasPath":"Operativos/Pesada/peso","value":%d}}`, time.Now().UnixNano(), i, i)
+			`"payload":{"aasPath":"Operativos/Pesada/peso","value":%d}}`, iter, i, i)
 	}
 	buf.WriteString(`]}`)
 	return buf.Bytes()
