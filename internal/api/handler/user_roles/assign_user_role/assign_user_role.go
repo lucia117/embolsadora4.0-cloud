@@ -9,6 +9,7 @@ import (
 	ucAssignUserRole "github.com/tu-org/embolsadora-api/internal/api/usecases/user_roles/assign_user_role"
 	"github.com/tu-org/embolsadora-api/internal/domain"
 	"github.com/tu-org/embolsadora-api/internal/platform"
+	"github.com/tu-org/embolsadora-api/internal/security"
 )
 
 // Handler handles POST /api/v1/user-roles requests.
@@ -39,10 +40,11 @@ func (h *Handler) Handle(c *gin.Context) {
 	assignedBy := platform.UserID(c.Request.Context())
 
 	result, err := h.useCase.Execute(c.Request.Context(), ucAssignUserRole.AssignRequest{
-		UserID:     req.UserID,
-		TenantID:   req.TenantID,
-		RoleID:     req.RoleID,
-		AssignedBy: assignedBy,
+		UserID:        req.UserID,
+		TenantID:      req.TenantID,
+		RoleID:        req.RoleID,
+		AssignedBy:    assignedBy,
+		IncludeGlobal: security.CanSeePlatformInternals(c.Request.Context()),
 	})
 	if err != nil {
 		if errors.Is(err, domain.ErrUserAlreadyHasActiveRole) {

@@ -58,6 +58,32 @@ func IsCrossTenantRole(roleName string) bool {
 	return crossTenantRoles[roleName]
 }
 
+// platformTenantAdminRole es el rol efectivo que toma un `admin` cuya membresía
+// pertenece al tenant plataforma de MRG: mismos permisos que admin más
+// tenants:write. No existe en la tabla `roles` — es una derivación en runtime.
+const platformTenantAdminRole = "platform_admin"
+
+// EffectiveRole traduce el role_id almacenado en user_tenant_roles al rol con el
+// que el usuario actúa realmente. Única definición de la regla: la consumen
+// TenantFromHeader (para el enforcement) y GetMe (para lo que ve el frontend).
+// Si divergieran, el frontend mostraría capacidades que el backend niega.
+func EffectiveRole(roleID string, isPlatformTenant bool) string {
+	if roleID == "admin" && isPlatformTenant {
+		return platformTenantAdminRole
+	}
+	return roleID
+}
+
+// CanSeePlatformInternals reporta si el caller puede ver las internas de
+// plataforma: roles globales (super_admin, tenant_manager), sus miembros y las
+// invitaciones a esos roles. Solo super_admin — ni tenant_manager ni
+// platform_admin, que pertenecen a la misma capa pero no la administran.
+//
+// Fail-closed: sin rol en contexto devuelve false.
+func CanSeePlatformInternals(ctx context.Context) bool {
+	return RoleFromContext(ctx) == "super_admin"
+}
+
 // roleContextKeyType is an unexported type to store role in context.
 type roleContextKeyType struct{}
 

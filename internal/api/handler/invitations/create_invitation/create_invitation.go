@@ -29,6 +29,12 @@ func (h *Handler) Handle(c *gin.Context) {
 	inv, err := h.uc.CreateInvitation(c.Request.Context(), req.Email, req.RoleID)
 	if err != nil {
 		switch {
+		case errors.Is(err, domain.ErrRoleNotFound):
+			// Mismo error para role_id inexistente y para role_id de un rol
+			// is_global oculto para este caller: un 403 acá confirmaría que el
+			// rol existe (y que es de plataforma), habilitando la escalada que
+			// este chequeo existe para bloquear.
+			c.JSON(http.StatusNotFound, gin.H{"error": "role not found"})
 		case errors.Is(err, domain.ErrInvitationAlreadyPending):
 			c.JSON(http.StatusConflict, gin.H{"error": "invitation already pending for this email"})
 		case errors.Is(err, domain.ErrInvitationRateLimitExceeded):

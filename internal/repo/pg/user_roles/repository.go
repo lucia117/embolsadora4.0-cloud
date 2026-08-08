@@ -22,16 +22,24 @@ const (
 )
 
 // UserRoleRepository defines the persistence interface for user-tenant-role assignments.
+//
+// Todos los métodos reciben includeGlobal como parámetro booleano explícito: lo
+// decide el handler con security.CanSeePlatformInternals y viaja handler → usecase
+// → repo. El repo no lee el contexto, así que el cloaking se testea sin montar un
+// contexto de Gin (mismo criterio que roles y users; ver spec §2).
 type UserRoleRepository interface {
-	FindByTenant(ctx context.Context, tenantID uuid.UUID, status *string) ([]domain.UserTenantRoleDetail, error)
-	FindByID(ctx context.Context, id uuid.UUID) (*domain.UserTenantRole, error)
-	Create(ctx context.Context, utr *domain.UserTenantRole) (*domain.UserTenantRole, error)
-	Update(ctx context.Context, utr *domain.UserTenantRole) (*domain.UserTenantRole, error)
-	Revoke(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*domain.UserTenantRole, error)
-	BulkCreate(ctx context.Context, utrs []domain.UserTenantRole) ([]domain.UserTenantRole, error)
-	FindByUser(ctx context.Context, userID uuid.UUID) ([]domain.UserRoleWithContext, error)
+	FindByTenant(ctx context.Context, tenantID uuid.UUID, status *string, includeGlobal bool) ([]domain.UserTenantRoleDetail, error)
+	FindByID(ctx context.Context, id uuid.UUID, includeGlobal bool) (*domain.UserTenantRole, error)
+	Create(ctx context.Context, utr *domain.UserTenantRole, includeGlobal bool) (*domain.UserTenantRole, error)
+	Update(ctx context.Context, utr *domain.UserTenantRole, includeGlobal bool) (*domain.UserTenantRole, error)
+	Revoke(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, includeGlobal bool) (*domain.UserTenantRole, error)
+	BulkCreate(ctx context.Context, utrs []domain.UserTenantRole, includeGlobal bool) ([]domain.UserTenantRole, error)
+	// FindByUser devuelve las membresías de un usuario. crossTenant habilita ver más
+	// allá de tenantID (el tenant del request) y solo debe ser true para roles
+	// cross-tenant (security.IsCrossTenantRole).
+	FindByUser(ctx context.Context, userID, tenantID uuid.UUID, crossTenant, includeGlobal bool) ([]domain.UserRoleWithContext, error)
 	// UpdateStatus changes the status of a user's UTR within a tenant (excludes pending assignments).
-	UpdateStatus(ctx context.Context, userID, tenantID uuid.UUID, status domain.UserRoleStatus) (*domain.UserTenantRole, error)
+	UpdateStatus(ctx context.Context, userID, tenantID uuid.UUID, status domain.UserRoleStatus, includeGlobal bool) (*domain.UserTenantRole, error)
 }
 
 type userRoleRepository struct {
@@ -43,14 +51,14 @@ func NewUserRoleRepository(db *pgxpool.Pool) UserRoleRepository {
 	return &userRoleRepository{db: db}
 }
 
-func (r *userRoleRepository) FindByTenant(ctx context.Context, tenantID uuid.UUID, status *string) ([]domain.UserTenantRoleDetail, error) {
+func (r *userRoleRepository) FindByTenant(ctx context.Context, tenantID uuid.UUID, status *string, includeGlobal bool) ([]domain.UserTenantRoleDetail, error) {
 	var rows pgx.Rows
 	var err error
 
 	if status != nil {
-		rows, err = r.db.Query(ctx, FindByTenantWithStatusQuery, tenantID, *status)
+		rows, err = r.db.Query(ctx, FindByTenantWithStatusQuery, tenantID, includeGlobal, *status)
 	} else {
-		rows, err = r.db.Query(ctx, FindByTenantQuery, tenantID)
+		rows, err = r.db.Query(ctx, FindByTenantQuery, tenantID, includeGlobal)
 	}
 	if err != nil {
 		return nil, err
@@ -74,8 +82,11 @@ func (r *userRoleRepository) FindByTenant(ctx context.Context, tenantID uuid.UUI
 	return result, nil
 }
 
-func (r *userRoleRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.UserTenantRole, error) {
-	utr, err := scanUTR(r.db.QueryRow(ctx, FindByIDQuery, id))
+// FindByID devuelve nil (no error) cuando la asignación no existe O cuando existe
+// pero su rol es is_global y el caller no puede verla: los usecases traducen ambos
+// casos en el mismo ErrAssignmentNotFound → 404.
+func (r *userRoleRepository) FindByID(ctx context.Context, id uuid.UUID, includeGlobal bool) (*domain.UserTenantRole, error) {
+	utr, err := scanUTR(r.db.QueryRow(ctx, FindByIDQuery, id, includeGlobal))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
@@ -86,17 +97,36 @@ func (r *userRoleRepository) FindByID(ctx context.Context, id uuid.UUID) (*domai
 }
 
 // checkRoleAllowedForTenant rejects assigning a role that either doesn't exist (or was
-// soft-deleted) or is platform-only (roles.is_global = TRUE) outside of the MRG platform
-// tenant. The platform-only rule itself lives in tenant_can_use_role() (migration 000004)
-// — the single source of truth shared with roles.List/GetByIDForTenant and the DB-level
-// enforcement trigger on user_tenant_roles, so there's exactly one place to update it.
-func (r *userRoleRepository) checkRoleAllowedForTenant(ctx context.Context, roleID string, tenantID uuid.UUID) error {
+// soft-deleted), no pertenece al tenant, no es visible para el caller, o es platform-only
+// (roles.is_global = TRUE) fuera del tenant plataforma de MRG.
+//
+// Los tres predicados del WHERE son los mismos que roles.GetByIDForTenant, que es la
+// validación primaria que corre en el usecase antes de llegar acá. Esto es el backstop
+// del repo — la última puerta antes del INSERT/UPDATE — con el mismo criterio con que
+// Task 5 dejó el precheck de DeleteUser y el scoping por tenant dentro de RevokeQuery:
+//   - (r.tenant_id = $2 OR r.tenant_id IS NULL): sin esto un admin podía asignar un rol
+//     custom de OTRO tenant conociendo su id (tenant_can_use_role devuelve TRUE
+//     incondicionalmente cuando is_global=false, así que no filtraba nada para custom).
+//   - (NOT r.is_global OR $3): un rol global invisible para el caller sale de la consulta
+//     como cero filas, o sea ErrInvalidRoleID — exactamente lo mismo que un rol
+//     inexistente. Esa convergencia es la que impide usar la asignación como oráculo.
+//
+// tenant_can_use_role() (migración 000004) sigue siendo la única definición de la regla
+// de plataforma, compartida con roles.List/GetByIDForTenant y con el trigger de la DB.
+// Se evalúa en el SELECT y no en el WHERE a propósito: para un super_admin
+// (includeGlobal=true) que ve el rol global pero intenta usarlo en un tenant cliente, la
+// respuesta correcta es 403 ErrRoleNotAllowedForTenant ("lo ves pero no podés operarlo"),
+// no 404.
+func (r *userRoleRepository) checkRoleAllowedForTenant(ctx context.Context, roleID string, tenantID uuid.UUID, includeGlobal bool) error {
 	var allowed bool
 	err := r.db.QueryRow(ctx, `
 		SELECT tenant_can_use_role($2, r.is_global)
 		FROM roles r
-		WHERE r.id = $1 AND r.deleted_at IS NULL
-	`, roleID, tenantID).Scan(&allowed)
+		WHERE r.id = $1
+		  AND r.deleted_at IS NULL
+		  AND (r.tenant_id = $2 OR r.tenant_id IS NULL)
+		  AND (NOT r.is_global OR $3)
+	`, roleID, tenantID, includeGlobal).Scan(&allowed)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.ErrInvalidRoleID
@@ -107,6 +137,44 @@ func (r *userRoleRepository) checkRoleAllowedForTenant(ctx context.Context, role
 		return domain.ErrRoleNotAllowedForTenant
 	}
 	return nil
+}
+
+// hasVisibleActiveAssignment responde si la asignación activa que bloquea un INSERT
+// (idx_utr_active_unique) es visible para este caller. Ver Create para el porqué.
+func (r *userRoleRepository) hasVisibleActiveAssignment(ctx context.Context, userID, tenantID uuid.UUID, includeGlobal bool) (bool, error) {
+	var visible bool
+	if err := r.db.QueryRow(ctx, HasVisibleActiveAssignmentQuery, userID, tenantID, includeGlobal).Scan(&visible); err != nil {
+		return false, err
+	}
+	return visible, nil
+}
+
+// resolveActiveUniqueViolation elige el error para un choque contra
+// idx_utr_active_unique (único sobre (user_id, tenant_id) WHERE status='active').
+//
+// El índice no sabe de cloaking: ve la membresía activa del superadmin igual que
+// cualquier otra. Sin esto, POST /user-roles distinguía tres casos por status —
+// 409 (usuario oculto con membresía activa), 400 (user_id inexistente, violación de
+// FK) y 201 (usuario sin membresía) — o sea un oráculo que sobrevivía al cloaking de
+// las listas: 409 vs 400 contestaba "existe pero no te lo muestro" vs "no existe".
+//
+// Criterio, el mismo que invitations.Create (commit 6ffb50a): converger a la
+// respuesta del caso que el caller SÍ puede observar. Acá son dos casos distintos,
+// así que la convergencia es hacia cada lado según qué haya:
+//   - conflicto visible → ErrUserAlreadyHasActiveRole (409), sin cambios: es un
+//     duplicado legítimo y el mensaje tiene que ser accionable.
+//   - conflicto oculto → ErrInvalidUserID (400), byte-idéntico a lo que devuelve la
+//     violación de FK de un user_id inexistente. Para este caller ese usuario no
+//     existe, y esa es exactamente la respuesta que corresponde.
+func (r *userRoleRepository) resolveActiveUniqueViolation(ctx context.Context, userID, tenantID uuid.UUID, includeGlobal bool) error {
+	visible, err := r.hasVisibleActiveAssignment(ctx, userID, tenantID, includeGlobal)
+	if err != nil {
+		return err
+	}
+	if visible {
+		return domain.ErrUserAlreadyHasActiveRole
+	}
+	return domain.ErrInvalidUserID
 }
 
 // mapForeignKeyViolation translates a user_tenant_roles FK violation into the domain
@@ -124,21 +192,38 @@ func mapForeignKeyViolation(pgErr *pgconn.PgError) error {
 	}
 }
 
-func (r *userRoleRepository) Create(ctx context.Context, utr *domain.UserTenantRole) (*domain.UserTenantRole, error) {
+// Create escribe la membresía. Dos ejes de cloaking, independientes entre sí:
+//   - el ROL pedido (checkRoleAllowedForTenant): un rol global invisible responde
+//     como rol inexistente → ErrInvalidRoleID.
+//   - la IDENTIDAD destino (guard dentro de CreateQuery): un usuario que es cuenta
+//     de plataforma responde como usuario inexistente → ErrInvalidUserID.
+//
+// El segundo hacía falta porque el primero solo mira el rol que eligió el caller:
+// pedir 'operario' para el super_admin pasaba las dos validaciones de rol y dejaba
+// una UTR real y visible con el email y el nombre de la cuenta interna.
+func (r *userRoleRepository) Create(ctx context.Context, utr *domain.UserTenantRole, includeGlobal bool) (*domain.UserTenantRole, error) {
 	if utr.RoleID != nil {
-		if err := r.checkRoleAllowedForTenant(ctx, *utr.RoleID, utr.TenantID); err != nil {
+		if err := r.checkRoleAllowedForTenant(ctx, *utr.RoleID, utr.TenantID, includeGlobal); err != nil {
 			return nil, err
 		}
 	}
 
 	created, err := scanUTR(r.db.QueryRow(ctx, CreateQuery,
-		utr.ID, utr.UserID, utr.TenantID, utr.RoleID, utr.Status, utr.AssignedBy, utr.AssignedAt,
+		utr.ID, utr.UserID, utr.TenantID, utr.RoleID, utr.Status, utr.AssignedBy, utr.AssignedAt, includeGlobal,
 	))
 	if err != nil {
+		// Cero filas = el guard de identidad de CreateQuery suprimió el INSERT: el
+		// destino es una cuenta de plataforma y este caller no puede verla. Misma
+		// respuesta que el user_id inexistente (que llega por la violación de FK
+		// unas líneas más abajo) — es la convergencia que impide usar POST
+		// /user-roles como oráculo de identidad.
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrInvalidUserID
+		}
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
 			if pgErr.Code == errCodeUniqueViolation {
-				return nil, domain.ErrUserAlreadyHasActiveRole
+				return nil, r.resolveActiveUniqueViolation(ctx, utr.UserID, utr.TenantID, includeGlobal)
 			}
 			if pgErr.Code == errCodeForeignKeyViolation {
 				if mapped := mapForeignKeyViolation(pgErr); mapped != nil {
@@ -154,14 +239,14 @@ func (r *userRoleRepository) Create(ctx context.Context, utr *domain.UserTenantR
 	return created, nil
 }
 
-func (r *userRoleRepository) Update(ctx context.Context, utr *domain.UserTenantRole) (*domain.UserTenantRole, error) {
+func (r *userRoleRepository) Update(ctx context.Context, utr *domain.UserTenantRole, includeGlobal bool) (*domain.UserTenantRole, error) {
 	if utr.RoleID != nil {
-		if err := r.checkRoleAllowedForTenant(ctx, *utr.RoleID, utr.TenantID); err != nil {
+		if err := r.checkRoleAllowedForTenant(ctx, *utr.RoleID, utr.TenantID, includeGlobal); err != nil {
 			return nil, err
 		}
 	}
 
-	updated, err := scanUTR(r.db.QueryRow(ctx, UpdateQuery, utr.RoleID, utr.ID))
+	updated, err := scanUTR(r.db.QueryRow(ctx, UpdateQuery, utr.RoleID, utr.ID, includeGlobal))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
@@ -182,8 +267,8 @@ func (r *userRoleRepository) Update(ctx context.Context, utr *domain.UserTenantR
 	return updated, nil
 }
 
-func (r *userRoleRepository) Revoke(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*domain.UserTenantRole, error) {
-	revoked, err := scanUTR(r.db.QueryRow(ctx, RevokeQuery, id, tenantID))
+func (r *userRoleRepository) Revoke(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, includeGlobal bool) (*domain.UserTenantRole, error) {
+	revoked, err := scanUTR(r.db.QueryRow(ctx, RevokeQuery, id, tenantID, includeGlobal))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
@@ -193,11 +278,11 @@ func (r *userRoleRepository) Revoke(ctx context.Context, id uuid.UUID, tenantID 
 	return revoked, nil
 }
 
-func (r *userRoleRepository) BulkCreate(ctx context.Context, utrs []domain.UserTenantRole) ([]domain.UserTenantRole, error) {
+func (r *userRoleRepository) BulkCreate(ctx context.Context, utrs []domain.UserTenantRole, includeGlobal bool) ([]domain.UserTenantRole, error) {
 	// Callers always send the same tenant+role for the whole batch (see
 	// bulk_assign_user_roles usecase), so one check up front covers all rows.
 	if len(utrs) > 0 && utrs[0].RoleID != nil {
-		if err := r.checkRoleAllowedForTenant(ctx, *utrs[0].RoleID, utrs[0].TenantID); err != nil {
+		if err := r.checkRoleAllowedForTenant(ctx, *utrs[0].RoleID, utrs[0].TenantID, includeGlobal); err != nil {
 			return nil, err
 		}
 	}
@@ -211,13 +296,23 @@ func (r *userRoleRepository) BulkCreate(ctx context.Context, utrs []domain.UserT
 	results := make([]domain.UserTenantRole, 0, len(utrs))
 	for _, utr := range utrs {
 		created, err := scanUTR(tx.QueryRow(ctx, CreateQuery,
-			utr.ID, utr.UserID, utr.TenantID, utr.RoleID, utr.Status, utr.AssignedBy, utr.AssignedAt,
+			utr.ID, utr.UserID, utr.TenantID, utr.RoleID, utr.Status, utr.AssignedBy, utr.AssignedAt, includeGlobal,
 		))
 		if err != nil {
+			// Mismo guard de identidad que Create, y el mismo error envuelto con el
+			// user id que el resto de los casos del lote. La transacción se
+			// rollbackea entera: el batch es all-or-nothing, así que el usuario
+			// legítimo que venía en el mismo lote tampoco entra.
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, fmt.Errorf("%w: user %s", domain.ErrInvalidUserID, utr.UserID)
+			}
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) {
 				if pgErr.Code == errCodeUniqueViolation {
-					return nil, fmt.Errorf("%w: user %s", domain.ErrUserAlreadyHasActiveRole, utr.UserID)
+					// Mismo criterio que Create: el conflicto oculto se responde como
+					// user_id inexistente. resolveActiveUniqueViolation consulta por el
+					// pool (no por tx, que ya quedó abortada por el error del INSERT).
+					return nil, fmt.Errorf("%w: user %s", r.resolveActiveUniqueViolation(ctx, utr.UserID, utr.TenantID, includeGlobal), utr.UserID)
 				}
 				if pgErr.Code == errCodeForeignKeyViolation {
 					if mapped := mapForeignKeyViolation(pgErr); mapped != nil {
@@ -239,8 +334,12 @@ func (r *userRoleRepository) BulkCreate(ctx context.Context, utrs []domain.UserT
 	return results, nil
 }
 
-func (r *userRoleRepository) FindByUser(ctx context.Context, userID uuid.UUID) ([]domain.UserRoleWithContext, error) {
-	rows, err := r.db.Query(ctx, FindByUserQuery, userID)
+// FindByUser devuelve las membresías de un usuario, acotadas al tenant del request
+// salvo que el caller tenga rol cross-tenant, y sin las asignaciones a roles globales
+// salvo que sea super_admin. Un usuario inexistente y uno cuya única membresía está
+// cloakeada devuelven los dos la misma lista vacía.
+func (r *userRoleRepository) FindByUser(ctx context.Context, userID, tenantID uuid.UUID, crossTenant, includeGlobal bool) ([]domain.UserRoleWithContext, error) {
+	rows, err := r.db.Query(ctx, FindByUserQuery, userID, tenantID, crossTenant, includeGlobal)
 	if err != nil {
 		return nil, err
 	}
@@ -324,8 +423,8 @@ func scanUTRDetailFromRow(rows pgx.Rows) (*domain.UserTenantRoleDetail, error) {
 // UpdateStatus changes the status of a user's UTR within a tenant.
 // Only affects non-pending assignments (pending → active is handled by invitation flow).
 // Returns domain.ErrNoActiveAssignment directly if no non-pending row was updated.
-func (r *userRoleRepository) UpdateStatus(ctx context.Context, userID, tenantID uuid.UUID, status domain.UserRoleStatus) (*domain.UserTenantRole, error) {
-	row := r.db.QueryRow(ctx, UpdateStatusQuery, string(status), userID, tenantID)
+func (r *userRoleRepository) UpdateStatus(ctx context.Context, userID, tenantID uuid.UUID, status domain.UserRoleStatus, includeGlobal bool) (*domain.UserTenantRole, error) {
+	row := r.db.QueryRow(ctx, UpdateStatusQuery, string(status), userID, tenantID, includeGlobal)
 
 	var utr domain.UserTenantRole
 	var roleID *string

@@ -19,7 +19,7 @@ type TenantNameLookup interface {
 
 // RoleNameLookup es la porcion del repositorio de roles que el mail necesita.
 type RoleNameLookup interface {
-	GetByIDForTenant(ctx context.Context, id string, tenantID uuid.UUID) (*domain.Role, error)
+	GetByIDForTenant(ctx context.Context, id string, tenantID uuid.UUID, includeGlobal bool) (*domain.Role, error)
 }
 
 // InviteDisplayNames son los valores legibles que se muestran en el mail.
@@ -31,12 +31,18 @@ type InviteDisplayNames struct {
 	RoleName   string
 }
 
+// includeGlobal decide si la resolución de nombre de rol puede ver roles
+// is_global (super_admin, tenant_manager). Lo calcula el caller a partir de
+// security.CanSeePlatformInternals(ctx) — mismo criterio que ListRoles/GetRole,
+// para no filtrar el nombre de un rol de plataforma en un mail de invitación
+// creado por alguien que no debería saber que ese rol existe.
 func resolveInviteDisplayNames(
 	ctx context.Context,
 	tenants TenantNameLookup,
 	roles RoleNameLookup,
 	tenantID string,
 	roleID string,
+	includeGlobal bool,
 ) InviteDisplayNames {
 	var out InviteDisplayNames
 
@@ -59,7 +65,7 @@ func resolveInviteDisplayNames(
 	}
 
 	if roles != nil && roleID != "" {
-		r, err := roles.GetByIDForTenant(ctx, roleID, tenantUUID)
+		r, err := roles.GetByIDForTenant(ctx, roleID, tenantUUID, includeGlobal)
 		switch {
 		case err != nil:
 			Log.Warn("metadata de invitacion: fallo la consulta de rol",

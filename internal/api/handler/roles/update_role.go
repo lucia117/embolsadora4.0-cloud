@@ -4,12 +4,21 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/tu-org/embolsadora-api/internal/api/handler/roles/dto"
 	appRoles "github.com/tu-org/embolsadora-api/internal/app/roles"
+	"github.com/tu-org/embolsadora-api/internal/platform"
+	"github.com/tu-org/embolsadora-api/internal/security"
 )
 
 func UpdateRole(service *appRoles.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		tenantID, err := uuid.Parse(platform.TenantID(c.Request.Context()))
+		if err != nil {
+			invalidTenantResponse(c)
+			return
+		}
+
 		id := c.Param("id")
 
 		var req dto.UpdateRoleRequest
@@ -22,7 +31,9 @@ func UpdateRole(service *appRoles.Service) gin.HandlerFunc {
 			return
 		}
 
-		role, err := service.UpdateRole(c.Request.Context(), id, req.Name, req.Description, req.Permissions)
+		includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+
+		role, err := service.UpdateRole(c.Request.Context(), id, tenantID, includeGlobal, req.Name, req.Description, req.Permissions)
 		if err != nil {
 			HandleError(c, err)
 			return

@@ -10,6 +10,7 @@ import (
 	ucUpdateUserRole "github.com/tu-org/embolsadora-api/internal/api/usecases/user_roles/update_user_role"
 	"github.com/tu-org/embolsadora-api/internal/domain"
 	"github.com/tu-org/embolsadora-api/internal/platform"
+	"github.com/tu-org/embolsadora-api/internal/security"
 )
 
 // Handler handles PUT /api/v1/user-roles/:id requests.
@@ -41,7 +42,9 @@ func (h *Handler) Handle(c *gin.Context) {
 		return
 	}
 
-	result, err := h.useCase.Execute(c.Request.Context(), id, tenantID, req.RoleID)
+	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+
+	result, err := h.useCase.Execute(c.Request.Context(), id, tenantID, req.RoleID, includeGlobal)
 	if err != nil {
 		if errors.Is(err, domain.ErrAssignmentNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"success": false, "error": err.Error()})
