@@ -11,6 +11,7 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/app/users"
 	domainUsers "github.com/tu-org/embolsadora-api/internal/domain/users"
 	"github.com/tu-org/embolsadora-api/internal/platform"
+	"github.com/tu-org/embolsadora-api/internal/security"
 )
 
 // Handler handles user HTTP requests
@@ -64,7 +65,8 @@ func (h *Handler) ListUsers(c *gin.Context) {
 
 	h.logger.Debug("list users request", zap.String("tenant_id", tenantID), zap.Int("limit", limit), zap.Int("offset", offset))
 
-	users, total, err := h.service.ListUsers(c.Request.Context(), tenantID, limit, offset)
+	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+	users, total, err := h.service.ListUsers(c.Request.Context(), tenantID, limit, offset, includeGlobal)
 	if err != nil {
 		h.logger.Error("list users failed", zap.Error(err))
 		HandleError(c, err)
@@ -106,9 +108,11 @@ func (h *Handler) GetUser(c *gin.Context) {
 
 	h.logger.Debug("get user request", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 
+	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+
 	// If include=roles is requested, fetch user with role data
 	if c.Query("include") == "roles" {
-		uwr, err := h.service.GetUserWithRoles(c.Request.Context(), tenantID, userID)
+		uwr, err := h.service.GetUserWithRoles(c.Request.Context(), tenantID, userID, includeGlobal)
 		if err != nil {
 			h.logger.Error("get user with roles failed", zap.Error(err))
 			HandleError(c, err)
@@ -118,7 +122,7 @@ func (h *Handler) GetUser(c *gin.Context) {
 		return
 	}
 
-	user, err := h.service.GetUser(c.Request.Context(), tenantID, userID)
+	user, err := h.service.GetUser(c.Request.Context(), tenantID, userID, includeGlobal)
 	if err != nil {
 		h.logger.Error("get user failed", zap.Error(err))
 		HandleError(c, err)
@@ -134,7 +138,8 @@ func (h *Handler) ListPendingUsers(c *gin.Context) {
 
 	h.logger.Debug("list pending users request", zap.String("tenant_id", tenantID))
 
-	users, err := h.service.ListPendingUsers(c.Request.Context(), tenantID)
+	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+	users, err := h.service.ListPendingUsers(c.Request.Context(), tenantID, includeGlobal)
 	if err != nil {
 		h.logger.Error("list pending users failed", zap.Error(err))
 		HandleError(c, err)
@@ -193,7 +198,8 @@ func (h *Handler) UpdateUserStatus(c *gin.Context) {
 		zap.String("user_id", userID),
 		zap.String("status", req.Status))
 
-	user, err := h.service.UpdateUserStatus(c.Request.Context(), tenantID, userID, callerID, req.Status)
+	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+	user, err := h.service.UpdateUserStatus(c.Request.Context(), tenantID, userID, callerID, req.Status, includeGlobal)
 	if err != nil {
 		h.logger.Error("update user status failed", zap.Error(err))
 		HandleError(c, err)
@@ -240,7 +246,8 @@ func (h *Handler) CreateUser(c *gin.Context) {
 		AssignedBy: callerUUID.String(),
 	}
 
-	user, err := h.service.CreateUser(c.Request.Context(), tenantID, cmd)
+	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+	user, err := h.service.CreateUser(c.Request.Context(), tenantID, cmd, includeGlobal)
 	if err != nil {
 		h.logger.Error("create user failed", zap.Error(err))
 		HandleError(c, err)
@@ -287,7 +294,8 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 		Image:     req.Image,
 	}
 
-	user, err := h.service.UpdateUser(c.Request.Context(), tenantID, userID, cmd)
+	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+	user, err := h.service.UpdateUser(c.Request.Context(), tenantID, userID, includeGlobal, cmd)
 	if err != nil {
 		h.logger.Error("update user failed", zap.Error(err))
 		HandleError(c, err)
@@ -313,7 +321,8 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 
 	h.logger.Debug("delete user request", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 
-	err := h.service.DeleteUser(c.Request.Context(), tenantID, userID)
+	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+	err := h.service.DeleteUser(c.Request.Context(), tenantID, userID, includeGlobal)
 	if err != nil {
 		h.logger.Error("delete user failed", zap.Error(err))
 		HandleError(c, err)

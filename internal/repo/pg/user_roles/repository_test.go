@@ -33,7 +33,10 @@ func TestFindByTenant_ResolvesUserAndRoleAcrossJoin(t *testing.T) {
 
 	db, err := pgxpool.New(context.Background(), dbURL)
 	require.NoError(t, err)
-	defer db.Close()
+	// t.Cleanup, NO defer: un defer cierra el pool ANTES de que corran los
+	// t.Cleanup que borran las filas sembradas, y la limpieza falla en silencio
+	// dejando basura en la DB compartida.
+	t.Cleanup(db.Close)
 
 	ctx := context.Background()
 	repo := user_roles.NewUserRoleRepository(db)
@@ -74,7 +77,7 @@ func TestFindByTenant_ResolvesUserAndRoleAcrossJoin(t *testing.T) {
 	err = db.QueryRow(ctx, `SELECT name FROM roles WHERE id = $1`, roleID).Scan(&expectedRoleName)
 	require.NoError(t, err)
 
-	results, err := repo.FindByTenant(ctx, tenantID, nil)
+	results, err := repo.FindByTenant(ctx, tenantID, nil, false)
 	require.NoError(t, err)
 
 	var active, pending *domain.UserTenantRoleDetail

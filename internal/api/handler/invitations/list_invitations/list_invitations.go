@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/tu-org/embolsadora-api/internal/api/usecases"
+	"github.com/tu-org/embolsadora-api/internal/security"
 )
 
 type Handler struct {
@@ -34,7 +35,8 @@ func (h *Handler) Handle(c *gin.Context) {
 		statusPtr = &statusFilter
 	}
 
-	list, err := h.uc.ListInvitations(c.Request.Context(), statusPtr)
+	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+	list, err := h.uc.ListInvitations(c.Request.Context(), statusPtr, includeGlobal)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return

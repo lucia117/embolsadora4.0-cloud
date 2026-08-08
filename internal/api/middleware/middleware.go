@@ -190,8 +190,8 @@ func TenantFromHeader(db *pgxpool.Pool) gin.HandlerFunc {
 				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"success": false, "error": "tenant access denied"})
 				return
 			}
-		} else if isPlatformTenant && roleID == "admin" {
-			roleID = "platform_admin"
+		} else {
+			roleID = security.EffectiveRole(roleID, isPlatformTenant)
 		}
 
 		ctx := platform.WithTenantID(c.Request.Context(), tenantID)
@@ -238,9 +238,19 @@ func resolvePlatformOperator(ctx context.Context, db *pgxpool.Pool, userID, targ
 	}
 
 	if !isGlobal {
-		return "platform_admin", nil
+		// El WHERE de la query (línea 221) solo deja pasar filas con
+		// is_global=true o role_id='admin'; acá isGlobal es false, así que
+		// roleID es necesariamente "admin". El JOIN de la línea 218 exige
+		// t.is_platform_tenant, así que esa membresía es necesariamente del
+		// tenant plataforma: isPlatformTenant=true es seguro, no una
+		// suposición — se apoya en la query, no en el valor de roleID.
+		return security.EffectiveRole(roleID, true), nil
 	}
-	return roleID, nil
+	// roleID es un rol global (super_admin o tenant_manager): EffectiveRole es
+	// identidad en este caso, pero se enruta por la misma función para que
+	// exista una única definición de la regla de ascenso, en vez de codificar
+	// acá un segundo "no cambia" que podría divergir si la regla cambia.
+	return security.EffectiveRole(roleID, true), nil
 }
 
 // PasswordChangeGuard blocks requests when user must change their password.

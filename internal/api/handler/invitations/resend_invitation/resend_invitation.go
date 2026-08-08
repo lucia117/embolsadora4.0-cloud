@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/tu-org/embolsadora-api/internal/api/usecases"
 	"github.com/tu-org/embolsadora-api/internal/domain"
+	"github.com/tu-org/embolsadora-api/internal/security"
 )
 
 type Handler struct {
@@ -25,7 +26,8 @@ func (h *Handler) Handle(c *gin.Context) {
 		return
 	}
 
-	if err := h.uc.ResendInvitation(c.Request.Context(), id); err != nil {
+	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+	if err := h.uc.ResendInvitation(c.Request.Context(), id, includeGlobal); err != nil {
 		switch {
 		case errors.Is(err, domain.ErrNotFound):
 			c.JSON(http.StatusNotFound, gin.H{"error": "invitation not found"})

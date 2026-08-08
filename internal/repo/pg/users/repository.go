@@ -9,19 +9,21 @@ import (
 
 // Repository defines user persistence operations
 type Repository interface {
-	// ListByTenant retrieves paginated users belonging to a tenant (excludes soft-deleted)
-	ListByTenant(ctx context.Context, tenantID string, limit, offset int) ([]*users.User, int64, error)
+	// ListByTenant retrieves paginated users belonging to a tenant (excludes soft-deleted).
+	// includeGlobal=false oculta miembros con rol is_global — ver security.CanSeePlatformInternals.
+	ListByTenant(ctx context.Context, tenantID string, limit, offset int, includeGlobal bool) ([]*users.User, int64, error)
 
-	// GetByID retrieves a single user by ID (returns ErrNotFound if soft-deleted or not found)
-	GetByID(ctx context.Context, tenantID, userID string) (*users.User, error)
+	// GetByID retrieves a single user by ID (returns ErrNotFound if soft-deleted, not found u oculto)
+	GetByID(ctx context.Context, tenantID, userID string, includeGlobal bool) (*users.User, error)
 
 	// GetByIDWithRoles retrieves a user with their active role assignment in the tenant.
-	// Returns ErrNotFound if user doesn't exist or is soft-deleted.
+	// Returns ErrNotFound if user doesn't exist, is soft-deleted, or (includeGlobal=false) su
+	// rol activo es is_global — ver security.CanSeePlatformInternals.
 	// The Roles field is an empty slice if no active UTR is found.
-	GetByIDWithRoles(ctx context.Context, tenantID, userID string) (*users.UserWithRoles, error)
+	GetByIDWithRoles(ctx context.Context, tenantID, userID string, includeGlobal bool) (*users.UserWithRoles, error)
 
 	// ListPendingByTenant retrieves users with a pending UTR in the tenant.
-	ListPendingByTenant(ctx context.Context, tenantID string) ([]*users.User, error)
+	ListPendingByTenant(ctx context.Context, tenantID string, includeGlobal bool) ([]*users.User, error)
 
 	// Create inserts a new user and returns it with server-generated fields
 	// Returns ErrEmailTaken if email exists in same tenant

@@ -9,6 +9,7 @@ import (
 	ucListUserRoles "github.com/tu-org/embolsadora-api/internal/api/usecases/user_roles/list_user_roles"
 	"github.com/tu-org/embolsadora-api/internal/domain"
 	"github.com/tu-org/embolsadora-api/internal/platform"
+	"github.com/tu-org/embolsadora-api/internal/security"
 )
 
 // Handler handles GET /api/v1/user-roles requests.
@@ -57,7 +58,9 @@ func (h *Handler) Handle(c *gin.Context) {
 		status = &s
 	}
 
-	results, err := h.useCase.Execute(c.Request.Context(), tenantID, status)
+	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+
+	results, err := h.useCase.Execute(c.Request.Context(), tenantID, status, includeGlobal)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "internal server error"})
 		return

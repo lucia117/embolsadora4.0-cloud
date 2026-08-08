@@ -13,10 +13,11 @@ import (
 
 // MeResponse is the response for GET /api/v1/me.
 type MeResponse struct {
-	User        UserProfileResponse `json:"user"`
-	Tenant      *TenantInfoResponse `json:"tenant"`
-	Role        *RoleInfoResponse   `json:"role"`
-	Permissions []string            `json:"permissions"`
+	User         UserProfileResponse  `json:"user"`
+	Tenant       *TenantInfoResponse  `json:"tenant"`
+	Role         *RoleInfoResponse    `json:"role"`
+	Permissions  []string             `json:"permissions"`
+	Capabilities CapabilitiesResponse `json:"capabilities"`
 }
 
 // UserProfileResponse contains public user identity fields.
@@ -29,15 +30,25 @@ type UserProfileResponse struct {
 
 // TenantInfoResponse contains tenant display fields.
 type TenantInfoResponse struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Subdomain string `json:"subdomain"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Subdomain  string `json:"subdomain"`
+	IsPlatform bool   `json:"isPlatform"`
 }
 
 // RoleInfoResponse contains the user's role in the current tenant.
 type RoleInfoResponse struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+}
+
+// CapabilitiesResponse expone capacidades derivadas del rol efectivo, no de
+// permisos asignables. El frontend pregunta por acá en vez de comparar el rol
+// contra una lista hardcodeada.
+type CapabilitiesResponse struct {
+	// CanCrossTenant: el usuario puede ver y operar datos de tenants distintos
+	// al suyo. Deriva de security.IsCrossTenantRole sobre el rol efectivo.
+	CanCrossTenant bool `json:"canCrossTenant"`
 }
 
 // MeUsecase handles the GET /api/v1/me endpoint logic.
@@ -68,32 +79,49 @@ func (uc *MeUsecase) GetMe(ctx context.Context) (*MeResponse, error) {
 		Permissions: []string{},
 	}
 
-	// Query the user's active tenant+role (regular users belong to exactly one tenant)
+	// Query the user's active tenant+role. `roles.permissions` es la fuente de
+	// verdad del catálogo perm_* que consume el frontend; el vocabulario
+	// resource:action de security.PermissionsForRole queda para el enforcement
+	// interno (security.Can / RBACCheck) y no se expone.
 	var tenantID, tenantName, tenantSubdomain, roleID, roleName string
+	var isPlatformTenant bool
+	var permissions []string
 	err := uc.db.QueryRow(ctx, `
-		SELECT t.id, t.name, t.subdomain, r.id, r.name
+		SELECT t.id, t.name, t.subdomain, t.is_platform_tenant,
+		       r.id, r.name,
+		       ARRAY(SELECT jsonb_array_elements_text(r.permissions))
 		FROM user_tenant_roles utr
 		JOIN tenants t ON t.id = utr.tenant_id
 		JOIN roles r ON r.id = utr.role_id
 		WHERE utr.user_id = $1 AND utr.status = 'active'
 		LIMIT 1
-	`, user.ID).Scan(&tenantID, &tenantName, &tenantSubdomain, &roleID, &roleName)
+	`, user.ID).Scan(&tenantID, &tenantName, &tenantSubdomain, &isPlatformTenant,
+		&roleID, &roleName, &permissions)
 
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
 	}
 
 	if err == nil {
+		effectiveRole := security.EffectiveRole(roleID, isPlatformTenant)
+
 		resp.Tenant = &TenantInfoResponse{
-			ID:        tenantID,
-			Name:      tenantName,
-			Subdomain: tenantSubdomain,
+			ID:         tenantID,
+			Name:       tenantName,
+			Subdomain:  tenantSubdomain,
+			IsPlatform: isPlatformTenant,
 		}
 		resp.Role = &RoleInfoResponse{
-			ID:   roleID,
+			ID:   effectiveRole,
 			Name: roleName,
 		}
-		resp.Permissions = security.PermissionsForRole(roleID)
+		if permissions == nil {
+			permissions = []string{}
+		}
+		resp.Permissions = permissions
+		resp.Capabilities = CapabilitiesResponse{
+			CanCrossTenant: security.IsCrossTenantRole(effectiveRole),
+		}
 	}
 
 	return resp, nil

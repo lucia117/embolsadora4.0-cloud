@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
 	"github.com/tu-org/embolsadora-api/internal/platform/dbmigrate"
@@ -53,8 +55,8 @@ func TestRun_AppliesAndIsIdempotent(t *testing.T) {
 		"SELECT version, dirty FROM schema_migrations").Scan(&version, &dirty); err != nil {
 		t.Fatalf("query schema_migrations: %v", err)
 	}
-	if version != 6 || dirty {
-		t.Fatalf("expected version=6 dirty=false, got version=%d dirty=%v", version, dirty)
+	if version != 9 || dirty {
+		t.Fatalf("expected version=9 dirty=false, got version=%d dirty=%v", version, dirty)
 	}
 
 	// Second run should be a no-op (ErrNoChange handled internally).
@@ -77,18 +79,18 @@ func TestRun_AppliesAndIsIdempotent(t *testing.T) {
 	expectedRolePermissions := map[string][]string{
 		"super_admin": {
 			"perm_dashboard", "perm_alerts", "perm_reports", "perm_users", "perm_tenants",
-			"perm_settings", "perm_maintenance", "perm_analytics", "perm_all_tenants",
+			"perm_settings", "perm_maintenance", "perm_analytics",
 			"perm_logs_view", "perm_logs_export", "perm_logs_admin", "perm_edge_devices_view",
 			"perm_edge_devices_manage", "perm_edge_devices_check", "perm_reports_view", "perm_reports_manage",
 		},
 		"tenant_manager": {
-			"perm_all_tenants", "perm_dashboard", "perm_alerts", "perm_reports",
+			"perm_dashboard", "perm_alerts", "perm_reports",
 			"perm_reports_view", "perm_users", "perm_edge_devices_view", "perm_edge_devices_check",
 		},
 		"admin": {
 			"perm_dashboard", "perm_alerts", "perm_reports", "perm_reports_view", "perm_reports_manage",
 			"perm_users", "perm_tenants", "perm_settings", "perm_maintenance", "perm_analytics",
-			"perm_edge_devices_view", "perm_edge_devices_manage",
+			"perm_edge_devices_view", "perm_edge_devices_manage", "perm_logs_view",
 		},
 		"operario": {
 			"perm_dashboard", "perm_alerts", "perm_reports_view", "perm_edge_devices_view", "perm_edge_devices_check",
@@ -111,4 +113,47 @@ func TestRun_AppliesAndIsIdempotent(t *testing.T) {
 			t.Fatalf("role %s: expected permissions %v, got %v", roleID, want, got)
 		}
 	}
+}
+
+func TestAdminRoleHasLogsView(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, dsn)
+	require.NoError(t, err)
+	defer pool.Close()
+
+	var perms []string
+	err = pool.QueryRow(ctx,
+		`SELECT ARRAY(SELECT jsonb_array_elements_text(permissions)) FROM roles WHERE id = 'admin'`,
+	).Scan(&perms)
+	require.NoError(t, err)
+	require.Contains(t, perms, "perm_logs_view")
+}
+
+func TestAllTenantsPermissionIsGone(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, dsn)
+	require.NoError(t, err)
+	defer pool.Close()
+
+	var count int
+	err = pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM permissions WHERE id = 'perm_all_tenants'`,
+	).Scan(&count)
+	require.NoError(t, err)
+	require.Equal(t, 0, count, "perm_all_tenants debe estar eliminado del catálogo")
+
+	var rolesWithIt int
+	err = pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM roles WHERE permissions @> '["perm_all_tenants"]'::jsonb`,
+	).Scan(&rolesWithIt)
+	require.NoError(t, err)
+	require.Equal(t, 0, rolesWithIt, "ningún rol debe conservar perm_all_tenants")
 }
