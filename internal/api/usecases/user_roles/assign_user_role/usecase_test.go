@@ -197,10 +197,13 @@ func TestAssignSobreSuperAdminDesdeTenantClienteFalla(t *testing.T) {
 	cordoba := seedTenantAjeno(t, pool)
 	superadmin := seedSuperAdmin(t, pool)
 
+	// cliente_operario, no operario: desde la migración 000010 operario es
+	// platform-only y tenant_can_use_role lo rechazaría antes de llegar al
+	// guard de identidad que este test ejercita.
 	res, err := uc.Execute(ctx, ucAssign.AssignRequest{
 		UserID:        superadmin,
 		TenantID:      cordoba,
-		RoleID:        "operario",
+		RoleID:        "cliente_operario",
 		IncludeGlobal: false,
 	})
 	require.Nil(t, res)
@@ -224,7 +227,7 @@ func TestAssignSobreSuperAdminConvergeConUsuarioInexistente(t *testing.T) {
 	cordoba := seedTenantAjeno(t, pool)
 	superadmin := seedSuperAdmin(t, pool)
 
-	base := ucAssign.AssignRequest{TenantID: cordoba, RoleID: "operario", IncludeGlobal: false}
+	base := ucAssign.AssignRequest{TenantID: cordoba, RoleID: "cliente_operario", IncludeGlobal: false}
 
 	oculto := base
 	oculto.UserID = superadmin
@@ -252,12 +255,12 @@ func TestAssignSobreSuperAdminComoSuperAdminFunciona(t *testing.T) {
 	res, err := uc.Execute(ctx, ucAssign.AssignRequest{
 		UserID:        superadmin,
 		TenantID:      cordoba,
-		RoleID:        "operario",
+		RoleID:        "cliente_operario",
 		IncludeGlobal: true,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, res)
-	require.Equal(t, "operario", *res.RoleID)
+	require.Equal(t, "cliente_operario", *res.RoleID)
 }
 
 // TestAssignSobreUsuarioComunEnOtroTenantSigueFuncionando: el caso principal de
@@ -273,7 +276,7 @@ func TestAssignSobreUsuarioComunEnOtroTenantSigueFuncionando(t *testing.T) {
 	res, err := uc.Execute(ctx, ucAssign.AssignRequest{
 		UserID:        comun,
 		TenantID:      cordoba,
-		RoleID:        "operario",
+		RoleID:        "cliente_operario",
 		IncludeGlobal: false,
 	})
 	require.NoError(t, err)

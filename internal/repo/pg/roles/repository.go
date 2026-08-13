@@ -52,7 +52,7 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, inclu
 		FROM roles
 		WHERE (tenant_id = $1 OR tenant_id IS NULL)
 		  AND deleted_at IS NULL
-		  AND tenant_can_use_role($1, is_global)
+		  AND tenant_can_use_role($1, id)
 		  AND (NOT is_global OR $2)
 		ORDER BY is_system_role DESC, name ASC
 	`
@@ -101,7 +101,7 @@ func (r *PostgresRepository) GetByIDForTenant(ctx context.Context, id string, te
 		WHERE id = $1
 		  AND deleted_at IS NULL
 		  AND (tenant_id = $2 OR tenant_id IS NULL)
-		  AND tenant_can_use_role($2, is_global)
+		  AND tenant_can_use_role($2, id)
 		  AND (NOT is_global OR $3)
 	`
 	row := r.pool.QueryRow(ctx, query, id, tenantID, includeGlobal)

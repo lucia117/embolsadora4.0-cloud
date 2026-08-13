@@ -120,7 +120,7 @@ func (r *userRoleRepository) FindByID(ctx context.Context, id uuid.UUID, include
 func (r *userRoleRepository) checkRoleAllowedForTenant(ctx context.Context, roleID string, tenantID uuid.UUID, includeGlobal bool) error {
 	var allowed bool
 	err := r.db.QueryRow(ctx, `
-		SELECT tenant_can_use_role($2, r.is_global)
+		SELECT tenant_can_use_role($2, r.id)
 		FROM roles r
 		WHERE r.id = $1
 		  AND r.deleted_at IS NULL
