@@ -14,6 +14,13 @@
 -- a recibir el role_id en vez de is_global, y resuelve is_global internamente.
 -- ============================================================================
 
+-- CREATE OR REPLACE solo reemplaza una función con la MISMA firma de argumentos;
+-- (uuid, text) es una firma distinta de la (uuid, boolean) de la migración 000004,
+-- así que sin este DROP quedarían las dos sobrecargas coexistiendo — la vieja
+-- (uuid, boolean) sin uso pero resoluble, y un up→down→up dejaría ambas
+-- persistiendo (mismo patrón que la migración 000004 ya usa en su down.sql).
+DROP FUNCTION IF EXISTS tenant_can_use_role(uuid, boolean);
+
 CREATE OR REPLACE FUNCTION tenant_can_use_role(p_tenant_id uuid, p_role_id text) RETURNS boolean AS $$
     SELECT
         (
