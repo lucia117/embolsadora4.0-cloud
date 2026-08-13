@@ -80,7 +80,7 @@ func TestGetMeAdminDePlataformaEsPlatformAdmin(t *testing.T) {
 	require.NotContains(t, resp.Permissions, "perm_all_tenants", "perm_all_tenants ya no existe")
 }
 
-func TestGetMeAdminDeTenantClienteNoAsciende(t *testing.T) {
+func TestGetMeClienteAdminDeTenantClienteNoAsciende(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
 		t.Skip("DATABASE_URL not set")
@@ -115,7 +115,7 @@ func TestGetMeAdminDeTenantClienteNoAsciende(t *testing.T) {
 	resp, err := uc.GetMe(ctx)
 	require.NoError(t, err)
 
-	require.Equal(t, "cliente_admin", resp.Role.ID, "un admin de tenant cliente no asciende")
+	require.Equal(t, "cliente_admin", resp.Role.ID, "un cliente_admin de tenant cliente no asciende")
 	require.False(t, resp.Tenant.IsPlatform)
 	require.False(t, resp.Capabilities.CanCrossTenant, "un admin de tenant cliente no opera cross-tenant")
 }

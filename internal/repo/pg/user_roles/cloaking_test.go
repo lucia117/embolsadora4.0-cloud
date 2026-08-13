@@ -359,9 +359,9 @@ func TestCreatePermiteRolGlobalAlSuperadmin(t *testing.T) {
 }
 
 // TestCheckRoleRechazaRolCustomDeOtroTenant cierra la mitad del minor diferido en
-// Task 4: tenant_can_use_role devuelve TRUE incondicionalmente para is_global=false,
-// así que sin el predicado de tenant un admin podía asignar el rol custom de otro
-// tenant conociendo su id.
+// Task 4: antes de la migración 000010, tenant_can_use_role devolvía TRUE
+// incondicionalmente para is_global=false, así que sin el predicado de tenant un
+// admin podía asignar el rol custom de otro tenant conociendo su id.
 func TestCheckRoleRechazaRolCustomDeOtroTenant(t *testing.T) {
 	pool := poolOrSkip(t)
 	repo := user_roles.NewUserRoleRepository(pool)

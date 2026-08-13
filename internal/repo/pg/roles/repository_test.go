@@ -98,10 +98,11 @@ func TestGetByIDForTenantDevuelveNotFoundParaRolOculto(t *testing.T) {
 
 // TestGetByIDForTenantOcultaRolCustomDeOtroTenant cubre la segunda mitad del
 // hallazgo crítico de la revisión: GetByIDForTenant no filtraba por tenant_id
-// para roles no globales (tenant_can_use_role devuelve TRUE incondicionalmente
-// cuando is_global=false), así que un admin de cualquier tenant que conociera
-// el id de un rol custom ajeno podía leerlo/editarlo/borrarlo. El WHERE ahora
-// exige tenant_id = $2 OR tenant_id IS NULL, igual que List.
+// para roles no globales (antes de la migración 000010, tenant_can_use_role
+// devolvía TRUE incondicionalmente cuando is_global=false), así que un admin
+// de cualquier tenant que conociera el id de un rol custom ajeno podía
+// leerlo/editarlo/borrarlo. El WHERE ahora exige tenant_id = $2 OR tenant_id
+// IS NULL, igual que List.
 func TestGetByIDForTenantOcultaRolCustomDeOtroTenant(t *testing.T) {
 	pool := openPool(t)
 	repo := rolesRepo.NewPostgresRepository(pool)

@@ -17,7 +17,8 @@ const (
 	errCodeUniqueViolation     = "23505"
 	errCodeForeignKeyViolation = "23503"
 	// errCodeCheckViolation is raised by the trg_enforce_platform_role_tenant trigger
-	// (migration 000004) — the DB-level backstop for checkRoleAllowedForTenant below.
+	// (migration 000004, extended by 000010 to also cover admin/operario) — the
+	// DB-level backstop for checkRoleAllowedForTenant below.
 	errCodeCheckViolation = "23514"
 )
 
@@ -105,18 +106,20 @@ func (r *userRoleRepository) FindByID(ctx context.Context, id uuid.UUID, include
 // del repo — la última puerta antes del INSERT/UPDATE — con el mismo criterio con que
 // Task 5 dejó el precheck de DeleteUser y el scoping por tenant dentro de RevokeQuery:
 //   - (r.tenant_id = $2 OR r.tenant_id IS NULL): sin esto un admin podía asignar un rol
-//     custom de OTRO tenant conociendo su id (tenant_can_use_role devuelve TRUE
-//     incondicionalmente cuando is_global=false, así que no filtraba nada para custom).
+//     custom de OTRO tenant conociendo su id (antes de la migración 000010,
+//     tenant_can_use_role devolvía TRUE incondicionalmente cuando is_global=false, así
+//     que no filtraba nada para custom).
 //   - (NOT r.is_global OR $3): un rol global invisible para el caller sale de la consulta
 //     como cero filas, o sea ErrInvalidRoleID — exactamente lo mismo que un rol
 //     inexistente. Esa convergencia es la que impide usar la asignación como oráculo.
 //
-// tenant_can_use_role() (migración 000004) sigue siendo la única definición de la regla
-// de plataforma, compartida con roles.List/GetByIDForTenant y con el trigger de la DB.
-// Se evalúa en el SELECT y no en el WHERE a propósito: para un super_admin
-// (includeGlobal=true) que ve el rol global pero intenta usarlo en un tenant cliente, la
-// respuesta correcta es 403 ErrRoleNotAllowedForTenant ("lo ves pero no podés operarlo"),
-// no 404.
+// tenant_can_use_role() (migración 000004, extendida por la 000010 para tratar también
+// admin/operario como platform-only aunque sean is_global=FALSE) sigue siendo la única
+// definición de la regla de plataforma, compartida con roles.List/GetByIDForTenant y con
+// el trigger de la DB. Se evalúa en el SELECT y no en el WHERE a propósito: para un
+// super_admin (includeGlobal=true) que ve el rol global pero intenta usarlo en un tenant
+// cliente, la respuesta correcta es 403 ErrRoleNotAllowedForTenant ("lo ves pero no
+// podés operarlo"), no 404.
 func (r *userRoleRepository) checkRoleAllowedForTenant(ctx context.Context, roleID string, tenantID uuid.UUID, includeGlobal bool) error {
 	var allowed bool
 	err := r.db.QueryRow(ctx, `

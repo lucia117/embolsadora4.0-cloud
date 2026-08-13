@@ -41,8 +41,9 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 // alfabéticamente por nombre.
 //
 // Dos ejes de visibilidad se combinan acá:
-//  1. tenant_can_use_role() (migración 000004): los roles is_global solo existen
-//     dentro del tenant plataforma de MRG.
+//  1. tenant_can_use_role() (migración 000004, extendida por la 000010): los
+//     roles is_global solo existen dentro del tenant plataforma de MRG, y desde
+//     la 000010 lo mismo aplica a admin/operario aunque sean is_global=false.
 //  2. includeGlobal: aun dentro del tenant plataforma, los roles is_global solo
 //     son visibles para super_admin. Un platform_admin administra la plataforma
 //     sin saber que la capa super_admin existe.
@@ -89,7 +90,9 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, inclu
 //     filtraba por tenant en absoluto.
 //  2. tenant_can_use_role() + includeGlobal: los roles is_global=TRUE (super_admin,
 //     tenant_manager) solo son visibles dentro del tenant plataforma de MRG, y
-//     ahí solo cuando includeGlobal es true (caller super_admin).
+//     ahí solo cuando includeGlobal es true (caller super_admin). Desde la
+//     migración 000010, tenant_can_use_role también trata admin/operario como
+//     platform-only aunque sean is_global=FALSE.
 //
 // Devuelve ErrRoleNotFound tanto si el rol no existe como si existe pero no es
 // visible para este caller (mismo error en ambos casos: un 403 en su lugar

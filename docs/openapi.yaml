@@ -265,6 +265,34 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Envelope' }
 
+  /api/v1/users/me:
+    patch:
+      tags: [Users]
+      summary: Autoeditar el propio perfil (self-service, sin RBAC)
+      description: >
+        El usuario destino sale del JWT (`platform.DomainUser`), nunca de la URL o del
+        body, así que no hay forma de apuntar a otro usuario ni de auto-asignarse un
+        rol: el body solo admite `firstName`/`lastName`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: '#/components/schemas/UserUpdateMe' } }
+      responses:
+        '200':
+          description: Perfil actualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /api/v1/users/{userId}:
     get:
       tags: [Users]
@@ -1060,6 +1088,16 @@ components:
         lastName: { type: string, maxLength: 100 }
         role: { type: string, enum: [admin, user] }
         image: { type: string, nullable: true }
+      minProperties: 1
+    UserUpdateMe:
+      type: object
+      description: >
+        Body de PATCH /api/v1/users/me. A diferencia de UserUpdate, no tiene `role` ni
+        `image`: es el DTO de un endpoint sin RBAC (dto.UpdateMeRequest), así que la
+        ausencia de esos campos —no una validación— es lo que impide la autoescalada.
+      properties:
+        firstName: { type: string, maxLength: 100 }
+        lastName: { type: string, maxLength: 100 }
       minProperties: 1
 
     # User Roles
