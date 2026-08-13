@@ -9,6 +9,7 @@ import (
 
 	"github.com/tu-org/embolsadora-api/internal/api/handler/users/dto"
 	"github.com/tu-org/embolsadora-api/internal/app/users"
+	"github.com/tu-org/embolsadora-api/internal/domain"
 	domainUsers "github.com/tu-org/embolsadora-api/internal/domain/users"
 	"github.com/tu-org/embolsadora-api/internal/platform"
 	"github.com/tu-org/embolsadora-api/internal/security"
@@ -255,6 +256,53 @@ func (h *Handler) CreateUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, userToResponse(user))
+}
+
+// UpdateMe handles PATCH /api/v1/users/me — self-service profile update
+// (firstName/lastName propios). A diferencia de UpdateUser, no requiere RBAC:
+// el userID sale del JWT vía platform.DomainUser(ctx), nunca del cliente, así
+// que no hay forma de apuntar a otro usuario. dto.UpdateMeRequest tampoco tiene
+// campo Role, así que tampoco hay forma de auto-asignarse un rol distinto.
+func (h *Handler) UpdateMe(c *gin.Context) {
+	tenantID := platform.TenantID(c.Request.Context())
+
+	user, ok := platform.DomainUser(c.Request.Context()).(*domain.User)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error:   "UNAUTHORIZED",
+			Message: "No se pudo resolver el usuario autenticado",
+			Status:  http.StatusUnauthorized,
+		})
+		return
+	}
+
+	var req dto.UpdateMeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Warn("invalid update me request", zap.Error(err))
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "VALIDATION_ERROR",
+			Message: err.Error(),
+			Status:  http.StatusBadRequest,
+		})
+		return
+	}
+
+	cmd := &domainUsers.UpdateUserCommand{
+		TenantID:  tenantID,
+		UserID:    user.ID,
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+	}
+
+	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+	updated, err := h.service.UpdateUser(c.Request.Context(), tenantID, user.ID, includeGlobal, cmd)
+	if err != nil {
+		h.logger.Error("update me failed", zap.Error(err))
+		HandleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, userToResponse(updated))
 }
 
 // UpdateUser handles PATCH /api/v1/users/:id - update a user
