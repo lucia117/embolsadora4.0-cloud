@@ -82,6 +82,9 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 
 	// Write operations (admin only)
 	userRoutes.POST("/users", middleware.RBACCheck("users:write"), uh.CreateUser)
+	// Self-service: sin RBAC, el userID sale del JWT (uh.UpdateMe), nunca de la URL.
+	// Registrada antes de "/users/:id" — mismo motivo que /users/pending arriba.
+	userRoutes.PATCH("/users/me", uh.UpdateMe)
 	userRoutes.PATCH("/users/:id", middleware.RBACCheck("users:write"), uh.UpdateUser)
 	userRoutes.PATCH("/users/:id/status", middleware.RBACCheck("users:write"), uh.UpdateUserStatus)
 	userRoutes.DELETE("/users/:id", middleware.RBACCheck("users:write"), uh.DeleteUser)

@@ -55,8 +55,8 @@ func TestRun_AppliesAndIsIdempotent(t *testing.T) {
 		"SELECT version, dirty FROM schema_migrations").Scan(&version, &dirty); err != nil {
 		t.Fatalf("query schema_migrations: %v", err)
 	}
-	if version != 9 || dirty {
-		t.Fatalf("expected version=9 dirty=false, got version=%d dirty=%v", version, dirty)
+	if version != 10 || dirty {
+		t.Fatalf("expected version=10 dirty=false, got version=%d dirty=%v", version, dirty)
 	}
 
 	// Second run should be a no-op (ErrNoChange handled internally).
