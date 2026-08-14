@@ -114,3 +114,43 @@ func TestSettings_Update(t *testing.T) {
 
 	assert.Equal(t, tenant.Settings, found.Settings)
 }
+
+func TestFindBySubdomain_RoundTrip(t *testing.T) {
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		t.Skip("DATABASE_URL not set; skipping integration test")
+	}
+
+	db, err := pgxpool.New(context.Background(), dbURL)
+	require.NoError(t, err)
+	defer db.Close()
+
+	repo := tenants.NewTenantRepository(db)
+	ctx := context.Background()
+
+	tenant := newTestTenant()
+	require.NoError(t, repo.Create(ctx, tenant))
+	defer func() { _ = repo.Delete(ctx, tenant.ID) }()
+
+	found, err := repo.FindBySubdomain(ctx, tenant.Subdomain)
+	require.NoError(t, err)
+	require.NotNil(t, found)
+	assert.Equal(t, tenant.ID, found.ID)
+	assert.Equal(t, tenant.Subdomain, found.Subdomain)
+}
+
+func TestFindBySubdomain_NotFound(t *testing.T) {
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		t.Skip("DATABASE_URL not set; skipping integration test")
+	}
+
+	db, err := pgxpool.New(context.Background(), dbURL)
+	require.NoError(t, err)
+	defer db.Close()
+
+	repo := tenants.NewTenantRepository(db)
+	found, err := repo.FindBySubdomain(context.Background(), "no-such-subdomain-"+uuid.NewString())
+	require.NoError(t, err)
+	assert.Nil(t, found)
+}

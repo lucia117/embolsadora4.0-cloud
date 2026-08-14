@@ -15,6 +15,7 @@ type TenantRepository interface {
 	Create(ctx context.Context, tenant *domain.Tenant) error
 	FindAll(ctx context.Context) ([]domain.Tenant, error)
 	FindByID(ctx context.Context, id uuid.UUID) (*domain.Tenant, error)
+	FindBySubdomain(ctx context.Context, subdomain string) (*domain.Tenant, error)
 	Update(ctx context.Context, tenant *domain.Tenant) error
 	Delete(ctx context.Context, id uuid.UUID) error
 }
@@ -38,6 +39,46 @@ func (r *tenantRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.
 	var street, city, state, postalCode, country *string
 
 	err := r.db.QueryRow(ctx, FindByIDQuery, id).Scan(
+		&tenantID, &tenant.Name, &tenant.CompanyName, &tenant.Subdomain, &description, &tenant.IsActive,
+		&theme.PrimaryColor, &theme.SecondaryColor, &theme.AccentColor, &theme.TextColor, &theme.BackgroundColor, &logoUrl, &faviconUrl,
+		&street, &city, &state, &postalCode, &country,
+		&settings.ContactEmail, &settings.CompanyWebsite, &settings.Locale, &settings.Timezone, &settings.DateFormat, &settings.TimeFormat, &settings.Currency,
+		&tenant.CreatedAt, &tenant.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	tenant.ID = tenantID
+	tenant.Description = derefString(description)
+	theme.LogoUrl = derefString(logoUrl)
+	theme.FaviconUrl = derefString(faviconUrl)
+	tenant.Theme = theme
+	address.Street = derefString(street)
+	address.City = derefString(city)
+	address.State = derefString(state)
+	address.PostalCode = derefString(postalCode)
+	address.Country = derefString(country)
+	tenant.Address = address
+	tenant.Settings = settings
+	return &tenant, nil
+}
+
+func (r *tenantRepository) FindBySubdomain(ctx context.Context, subdomain string) (*domain.Tenant, error) {
+	var tenant domain.Tenant
+	var theme domain.Theme
+	var address domain.Address
+	var settings domain.TenantSettings
+	var tenantID uuid.UUID
+
+	var description, logoUrl, faviconUrl *string
+	var street, city, state, postalCode, country *string
+
+	err := r.db.QueryRow(ctx, FindBySubdomainQuery, subdomain).Scan(
 		&tenantID, &tenant.Name, &tenant.CompanyName, &tenant.Subdomain, &description, &tenant.IsActive,
 		&theme.PrimaryColor, &theme.SecondaryColor, &theme.AccentColor, &theme.TextColor, &theme.BackgroundColor, &logoUrl, &faviconUrl,
 		&street, &city, &state, &postalCode, &country,
