@@ -98,10 +98,11 @@ func TestGetByIDForTenantDevuelveNotFoundParaRolOculto(t *testing.T) {
 
 // TestGetByIDForTenantOcultaRolCustomDeOtroTenant cubre la segunda mitad del
 // hallazgo crítico de la revisión: GetByIDForTenant no filtraba por tenant_id
-// para roles no globales (tenant_can_use_role devuelve TRUE incondicionalmente
-// cuando is_global=false), así que un admin de cualquier tenant que conociera
-// el id de un rol custom ajeno podía leerlo/editarlo/borrarlo. El WHERE ahora
-// exige tenant_id = $2 OR tenant_id IS NULL, igual que List.
+// para roles no globales (antes de la migración 000010, tenant_can_use_role
+// devolvía TRUE incondicionalmente cuando is_global=false), así que un admin
+// de cualquier tenant que conociera el id de un rol custom ajeno podía
+// leerlo/editarlo/borrarlo. El WHERE ahora exige tenant_id = $2 OR tenant_id
+// IS NULL, igual que List.
 func TestGetByIDForTenantOcultaRolCustomDeOtroTenant(t *testing.T) {
 	pool := openPool(t)
 	repo := rolesRepo.NewPostgresRepository(pool)
@@ -148,4 +149,54 @@ func TestGetByIDForTenantRolGlobalDevuelveNotFoundNoSystemRole(t *testing.T) {
 	require.Nil(t, role)
 	require.ErrorIs(t, err, domain.ErrRoleNotFound)
 	require.NotErrorIs(t, err, domain.ErrRoleIsSystemRole, "un rol oculto nunca debe llegar a la etapa donde se evalúa IsSystemRole")
+}
+
+// TestListOcultaRolesPlatformOnlyEnTenantCliente es el regression test de
+// B-006: admin/operario son is_global=false (a diferencia de super_admin/
+// tenant_manager), así que antes del fix tenant_can_use_role los dejaba pasar
+// en cualquier tenant. Ahora deben comportarse igual que los roles is_global:
+// invisibles fuera del tenant plataforma.
+func TestListOcultaRolesPlatformOnlyEnTenantCliente(t *testing.T) {
+	pool := openPool(t)
+	repo := rolesRepo.NewPostgresRepository(pool)
+	clientTenant := createTestTenant(t, pool)
+
+	roles, err := repo.List(context.Background(), clientTenant, false)
+	require.NoError(t, err)
+
+	ids := roleIDs(roles)
+	require.NotContains(t, ids, "admin", "admin es platform-only, no debe verse fuera de MRG")
+	require.NotContains(t, ids, "operario", "operario es platform-only, no debe verse fuera de MRG")
+	require.Contains(t, ids, "cliente_admin", "los roles de tenant cliente siguen visibles")
+	require.Contains(t, ids, "cliente_operario")
+}
+
+// TestListMuestraRolesPlatformOnlyEnTenantPlataforma confirma que el fix no
+// rompe el caso positivo: dentro de MRG, admin/operario siguen visibles.
+func TestListMuestraRolesPlatformOnlyEnTenantPlataforma(t *testing.T) {
+	pool := openPool(t)
+	repo := rolesRepo.NewPostgresRepository(pool)
+
+	roles, err := repo.List(context.Background(), platformTenantUUID, false)
+	require.NoError(t, err)
+
+	ids := roleIDs(roles)
+	require.Contains(t, ids, "admin")
+	require.Contains(t, ids, "operario")
+}
+
+// TestGetByIDForTenantOcultaAdminEnTenantCliente es el equivalente para
+// GetByIDForTenant (la validación que usa EnsureAssignable en el camino de
+// asignación de roles, no solo el listado).
+func TestGetByIDForTenantOcultaAdminEnTenantCliente(t *testing.T) {
+	pool := openPool(t)
+	repo := rolesRepo.NewPostgresRepository(pool)
+	clientTenant := createTestTenant(t, pool)
+
+	_, err := repo.GetByIDForTenant(context.Background(), "admin", clientTenant, false)
+	require.ErrorIs(t, err, domain.ErrRoleNotFound)
+
+	role, err := repo.GetByIDForTenant(context.Background(), "cliente_admin", clientTenant, false)
+	require.NoError(t, err)
+	require.Equal(t, "cliente_admin", role.ID)
 }

@@ -80,7 +80,7 @@ func TestGetMeAdminDePlataformaEsPlatformAdmin(t *testing.T) {
 	require.NotContains(t, resp.Permissions, "perm_all_tenants", "perm_all_tenants ya no existe")
 }
 
-func TestGetMeAdminDeTenantClienteNoAsciende(t *testing.T) {
+func TestGetMeClienteAdminDeTenantClienteNoAsciende(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
 		t.Skip("DATABASE_URL not set")
@@ -103,7 +103,11 @@ func TestGetMeAdminDeTenantClienteNoAsciende(t *testing.T) {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM tenants WHERE id = $1`, clientTenantID)
 	})
 
-	userID := seedMember(t, pool, clientTenantID, "admin")
+	// cliente_admin, no admin: desde la migración 000010 admin es platform-only y
+	// el trigger enforce_platform_role_tenant ya ni deja crear esta fila fuera de
+	// MRG. cliente_admin preserva la intención del test — un rol tenant-scoped no
+	// asciende a platform_admin — con un rol que sí puede vivir en este tenant.
+	userID := seedMember(t, pool, clientTenantID, "cliente_admin")
 
 	uc := usecases.NewMeUsecase(pool)
 	ctx = platform.WithDomainUser(ctx, &domain.User{ID: userID, Email: userID + "@test.local"})
@@ -111,7 +115,7 @@ func TestGetMeAdminDeTenantClienteNoAsciende(t *testing.T) {
 	resp, err := uc.GetMe(ctx)
 	require.NoError(t, err)
 
-	require.Equal(t, "admin", resp.Role.ID, "un admin de tenant cliente no asciende")
+	require.Equal(t, "cliente_admin", resp.Role.ID, "un cliente_admin de tenant cliente no asciende")
 	require.False(t, resp.Tenant.IsPlatform)
 	require.False(t, resp.Capabilities.CanCrossTenant, "un admin de tenant cliente no opera cross-tenant")
 }

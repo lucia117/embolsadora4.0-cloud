@@ -77,3 +77,17 @@ func TestCanSeePlatformInternalsSinRolEnContexto(t *testing.T) {
 		t.Error("sin rol en contexto debe devolver false (fail-closed)")
 	}
 }
+
+func TestClienteAdminTieneUsersWrite(t *testing.T) {
+	perms := PermissionsForRole("cliente_admin")
+	found := false
+	for _, p := range perms {
+		if p == "users:write" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("cliente_admin debería tener users:write (para crear roles/permisos custom de su tenant), perms=%v", perms)
+	}
+}

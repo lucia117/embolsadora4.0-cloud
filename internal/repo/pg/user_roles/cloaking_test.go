@@ -252,12 +252,15 @@ func TestFindByUserAcotaPorTenantYCloakea(t *testing.T) {
 	otroTenant := seedTenant(t, pool)
 
 	// Un mismo usuario con dos membresías: super_admin en plataforma (oculta) y
-	// operario en otro tenant (visible solo para callers cross-tenant).
+	// cliente_operario en otro tenant (visible solo para callers cross-tenant).
+	// cliente_operario (no operario: desde la migración 000010 operario es
+	// platform-only y no se puede asignar fuera de MRG) es la variante
+	// tenant-scoped, irrelevante para lo que este test verifica.
 	s := seedMembership(t, pool, platformTenantUUID, "super_admin", "active")
 	otraUTR := uuid.New()
 	_, err := pool.Exec(ctx,
 		`INSERT INTO user_tenant_roles (id, user_id, tenant_id, role_id, status, assigned_at)
-		 VALUES ($1, $2, $3, 'operario', 'active', NOW())`,
+		 VALUES ($1, $2, $3, 'cliente_operario', 'active', NOW())`,
 		otraUTR, s.UserID, otroTenant)
 	require.NoError(t, err)
 
@@ -272,7 +275,7 @@ func TestFindByUserAcotaPorTenantYCloakea(t *testing.T) {
 	res, err = repo.FindByUser(ctx, s.UserID, platformTenantUUID, true, false)
 	require.NoError(t, err)
 	require.Len(t, res, 1)
-	require.Equal(t, "operario", res[0].RoleID)
+	require.Equal(t, "cliente_operario", res[0].RoleID)
 
 	// super_admin: ve las dos.
 	res, err = repo.FindByUser(ctx, s.UserID, platformTenantUUID, true, true)
@@ -356,9 +359,9 @@ func TestCreatePermiteRolGlobalAlSuperadmin(t *testing.T) {
 }
 
 // TestCheckRoleRechazaRolCustomDeOtroTenant cierra la mitad del minor diferido en
-// Task 4: tenant_can_use_role devuelve TRUE incondicionalmente para is_global=false,
-// así que sin el predicado de tenant un admin podía asignar el rol custom de otro
-// tenant conociendo su id.
+// Task 4: antes de la migración 000010, tenant_can_use_role devolvía TRUE
+// incondicionalmente para is_global=false, así que sin el predicado de tenant un
+// admin podía asignar el rol custom de otro tenant conociendo su id.
 func TestCheckRoleRechazaRolCustomDeOtroTenant(t *testing.T) {
 	pool := poolOrSkip(t)
 	repo := user_roles.NewUserRoleRepository(pool)
@@ -489,7 +492,10 @@ func TestCreateNoEscribeMembresiaAUsuarioDePlataforma(t *testing.T) {
 	cordoba := seedTenant(t, pool)
 	superadmin := seedPlatformIdentity(t, pool, "active")
 
-	created, err := repo.Create(ctx, nuevaUTR(superadmin.UserID, cordoba, "operario"), false)
+	// cliente_operario, no operario: desde la migración 000010 operario es
+	// platform-only y checkRoleAllowedForTenant lo rechazaría antes de llegar
+	// al guard de identidad que este test ejercita.
+	created, err := repo.Create(ctx, nuevaUTR(superadmin.UserID, cordoba, "cliente_operario"), false)
 	require.Nil(t, created)
 	require.ErrorIs(t, err, domain.ErrInvalidUserID,
 		"el destino es invisible para este caller: misma respuesta que un userId inexistente")
@@ -507,8 +513,8 @@ func TestCreateSobreUsuarioDePlataformaConvergeConInexistente(t *testing.T) {
 	cordoba := seedTenant(t, pool)
 	superadmin := seedPlatformIdentity(t, pool, "active")
 
-	_, errOculto := repo.Create(ctx, nuevaUTR(superadmin.UserID, cordoba, "operario"), false)
-	_, errInexistente := repo.Create(ctx, nuevaUTR(uuid.New(), cordoba, "operario"), false)
+	_, errOculto := repo.Create(ctx, nuevaUTR(superadmin.UserID, cordoba, "cliente_operario"), false)
+	_, errInexistente := repo.Create(ctx, nuevaUTR(uuid.New(), cordoba, "cliente_operario"), false)
 
 	require.ErrorIs(t, errOculto, domain.ErrInvalidUserID)
 	require.ErrorIs(t, errInexistente, domain.ErrInvalidUserID)
@@ -527,7 +533,7 @@ func TestCreateCloakeaTambienAlPendiente(t *testing.T) {
 	cordoba := seedTenant(t, pool)
 	pendiente := seedPlatformIdentity(t, pool, "pending")
 
-	_, err := repo.Create(ctx, nuevaUTR(pendiente.UserID, cordoba, "operario"), false)
+	_, err := repo.Create(ctx, nuevaUTR(pendiente.UserID, cordoba, "cliente_operario"), false)
 	require.ErrorIs(t, err, domain.ErrInvalidUserID)
 }
 
@@ -543,7 +549,7 @@ func TestCreatePermiteUsuarioConGlobalRevocado(t *testing.T) {
 	cordoba := seedTenant(t, pool)
 	ex := seedPlatformIdentity(t, pool, "revoked")
 
-	created, err := repo.Create(ctx, nuevaUTR(ex.UserID, cordoba, "operario"), false)
+	created, err := repo.Create(ctx, nuevaUTR(ex.UserID, cordoba, "cliente_operario"), false)
 	require.NoError(t, err)
 	require.NotNil(t, created)
 }
@@ -558,7 +564,7 @@ func TestCreateSobreUsuarioDePlataformaComoSuperadminFunciona(t *testing.T) {
 	cordoba := seedTenant(t, pool)
 	superadmin := seedPlatformIdentity(t, pool, "active")
 
-	created, err := repo.Create(ctx, nuevaUTR(superadmin.UserID, cordoba, "operario"), true)
+	created, err := repo.Create(ctx, nuevaUTR(superadmin.UserID, cordoba, "cliente_operario"), true)
 	require.NoError(t, err, "includeGlobal=true sigue pudiendo asignar sobre cualquiera")
 	require.NotNil(t, created)
 }
@@ -574,7 +580,7 @@ func TestCreateSobreUsuarioNormalSigueFuncionando(t *testing.T) {
 	cordoba := seedTenant(t, pool)
 	normal := seedMembership(t, pool, platformTenantUUID, "operario", "active")
 
-	created, err := repo.Create(ctx, nuevaUTR(normal.UserID, cordoba, "operario"), false)
+	created, err := repo.Create(ctx, nuevaUTR(normal.UserID, cordoba, "cliente_operario"), false)
 	require.NoError(t, err)
 	require.NotNil(t, created)
 }
@@ -591,8 +597,8 @@ func TestBulkCreateNoEscribeMembresiaAUsuarioDePlataforma(t *testing.T) {
 	normal := seedMembership(t, pool, platformTenantUUID, "operario", "active")
 
 	lote := []domain.UserTenantRole{
-		*nuevaUTR(normal.UserID, cordoba, "operario"),
-		*nuevaUTR(superadmin.UserID, cordoba, "operario"),
+		*nuevaUTR(normal.UserID, cordoba, "cliente_operario"),
+		*nuevaUTR(superadmin.UserID, cordoba, "cliente_operario"),
 	}
 
 	res, err := repo.BulkCreate(ctx, lote, false)
@@ -619,10 +625,13 @@ func TestUpdateNoMutaMembresiaDeUsuarioDePlataforma(t *testing.T) {
 	superadmin := seedPlatformIdentity(t, pool, "active")
 
 	// La membresía visible la escribe el superadmin legítimo (includeGlobal=true).
-	visible, err := repo.Create(ctx, nuevaUTR(superadmin.UserID, cordoba, "operario"), true)
+	// cliente_operario/cliente_admin, no operario/admin: desde la migración 000010
+	// esos dos son platform-only y no se pueden asignar en cordoba (tenant cliente),
+	// ni siquiera vía el bypass de identidad del superadmin que este test ejercita.
+	visible, err := repo.Create(ctx, nuevaUTR(superadmin.UserID, cordoba, "cliente_operario"), true)
 	require.NoError(t, err)
 
-	nuevoRol := "admin"
+	nuevoRol := "cliente_admin"
 	res, err := repo.Update(ctx, &domain.UserTenantRole{
 		ID: visible.ID, UserID: superadmin.UserID, TenantID: cordoba, RoleID: &nuevoRol,
 	}, false)
@@ -632,7 +641,7 @@ func TestUpdateNoMutaMembresiaDeUsuarioDePlataforma(t *testing.T) {
 	var roleID string
 	require.NoError(t, pool.QueryRow(ctx,
 		`SELECT role_id FROM user_tenant_roles WHERE id = $1`, visible.ID).Scan(&roleID))
-	require.Equal(t, "operario", roleID, "no puede haber mutado")
+	require.Equal(t, "cliente_operario", roleID, "no puede haber mutado")
 
 	// Control positivo: el superadmin sí puede.
 	res, err = repo.Update(ctx, &domain.UserTenantRole{
@@ -640,7 +649,7 @@ func TestUpdateNoMutaMembresiaDeUsuarioDePlataforma(t *testing.T) {
 	}, true)
 	require.NoError(t, err)
 	require.NotNil(t, res)
-	require.Equal(t, "admin", *res.RoleID)
+	require.Equal(t, "cliente_admin", *res.RoleID)
 }
 
 // TestUpdateSobreUsuarioNormalSigueFuncionando: control de que el PUT cotidiano
