@@ -25,9 +25,11 @@ import (
 	notificationsHandler "github.com/tu-org/embolsadora-api/internal/api/handler/notifications"
 	permissionsHandler "github.com/tu-org/embolsadora-api/internal/api/handler/permissions"
 	rolesHandler "github.com/tu-org/embolsadora-api/internal/api/handler/roles"
+	getPublicTenant "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/get_public_tenant"
 	handlerForcePasswordChange "github.com/tu-org/embolsadora-api/internal/api/handler/users/force_password_change"
 	apimw "github.com/tu-org/embolsadora-api/internal/api/middleware"
 	"github.com/tu-org/embolsadora-api/internal/api/usecases"
+	ucGetPublicTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/get_public_tenant"
 	alarmRulesApp "github.com/tu-org/embolsadora-api/internal/app/alarm_rules"
 	dashboardLayoutsApp "github.com/tu-org/embolsadora-api/internal/app/dashboard_layouts"
 	edgeDevicesApp "github.com/tu-org/embolsadora-api/internal/app/edge_devices"
@@ -74,6 +76,16 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	userRepo := usersRepo.NewUserRepository(db)         // auth: UpsertBySupabaseID, GetBySupabaseID, etc.
 	mgmtUserRepo := usersRepo.NewPostgresRepository(db) // user management CRUD
 	tenantRepo := tenantsRepository.NewTenantRepository(db)
+
+	// Public tenant lookup — no session, no X-Tenant-ID. Backs the invitation/
+	// password-reset callback link (runs before any session exists) and the
+	// public tenant landing page. Registered on `r` directly (like POST
+	// /api/v1/auth/login above), NOT on the `v1` group, which requires JWTAuth
+	// on every route.
+	getPublicTenantUC := ucGetPublicTenant.NewUseCase(tenantRepo)
+	getPublicTenantHandler := getPublicTenant.NewGetPublicTenantHandler(getPublicTenantUC)
+	r.GET("/api/v1/public/tenants/:idOrSubdomain", getPublicTenantHandler.GetPublicTenant)
+
 	userRoleRepo := userRolesRepository.NewUserRoleRepository(db)
 	invRepo := invitationsRepo.NewInvitationRepository(db)
 	rRepo := rolesRepo.NewPostgresRepository(db)
