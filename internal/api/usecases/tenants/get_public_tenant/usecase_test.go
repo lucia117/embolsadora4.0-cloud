@@ -51,6 +51,16 @@ func TestExecute_BySubdomain_Found(t *testing.T) {
 	assert.Equal(t, id, tenant.ID)
 }
 
+func TestExecute_BySubdomain_MixedCase_Found(t *testing.T) {
+	id := uuid.New()
+	repo := &fakeRepo{bySubdomain: map[string]*domain.Tenant{"cordoba": activeTenant(id)}}
+	uc := NewUseCase(repo)
+
+	tenant, err := uc.Execute(context.Background(), "CorDoba")
+	require.NoError(t, err)
+	assert.Equal(t, id, tenant.ID)
+}
+
 func TestExecute_NotFound(t *testing.T) {
 	repo := &fakeRepo{}
 	uc := NewUseCase(repo)

@@ -3,6 +3,7 @@ package get_public_tenant
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/tu-org/embolsadora-api/internal/domain"
@@ -31,7 +32,7 @@ func (uc *UseCase) Execute(ctx context.Context, idOrSubdomain string) (*domain.T
 	if id, parseErr := uuid.Parse(idOrSubdomain); parseErr == nil {
 		tenant, err = uc.repo.FindByID(ctx, id)
 	} else {
-		tenant, err = uc.repo.FindBySubdomain(ctx, idOrSubdomain)
+		tenant, err = uc.repo.FindBySubdomain(ctx, strings.ToLower(idOrSubdomain))
 	}
 	if err != nil {
 		return nil, err

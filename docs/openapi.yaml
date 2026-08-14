@@ -6,6 +6,7 @@ info:
     Superficies separadas:
     - **/api/v1/**: ABM (JWT RS256 via Supabase JWKS + X-Tenant-ID + RBAC)
     - **/api/v1/consumers/**: Ingesta batch (API Key + idempotencia)
+    - **/api/v1/public/**: Lectura sin autenticación (branding/routing de tenant)
 
     **Breaking changes desde v1**: eliminado `/api/auth` — autenticación delegada a Supabase Auth.
 servers:
@@ -692,6 +693,29 @@ paths:
         '500': { $ref: '#/components/responses/InternalError' }
 
   ########################
+  # Public (sin autenticación)
+  ########################
+  /api/v1/public/tenants/{idOrSubdomain}:
+    get:
+      tags: [Tenants]
+      summary: Obtener tenant público por ID o subdominio
+      description: Sin autenticación, sin `X-Tenant-ID`. Usado por el callback de invitación/reset de contraseña (corre antes de que exista sesión) y la landing pública del tenant.
+      security: []
+      parameters:
+        - name: idOrSubdomain
+          in: path
+          required: true
+          description: UUID del tenant o su subdominio (subdominio se compara case-insensitive).
+          schema: { type: string }
+      responses:
+        '200':
+          description: Tenant público encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicTenantResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  ########################
   # CONSUMERS (API Key)
   ########################
   /api/v1/consumers/events:
@@ -1260,6 +1284,27 @@ components:
             state: { type: string }
             postalCode: { type: string }
             country: { type: string }
+
+    PublicTenantResponse:
+      type: object
+      description: Subconjunto de Tenant seguro sin autenticación — sin address, contactEmail, companyWebsite ni description.
+      properties:
+        id: { type: string, format: uuid }
+        subdomain: { type: string }
+        name: { type: string }
+        companyName: { type: string }
+        isActive: { type: boolean }
+        theme: { $ref: '#/components/schemas/TenantTheme' }
+        settings:
+          type: object
+          properties:
+            locale: { type: string }
+            timezone: { type: string }
+            dateFormat: { type: string }
+            timeFormat: { type: string }
+            currency: { type: string }
+          required: [locale, timezone, dateFormat, timeFormat, currency]
+      required: [id, subdomain, name, companyName, isActive, theme, settings]
 
     # Invitations
     Invitation:
