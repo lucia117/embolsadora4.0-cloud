@@ -22,6 +22,9 @@ func (m *mockRepo) FindAll(ctx context.Context) ([]domain.Tenant, error)    { re
 func (m *mockRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Tenant, error) {
 	return &domain.Tenant{ID: id}, nil
 }
+func (m *mockRepo) FindBySubdomain(ctx context.Context, subdomain string) (*domain.Tenant, error) {
+	return nil, nil
+}
 func (m *mockRepo) Update(ctx context.Context, tenant *domain.Tenant) error { return nil }
 func (m *mockRepo) Delete(ctx context.Context, id uuid.UUID) error         { return nil }
 

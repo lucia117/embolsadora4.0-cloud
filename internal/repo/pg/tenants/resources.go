@@ -13,6 +13,18 @@ const (
 		WHERE id = $1
 	`
 
+	// FindBySubdomainQuery retrieves a tenant by subdomain with all related data
+	FindBySubdomainQuery = `
+		SELECT
+			id, name, company_name, subdomain, description, is_active,
+			primary_color, secondary_color, accent_color, text_color, background_color, logo_url, favicon_url,
+			street, city, state, postal_code, country,
+			contact_email, company_website, locale, timezone, date_format, time_format, currency,
+			created_at, updated_at
+		FROM tenants
+		WHERE subdomain = $1
+	`
+
 	// CreateQuery inserts a new tenant with all fields
 	CreateQuery = `
 		INSERT INTO tenants (

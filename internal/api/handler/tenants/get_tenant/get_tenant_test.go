@@ -32,6 +32,14 @@ func (f *fakeRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Tenant, 
 	t.ID = id
 	return &t, nil
 }
+func (f *fakeRepo) FindBySubdomain(ctx context.Context, subdomain string) (*domain.Tenant, error) {
+	if f.tenant == nil {
+		return nil, nil
+	}
+	t := *f.tenant
+	t.Subdomain = subdomain
+	return &t, nil
+}
 func (f *fakeRepo) Update(ctx context.Context, tenant *domain.Tenant) error { return nil }
 func (f *fakeRepo) Delete(ctx context.Context, id uuid.UUID) error         { return nil }
 
