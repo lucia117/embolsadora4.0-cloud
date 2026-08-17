@@ -106,24 +106,26 @@ func (uc *MeUsecase) GetMe(ctx context.Context) (*MeResponse, error) {
 	if err == nil {
 		effectiveRole := security.EffectiveRole(roleID, isPlatformTenant)
 
-		if permissions == nil {
-			permissions = []string{}
-		}
-
-		// El JOIN de arriba trae permisos/is_global del role_id crudo asignado
-		// en user_tenant_roles. Si EffectiveRole promovió el rol (admin ->
-		// platform_admin dentro del tenant plataforma), esos valores no son
-		// los correctos: hay que resolver los del rol efectivo. Mismo criterio
-		// que middleware.TenantFromHeader (internal/api/middleware/middleware.go).
+		// El JOIN de arriba trae permisos/is_global/name del role_id crudo
+		// asignado en user_tenant_roles. Si EffectiveRole promovió el rol
+		// (admin -> platform_admin dentro del tenant plataforma), esos valores
+		// no son los correctos: hay que resolver los del rol efectivo,
+		// incluyendo su nombre de display (p.ej. "Platform Admin", no
+		// "Administrador"). Mismo criterio que middleware.TenantFromHeader
+		// (internal/api/middleware/middleware.go).
 		if effectiveRole != roleID {
 			permErr := uc.db.QueryRow(ctx,
-				`SELECT ARRAY(SELECT jsonb_array_elements_text(permissions)), is_global
+				`SELECT name, ARRAY(SELECT jsonb_array_elements_text(permissions)), is_global
 				 FROM roles WHERE id = $1 AND deleted_at IS NULL`,
 				effectiveRole,
-			).Scan(&permissions, &roleIsGlobal)
+			).Scan(&roleName, &permissions, &roleIsGlobal)
 			if permErr != nil {
 				return nil, permErr
 			}
+		}
+
+		if permissions == nil {
+			permissions = []string{}
 		}
 
 		resp.Tenant = &TenantInfoResponse{
