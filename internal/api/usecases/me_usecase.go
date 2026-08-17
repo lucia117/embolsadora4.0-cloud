@@ -47,8 +47,9 @@ type RoleInfoResponse struct {
 // contra una lista hardcodeada.
 type CapabilitiesResponse struct {
 	// CanCrossTenant: el usuario puede ver y operar datos de tenants distintos
-	// al suyo. Deriva de isCrossTenantRoleName sobre el rol efectivo (GetMe no
-	// pasa por TenantFromHeader, ver comentario ahí).
+	// al suyo. Viene de roles.is_global del rol efectivo — GetMe lo resuelve
+	// localmente (no vía security.IsCrossTenantRole, que es context-based y
+	// GET /me no pasa por TenantFromHeader).
 	CanCrossTenant bool `json:"canCrossTenant"`
 }
 
@@ -81,15 +82,14 @@ func (uc *MeUsecase) GetMe(ctx context.Context) (*MeResponse, error) {
 	}
 
 	// Query the user's active tenant+role. `roles.permissions` es la fuente de
-	// verdad del catálogo perm_* que consume tanto el frontend (acá) como el
-	// enforcement interno (security.Can / RBACCheck, una vez que Task 4/5
-	// conecten RoleContext a esta misma columna).
+	// verdad del catálogo perm_* que consume el frontend — mismo catálogo que
+	// usa el enforcement (security.Can) desde la migración 000011.
 	var tenantID, tenantName, tenantSubdomain, roleID, roleName string
-	var isPlatformTenant bool
+	var isPlatformTenant, roleIsGlobal bool
 	var permissions []string
 	err := uc.db.QueryRow(ctx, `
 		SELECT t.id, t.name, t.subdomain, t.is_platform_tenant,
-		       r.id, r.name,
+		       r.id, r.name, r.is_global,
 		       ARRAY(SELECT jsonb_array_elements_text(r.permissions))
 		FROM user_tenant_roles utr
 		JOIN tenants t ON t.id = utr.tenant_id
@@ -97,7 +97,7 @@ func (uc *MeUsecase) GetMe(ctx context.Context) (*MeResponse, error) {
 		WHERE utr.user_id = $1 AND utr.status = 'active'
 		LIMIT 1
 	`, user.ID).Scan(&tenantID, &tenantName, &tenantSubdomain, &isPlatformTenant,
-		&roleID, &roleName, &permissions)
+		&roleID, &roleName, &roleIsGlobal, &permissions)
 
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
@@ -105,6 +105,26 @@ func (uc *MeUsecase) GetMe(ctx context.Context) (*MeResponse, error) {
 
 	if err == nil {
 		effectiveRole := security.EffectiveRole(roleID, isPlatformTenant)
+
+		if permissions == nil {
+			permissions = []string{}
+		}
+
+		// El JOIN de arriba trae permisos/is_global del role_id crudo asignado
+		// en user_tenant_roles. Si EffectiveRole promovió el rol (admin ->
+		// platform_admin dentro del tenant plataforma), esos valores no son
+		// los correctos: hay que resolver los del rol efectivo. Mismo criterio
+		// que middleware.TenantFromHeader (internal/api/middleware/middleware.go).
+		if effectiveRole != roleID {
+			permErr := uc.db.QueryRow(ctx,
+				`SELECT ARRAY(SELECT jsonb_array_elements_text(permissions)), is_global
+				 FROM roles WHERE id = $1 AND deleted_at IS NULL`,
+				effectiveRole,
+			).Scan(&permissions, &roleIsGlobal)
+			if permErr != nil {
+				return nil, permErr
+			}
+		}
 
 		resp.Tenant = &TenantInfoResponse{
 			ID:         tenantID,
@@ -116,30 +136,13 @@ func (uc *MeUsecase) GetMe(ctx context.Context) (*MeResponse, error) {
 			ID:   effectiveRole,
 			Name: roleName,
 		}
-		if permissions == nil {
-			permissions = []string{}
-		}
 		resp.Permissions = permissions
 		resp.Capabilities = CapabilitiesResponse{
-			CanCrossTenant: isCrossTenantRoleName(effectiveRole),
+			CanCrossTenant: roleIsGlobal,
 		}
 	}
 
 	return resp, nil
-}
-
-// isCrossTenantRoleName reproduce localmente la lista de roles cross-tenant
-// que antes vivía en el mapa security.crossTenantRoles (ver comentario en
-// security.IsCrossTenantRole: GetMe no pasa por TenantFromHeader, así que no
-// tiene un security.RoleContext resuelto en su ctx). Placeholder hasta que
-// Task 5 conecte esto a roles.is_global directamente.
-func isCrossTenantRoleName(roleName string) bool {
-	switch roleName {
-	case "super_admin", "tenant_manager", "platform_admin":
-		return true
-	default:
-		return false
-	}
 }
 
 func strPtr(s string) *string {
