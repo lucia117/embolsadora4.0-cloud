@@ -38,7 +38,7 @@ func TestCustomRolePermissionsAreEnforced(t *testing.T) {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM tenants WHERE id = $1`, tenantID)
 	})
 
-	roleID := "custom_e2e_test"
+	roleID := "custom_" + uuid.New().String()[:6]
 	_, err = pool.Exec(context.Background(),
 		`INSERT INTO roles (id, name, description, is_system_role, is_global, tenant_id, permissions)
 		 VALUES ($1, 'E2E Read Only', 'test', FALSE, FALSE, $2, '["perm_dashboard","perm_users_view"]'::jsonb)`,
