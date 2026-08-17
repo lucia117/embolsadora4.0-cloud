@@ -47,7 +47,7 @@ func (h *Handler) Handle(c *gin.Context) {
 	results, err := h.useCase.Execute(ctx, ucGetUserRoles.Query{
 		UserID:        userID,
 		TenantID:      tenantID,
-		CrossTenant:   security.IsCrossTenantRole(security.RoleFromContext(ctx)),
+		CrossTenant:   security.IsCrossTenantRole(ctx),
 		IncludeGlobal: security.CanSeePlatformInternals(ctx),
 	})
 	if err != nil {

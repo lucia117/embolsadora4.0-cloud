@@ -47,7 +47,8 @@ type RoleInfoResponse struct {
 // contra una lista hardcodeada.
 type CapabilitiesResponse struct {
 	// CanCrossTenant: el usuario puede ver y operar datos de tenants distintos
-	// al suyo. Deriva de security.IsCrossTenantRole sobre el rol efectivo.
+	// al suyo. Deriva de isCrossTenantRoleName sobre el rol efectivo (GetMe no
+	// pasa por TenantFromHeader, ver comentario ahí).
 	CanCrossTenant bool `json:"canCrossTenant"`
 }
 
@@ -80,9 +81,9 @@ func (uc *MeUsecase) GetMe(ctx context.Context) (*MeResponse, error) {
 	}
 
 	// Query the user's active tenant+role. `roles.permissions` es la fuente de
-	// verdad del catálogo perm_* que consume el frontend; el vocabulario
-	// resource:action de security.PermissionsForRole queda para el enforcement
-	// interno (security.Can / RBACCheck) y no se expone.
+	// verdad del catálogo perm_* que consume tanto el frontend (acá) como el
+	// enforcement interno (security.Can / RBACCheck, una vez que Task 4/5
+	// conecten RoleContext a esta misma columna).
 	var tenantID, tenantName, tenantSubdomain, roleID, roleName string
 	var isPlatformTenant bool
 	var permissions []string
@@ -120,11 +121,25 @@ func (uc *MeUsecase) GetMe(ctx context.Context) (*MeResponse, error) {
 		}
 		resp.Permissions = permissions
 		resp.Capabilities = CapabilitiesResponse{
-			CanCrossTenant: security.IsCrossTenantRole(effectiveRole),
+			CanCrossTenant: isCrossTenantRoleName(effectiveRole),
 		}
 	}
 
 	return resp, nil
+}
+
+// isCrossTenantRoleName reproduce localmente la lista de roles cross-tenant
+// que antes vivía en el mapa security.crossTenantRoles (ver comentario en
+// security.IsCrossTenantRole: GetMe no pasa por TenantFromHeader, así que no
+// tiene un security.RoleContext resuelto en su ctx). Placeholder hasta que
+// Task 5 conecte esto a roles.is_global directamente.
+func isCrossTenantRoleName(roleName string) bool {
+	switch roleName {
+	case "super_admin", "tenant_manager", "platform_admin":
+		return true
+	default:
+		return false
+	}
 }
 
 func strPtr(s string) *string {
