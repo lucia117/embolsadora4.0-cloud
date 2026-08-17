@@ -55,8 +55,8 @@ func TestRun_AppliesAndIsIdempotent(t *testing.T) {
 		"SELECT version, dirty FROM schema_migrations").Scan(&version, &dirty); err != nil {
 		t.Fatalf("query schema_migrations: %v", err)
 	}
-	if version != 10 || dirty {
-		t.Fatalf("expected version=10 dirty=false, got version=%d dirty=%v", version, dirty)
+	if version != 11 || dirty {
+		t.Fatalf("expected version=11 dirty=false, got version=%d dirty=%v", version, dirty)
 	}
 
 	// Second run should be a no-op (ErrNoChange handled internally).
@@ -78,25 +78,28 @@ func TestRun_AppliesAndIsIdempotent(t *testing.T) {
 
 	expectedRolePermissions := map[string][]string{
 		"super_admin": {
-			"perm_dashboard", "perm_alerts", "perm_reports", "perm_users", "perm_tenants",
-			"perm_settings", "perm_maintenance", "perm_analytics",
-			"perm_logs_view", "perm_logs_export", "perm_logs_admin", "perm_edge_devices_view",
-			"perm_edge_devices_manage", "perm_edge_devices_check", "perm_reports_view", "perm_reports_manage",
+			"perm_dashboard", "perm_alerts", "perm_reports", "perm_settings", "perm_maintenance",
+			"perm_analytics", "perm_logs_view", "perm_logs_export", "perm_logs_admin",
+			"perm_edge_devices_view", "perm_edge_devices_manage", "perm_edge_devices_check",
+			"perm_reports_view", "perm_reports_manage", "perm_users_view", "perm_users_manage",
+			"perm_tenants_view", "perm_tenants_manage",
 		},
 		"tenant_manager": {
-			"perm_dashboard", "perm_alerts", "perm_reports",
-			"perm_reports_view", "perm_users", "perm_edge_devices_view", "perm_edge_devices_check",
+			"perm_dashboard", "perm_alerts", "perm_reports", "perm_reports_view",
+			"perm_edge_devices_view", "perm_edge_devices_check", "perm_users_view", "perm_tenants_view",
 		},
 		"admin": {
 			"perm_dashboard", "perm_alerts", "perm_reports", "perm_reports_view", "perm_reports_manage",
-			"perm_users", "perm_tenants", "perm_settings", "perm_maintenance", "perm_analytics",
-			"perm_edge_devices_view", "perm_edge_devices_manage", "perm_logs_view",
+			"perm_settings", "perm_maintenance", "perm_analytics", "perm_edge_devices_view",
+			"perm_edge_devices_manage", "perm_logs_view", "perm_users_view", "perm_users_manage",
+			"perm_tenants_view",
 		},
 		"operario": {
 			"perm_dashboard", "perm_alerts", "perm_reports_view", "perm_edge_devices_view", "perm_edge_devices_check",
 		},
 		"cliente_admin": {
-			"perm_dashboard", "perm_alerts", "perm_reports_view", "perm_users", "perm_edge_devices_view",
+			"perm_dashboard", "perm_alerts", "perm_reports_view", "perm_edge_devices_view",
+			"perm_users_view", "perm_users_manage",
 		},
 		"cliente_operario": {
 			"perm_dashboard", "perm_edge_devices_view",
