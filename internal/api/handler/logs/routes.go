@@ -12,7 +12,7 @@ import (
 func RegisterRoutes(rg *gin.RouterGroup, svc *appLogs.Service) {
 	// Static routes first
 	rg.GET("/logs/retention", GetRetention(svc))
-	rg.PATCH("/logs/retention", apimw.RBACCheck("logs:admin"), UpdateRetention(svc))
+	rg.PATCH("/logs/retention", apimw.RBACCheck("perm_logs_admin"), UpdateRetention(svc))
 	rg.GET("/logs/stream", StreamLogs(svc))
 	rg.GET("/logs/export", ExportLogs(svc))
 
