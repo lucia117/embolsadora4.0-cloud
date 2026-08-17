@@ -29,6 +29,7 @@ sudo mv migrate /usr/local/bin/
 | 8 | `000008_remove_all_tenants_permission` | Elimina el permiso `perm_all_tenants`. |
 | 9 | `000009_grant_logs_view_to_admin` | Otorga `perm_logs_view` al rol `admin`. |
 | 10 | `000010_platform_only_roles` | **Ver "⚠️ Orden de deploy" abajo.** Extiende `tenant_can_use_role` (ahora `tenant_can_use_role(uuid, text)`, reemplaza la firma `(uuid, boolean)` de la 000004) para que también trate `admin`/`operario` como platform-only, no solo `is_global=TRUE`. Antes de esta migración, un admin de un tenant cliente podía asignarse a sí mismo o a otros el rol `admin` dentro de su propio tenant. |
+| 11 | `000011_dynamic_role_permissions` | **Ver "⚠️ Orden de deploy" abajo.** Extiende el catálogo de permisos con `perm_users_view`/`perm_users_manage`/`perm_tenants_view`/`perm_tenants_manage`, reemplazando los permisos gruesos `perm_users`/`perm_tenants`. Agrega la fila `platform_admin` a `roles` (antes solo se calculaba en runtime). Resiembra `permissions` de los 7 roles de sistema. |
 
 ## Comandos
 
@@ -102,6 +103,31 @@ la invitación queda `pending` para siempre, sin error visible para el usuario n
 quien invitó. Si la primera auditoría (arriba) devuelve filas antes de deployar, un
 humano tiene que decidir qué hacer con esas invitaciones pendientes — no se intenta
 arreglar ese código acá.
+
+## ⚠️ Orden de deploy: migración 000011
+
+A diferencia de `000010` (backend-binario vs. DB), el riesgo de `000011` es
+**backend-DB vs. frontend**. El código Go de esta rama chequea permisos
+exclusivamente vía ids `perm_*` (`security.Can()`), pero el frontend
+actualmente deployado (`embolsadora-frontend`, repo separado) todavía filtra
+la nav de admin y el acceso a sus rutas con los ids viejos `perm_users`/
+`perm_tenants` — que esta migración **borra** del catálogo.
+
+Entre el momento en que `000011` se aplica en producción y el momento en que
+el fix propio del frontend (deploy separado, con su propio plan en el repo
+frontend) sale, los `admin`/`super_admin` van a ver desaparecer sus ítems de
+nav de administración y van a chocar con access-denied del lado del cliente
+en esas rutas — aunque la API del backend siga permitiendo esas llamadas sin
+problema. Es una ventana de degradación de UX en el admin, no pérdida de
+datos ni un agujero de seguridad: la API sigue correctamente enforced todo
+el tiempo.
+
+Orden correcto:
+- Aplicar `000011`.
+- Deployar el binario nuevo del backend (junto con la migración o muy cerca —
+  el código Go de esta rama asume el catálogo que introduce `000011`).
+- Deployar el frontend lo antes posible después, idealmente espalda con
+  espalda con el paso anterior, para minimizar la ventana de degradación.
 
 ## Deploy a Koyeb (producción)
 

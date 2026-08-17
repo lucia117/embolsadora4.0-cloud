@@ -12,6 +12,10 @@ import (
 func RegisterRoutes(rg *gin.RouterGroup, svc *appLogs.Service) {
 	// Static routes first
 	rg.GET("/logs/retention", GetRetention(svc))
+	// NOTE: "logs:admin" appeared in NO role's list under the old hardcoded Go
+	// map, so this route was effectively dead (403 for everyone). perm_logs_admin
+	// is a new grant, not a like-for-like string swap — it's live for super_admin,
+	// which holds perm_logs_admin in the DB catalog since migration 000005.
 	rg.PATCH("/logs/retention", apimw.RBACCheck("perm_logs_admin"), UpdateRetention(svc))
 	rg.GET("/logs/stream", StreamLogs(svc))
 	rg.GET("/logs/export", ExportLogs(svc))
