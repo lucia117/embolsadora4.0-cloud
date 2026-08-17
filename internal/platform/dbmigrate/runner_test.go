@@ -86,7 +86,8 @@ func TestRun_AppliesAndIsIdempotent(t *testing.T) {
 		},
 		"tenant_manager": {
 			"perm_dashboard", "perm_alerts", "perm_reports", "perm_reports_view",
-			"perm_edge_devices_view", "perm_edge_devices_check", "perm_users_view", "perm_tenants_view",
+			"perm_edge_devices_view", "perm_edge_devices_check", "perm_users_view",
+			"perm_users_manage", "perm_tenants_view",
 		},
 		"admin": {
 			"perm_dashboard", "perm_alerts", "perm_reports", "perm_reports_view", "perm_reports_manage",

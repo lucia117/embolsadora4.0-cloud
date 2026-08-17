@@ -13,7 +13,7 @@ import (
 // TestSeedPermissionsMatchDesign verifica que la migración 000011 dejó
 // roles.permissions exactamente como especifica la tabla de mapeo de
 // docs/superpowers/specs/2026-08-17-rbac-dynamic-permissions-design.md §3.4 —
-// es la traducción 1:1 del mapa Go rolePermissions (rbac.go) que existía antes
+// es la traducción 1:1 del mapa Go que existía en rbac.go antes
 // de esta migración, para los recursos users/tenants.
 func TestSeedPermissionsMatchDesign(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")
@@ -31,7 +31,7 @@ func TestSeedPermissionsMatchDesign(t *testing.T) {
 		wantTenants  []string // subset de perm_tenants_view/perm_tenants_manage esperado
 	}{
 		{"super_admin", true, []string{"perm_users_view", "perm_users_manage"}, []string{"perm_tenants_view", "perm_tenants_manage"}},
-		{"tenant_manager", true, []string{"perm_users_view"}, []string{"perm_tenants_view"}},
+		{"tenant_manager", true, []string{"perm_users_view", "perm_users_manage"}, []string{"perm_tenants_view"}},
 		{"admin", false, []string{"perm_users_view", "perm_users_manage"}, []string{"perm_tenants_view"}},
 		{"platform_admin", true, []string{"perm_users_view", "perm_users_manage"}, []string{"perm_tenants_view", "perm_tenants_manage"}},
 		{"operario", false, nil, nil},

@@ -43,10 +43,12 @@ SET permissions = (permissions - 'perm_users' - 'perm_tenants')
 WHERE id = 'super_admin'
   AND NOT (permissions @> '["perm_users_view"]'::jsonb);
 
---    tenant_manager: users read-only, tenants read-only -> solo view de ambos.
+--    tenant_manager: recibe perm_users_manage completo (no solo view) para
+--    preservar su capacidad previa de invitar usuarios (invitations:write);
+--    tenants sigue siendo solo view -> gestión de usuarios completa + tenants view.
 UPDATE roles
 SET permissions = (permissions - 'perm_users' - 'perm_tenants')
-                   || '["perm_users_view","perm_tenants_view"]'::jsonb,
+                   || '["perm_users_view","perm_users_manage","perm_tenants_view"]'::jsonb,
     updated_at = NOW()
 WHERE id = 'tenant_manager'
   AND NOT (permissions @> '["perm_users_view"]'::jsonb);
