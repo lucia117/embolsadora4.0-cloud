@@ -3,7 +3,7 @@
 --
 -- Dos limitaciones conocidas de este down, aceptadas porque 000011 todavía no
 -- shippeó a producción y ninguno de los dos escenarios puede existir hoy:
--- 1. El DELETE de platform_admin (línea ~18) va a fallar por violación de FK
+-- 1. El DELETE de platform_admin (línea ~26) va a fallar por violación de FK
 --    si alguna vez se asignó ese rol directamente en user_tenant_roles.
 -- 2. La restauración de abajo (CASE) solo mira presencia de "_view" — un
 --    hipotético rol custom con "_manage" pero sin "_view" perdería "_manage"
