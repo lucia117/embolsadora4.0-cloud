@@ -7,7 +7,7 @@ import (
 
 // RegisterRoutes registra los endpoints de roles.
 // readGroup: sin RBAC adicional (GET /roles, GET /roles/:id).
-// writeGroup: con RBACCheck("users:write") aplicado externamente (POST, PUT, DELETE).
+// writeGroup: con RBACCheck("perm_users_manage") aplicado externamente (POST, PUT, DELETE).
 func RegisterRoutes(readGroup, writeGroup *gin.RouterGroup, service *appRoles.Service) {
 	readGroup.GET("/roles", ListRoles(service))
 	readGroup.GET("/roles/:id", GetRole(service))
