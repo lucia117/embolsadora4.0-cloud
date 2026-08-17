@@ -40,14 +40,16 @@ UPDATE roles
 SET permissions = (permissions - 'perm_users' - 'perm_tenants')
                    || '["perm_users_view","perm_users_manage","perm_tenants_view","perm_tenants_manage"]'::jsonb,
     updated_at = NOW()
-WHERE id = 'super_admin';
+WHERE id = 'super_admin'
+  AND NOT (permissions @> '["perm_users_view"]'::jsonb);
 
 --    tenant_manager: users read-only, tenants read-only -> solo view de ambos.
 UPDATE roles
 SET permissions = (permissions - 'perm_users' - 'perm_tenants')
                    || '["perm_users_view","perm_tenants_view"]'::jsonb,
     updated_at = NOW()
-WHERE id = 'tenant_manager';
+WHERE id = 'tenant_manager'
+  AND NOT (permissions @> '["perm_users_view"]'::jsonb);
 
 --    admin: users read+write -> view+manage; tenants read-only -> view SIN manage.
 --    Este es el fix real de B-004: hoy perm_tenants sin distinción le daba
@@ -56,7 +58,8 @@ UPDATE roles
 SET permissions = (permissions - 'perm_users' - 'perm_tenants')
                    || '["perm_users_view","perm_users_manage","perm_tenants_view"]'::jsonb,
     updated_at = NOW()
-WHERE id = 'admin';
+WHERE id = 'admin'
+  AND NOT (permissions @> '["perm_users_view"]'::jsonb);
 
 --    platform_admin (fila nueva, arranca en '[]'): mismo set que admin, pero
 --    con tenants manage completo — la única diferencia real vs. admin.
@@ -70,7 +73,8 @@ UPDATE roles
 SET permissions = (permissions - 'perm_users')
                    || '["perm_users_view","perm_users_manage"]'::jsonb,
     updated_at = NOW()
-WHERE id = 'cliente_admin';
+WHERE id = 'cliente_admin'
+  AND NOT (permissions @> '["perm_users_view"]'::jsonb);
 
 -- operario y cliente_operario no tenían perm_users ni perm_tenants -> sin cambios.
 
