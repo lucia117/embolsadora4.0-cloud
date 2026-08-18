@@ -29,8 +29,7 @@ func (h *GetTenantHandler) GetTenant(c *gin.Context) {
 		return
 	}
 
-	role := security.RoleFromContext(c.Request.Context())
-	if !security.IsCrossTenantRole(role) && !platform.TenantMatches(c.Request.Context(), id) {
+	if !security.IsCrossTenantRole(c.Request.Context()) && !platform.TenantMatches(c.Request.Context(), id) {
 		c.JSON(http.StatusForbidden, tenantserrors.ErrorResponse{Error: "FORBIDDEN", Message: "No tenés acceso a este tenant", Status: http.StatusForbidden})
 		return
 	}
