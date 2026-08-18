@@ -7,7 +7,7 @@ import (
 
 // RegisterRoutes registra los endpoints de alarm rules.
 // readGroup:  sin RBAC adicional (GET /alarm-rules, GET /alarm-rules/:id).
-// writeGroup: con RBACCheck("users:write") aplicado externamente (POST, PATCH, DELETE).
+// writeGroup: con RBACCheck("perm_users_manage") aplicado externamente (POST, PATCH, DELETE).
 func RegisterRoutes(readGroup, writeGroup *gin.RouterGroup, service *appAlarmRules.Service) {
 	readGroup.GET("/alarm-rules", ListAlarmRules(service))
 	readGroup.GET("/alarm-rules/:id", GetAlarmRule(service))

@@ -9,7 +9,7 @@ import (
 )
 
 // Query son los parámetros de autorización de la consulta, todos resueltos en el
-// handler (RBAC ya validado por middleware.RBACCheck("users:read")).
+// handler (RBAC ya validado por middleware.RBACCheck("perm_users_view")).
 type Query struct {
 	UserID uuid.UUID
 	// TenantID es el tenant del request (X-Tenant-ID ya validado por TenantFromHeader).
@@ -44,7 +44,7 @@ func NewUseCase(repo userrolesrepo.UserRoleRepository) UseCase {
 // con el user_id de un super_admin obtenía su role_id, el nombre del rol y la lista
 // completa de tenants a los que pertenece. Ahora la autorización tiene tres capas, y
 // ninguna vive acá adentro:
-//  1. middleware.RBACCheck("users:read") en el router, igual que GET /user-roles.
+//  1. middleware.RBACCheck("perm_users_view") en el router, igual que GET /user-roles.
 //  2. CrossTenant acota al tenant del request salvo para roles cross-tenant.
 //  3. IncludeGlobal oculta las asignaciones a roles globales.
 //

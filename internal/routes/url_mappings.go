@@ -156,12 +156,12 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 
 	// Invitations
 	v1.GET("/invitations", listInvHandler.Handle)
-	v1.POST("/invitations", apimw.RBACCheck("invitations:write"), createInvHandler.Handle)
-	v1.POST("/invitations/:id/resend", apimw.RBACCheck("invitations:write"), resendInvHandler.Handle)
-	v1.DELETE("/invitations/:id", apimw.RBACCheck("invitations:write"), revokeInvHandler.Handle)
+	v1.POST("/invitations", apimw.RBACCheck("perm_users_manage"), createInvHandler.Handle)
+	v1.POST("/invitations/:id/resend", apimw.RBACCheck("perm_users_manage"), resendInvHandler.Handle)
+	v1.DELETE("/invitations/:id", apimw.RBACCheck("perm_users_manage"), revokeInvHandler.Handle)
 
 	// Force password change
-	v1.POST("/users/:id/force-password-change", apimw.RBACCheck("users:write"), forcePasswordHandler.Handle)
+	v1.POST("/users/:id/force-password-change", apimw.RBACCheck("perm_users_manage"), forcePasswordHandler.Handle)
 
 	// Admin routes (tenants, user-roles, etc.)
 	api.RegisterAdminRoutes(v1, api.Deps{
@@ -207,17 +207,17 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 
 	// Roles surface (/api/v1/roles)
 	// GET endpoints: sin RBAC adicional (cualquier usuario autenticado puede listar/ver roles)
-	// POST/PUT/DELETE: requieren permiso users:write (solo administradores)
+	// POST/PUT/DELETE: requieren perm_users_manage (solo administradores)
 	rService := rolesApp.NewService(rRepo, logger)
-	rolesWriteGroup := v1.Group("", apimw.RBACCheck("users:write"))
+	rolesWriteGroup := v1.Group("", apimw.RBACCheck("perm_users_manage"))
 	rolesHandler.RegisterRoutes(v1, rolesWriteGroup, rService)
 
 	// Alarm Rules surface (/api/v1/alarm-rules)
 	// GET endpoints: sin RBAC adicional (cualquier usuario autenticado del tenant puede listar/ver reglas)
-	// POST/PATCH/DELETE: requieren permiso users:write (solo administradores)
+	// POST/PATCH/DELETE: requieren perm_users_manage (solo administradores)
 	arRepo := alarmRulesRepo.NewPostgresRepository(db)
 	arService := alarmRulesApp.NewService(arRepo, logger)
-	alarmRulesWriteGroup := v1.Group("", apimw.RBACCheck("users:write"))
+	alarmRulesWriteGroup := v1.Group("", apimw.RBACCheck("perm_users_manage"))
 	alarmRulesHandler.RegisterRoutes(v1, alarmRulesWriteGroup, arService)
 
 	// Log Service (/api/v1/logs)
@@ -233,11 +233,11 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 
 	// Permissions Service (/api/v1/permissions)
 	// GET /permissions y GET /permissions/:id — sin RBAC adicional (cualquier usuario autenticado puede consultar)
-	// POST/PUT/DELETE — requieren permiso users:write (solo administradores)
+	// POST/PUT/DELETE — requieren perm_users_manage (solo administradores)
 	pRepo := permissionsRepo.NewPostgresRepository(db)
 	pService := permissionsApp.NewService(pRepo, logger)
 	pHandler := permissionsHandler.NewHandler(pService, logger)
-	permissionsWriteGroup := v1.Group("", apimw.RBACCheck("users:write"))
+	permissionsWriteGroup := v1.Group("", apimw.RBACCheck("perm_users_manage"))
 	v1.GET("/permissions", pHandler.ListPermissions)
 	v1.GET("/permissions/:id", pHandler.GetPermission)
 	permissionsWriteGroup.POST("/permissions", pHandler.CreatePermission)

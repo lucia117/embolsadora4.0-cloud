@@ -65,9 +65,24 @@ func ResolveTenantAndCheckMembership(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
+		permissions, isGlobal, err := loadRolePermissions(c.Request.Context(), db, roleID)
+		if err != nil {
+			Log.Error("failed to load role permissions",
+				zap.String("role_id", roleID),
+				zap.String("user_id", user.ID),
+				zap.Error(err),
+			)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"success": false, "error": "internal error"})
+			return
+		}
+
 		ctx := platform.WithTenantID(c.Request.Context(), tenantIDStr)
 		ctx = platform.WithTenantUUID(ctx, tenantUUID)
-		ctx = security.WithRole(ctx, roleID)
+		ctx = security.WithRoleContext(ctx, security.RoleContext{
+			Name:        roleID,
+			Permissions: permissions,
+			IsGlobal:    isGlobal,
+		})
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
