@@ -57,7 +57,7 @@ internal/
   domain/                    — pure types: User, UserInvitation, errors, UserStatus, InvitationStatus
   security/
     jwt.go                   — JWKSVerifier (Verifier interface + ErrJWKSUnavailable sentinel)
-    rbac.go                  — rolePermissions map, Can(), PermissionsForRole(), WithRole()
+    rbac.go                  — RoleContext (Name/Permissions/IsGlobal), Can(), IsCrossTenantRole(), WithRoleContext()/WithRole()
   platform/
     tenantctx.go             — context helpers: WithTenantID, WithDomainUser, WithSupabaseSub, etc.
     supabase/admin_client.go — AdminClient interface (InviteUserByEmail, SendPasswordResetEmail)

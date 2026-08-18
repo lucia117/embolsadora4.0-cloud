@@ -194,8 +194,23 @@ func TenantFromHeader(db *pgxpool.Pool) gin.HandlerFunc {
 			roleID = security.EffectiveRole(roleID, isPlatformTenant)
 		}
 
+		permissions, isGlobal, err := loadRolePermissions(c.Request.Context(), db, roleID)
+		if err != nil {
+			Log.Error("failed to load role permissions",
+				zap.String("role_id", roleID),
+				zap.String("user_id", user.ID),
+				zap.Error(err),
+			)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"success": false, "error": "internal error"})
+			return
+		}
+
 		ctx := platform.WithTenantID(c.Request.Context(), tenantID)
-		ctx = security.WithRole(ctx, roleID)
+		ctx = security.WithRoleContext(ctx, security.RoleContext{
+			Name:        roleID,
+			Permissions: permissions,
+			IsGlobal:    isGlobal,
+		})
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
@@ -251,6 +266,24 @@ func resolvePlatformOperator(ctx context.Context, db *pgxpool.Pool, userID, targ
 	// exista una única definición de la regla de ascenso, en vez de codificar
 	// acá un segundo "no cambia" que podría divergir si la regla cambia.
 	return security.EffectiveRole(roleID, true), nil
+}
+
+// loadRolePermissions fetches the DB-backed permission catalog (perm_*) and
+// cross-tenant flag for a resolved role id (already passed through
+// security.EffectiveRole). Called once per request by TenantFromHeader.
+func loadRolePermissions(ctx context.Context, db *pgxpool.Pool, roleID string) ([]string, bool, error) {
+	var permissions []string
+	var isGlobal bool
+	err := db.QueryRow(ctx,
+		`SELECT ARRAY(SELECT jsonb_array_elements_text(permissions)), is_global
+		 FROM roles
+		 WHERE id = $1 AND deleted_at IS NULL`,
+		roleID,
+	).Scan(&permissions, &isGlobal)
+	if err != nil {
+		return nil, false, fmt.Errorf("role %q not found in roles table: %w", roleID, err)
+	}
+	return permissions, isGlobal, nil
 }
 
 // PasswordChangeGuard blocks requests when user must change their password.

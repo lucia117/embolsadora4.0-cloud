@@ -23,7 +23,7 @@ func NewGetUserRolesHandler(useCase ucGetUserRoles.UseCase) *Handler {
 
 // Handle retrieves the role assignments for a user.
 //
-// La ruta está detrás de RBACCheck("users:read") (router.go), el mismo permiso que
+// La ruta está detrás de RBACCheck("perm_users_view") (router.go), el mismo permiso que
 // GET /user-roles: es la misma información, indexada por usuario en vez de por tenant.
 // Acá se resuelven los dos ejes de alcance que la consulta necesita, con el patrón de
 // la rama — se deciden en el borde y viajan como parámetros explícitos:
@@ -47,7 +47,7 @@ func (h *Handler) Handle(c *gin.Context) {
 	results, err := h.useCase.Execute(ctx, ucGetUserRoles.Query{
 		UserID:        userID,
 		TenantID:      tenantID,
-		CrossTenant:   security.IsCrossTenantRole(security.RoleFromContext(ctx)),
+		CrossTenant:   security.IsCrossTenantRole(ctx),
 		IncludeGlobal: security.CanSeePlatformInternals(ctx),
 	})
 	if err != nil {

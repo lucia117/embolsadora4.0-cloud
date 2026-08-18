@@ -2,28 +2,34 @@ package security
 
 import (
 	"context"
+	"errors"
 	"testing"
+
+	"github.com/tu-org/embolsadora-api/internal/domain"
 )
 
 func TestIsCrossTenantRole(t *testing.T) {
 	cases := []struct {
-		role string
-		want bool
+		name     string
+		isGlobal bool
+		want     bool
 	}{
-		{"super_admin", true},
-		{"tenant_manager", true},
-		{"platform_admin", true},
-		{"admin", false},
-		{"operario", false},
-		{"cliente_admin", false},
-		{"cliente_operario", false},
-		{"", false},
-		{"unknown_role", false},
+		{"is_global=true es cross-tenant", true, true},
+		{"is_global=false no es cross-tenant", false, false},
 	}
 	for _, c := range cases {
-		if got := IsCrossTenantRole(c.role); got != c.want {
-			t.Errorf("IsCrossTenantRole(%q) = %v, want %v", c.role, got, c.want)
-		}
+		t.Run(c.name, func(t *testing.T) {
+			ctx := WithRoleContext(context.Background(), RoleContext{IsGlobal: c.isGlobal})
+			if got := IsCrossTenantRole(ctx); got != c.want {
+				t.Errorf("IsCrossTenantRole() = %v, want %v", got, c.want)
+			}
+		})
+	}
+}
+
+func TestIsCrossTenantRoleSinContexto(t *testing.T) {
+	if IsCrossTenantRole(context.Background()) {
+		t.Error("sin RoleContext debe devolver false (fail-closed)")
 	}
 }
 
@@ -78,16 +84,21 @@ func TestCanSeePlatformInternalsSinRolEnContexto(t *testing.T) {
 	}
 }
 
-func TestClienteAdminTieneUsersWrite(t *testing.T) {
-	perms := PermissionsForRole("cliente_admin")
-	found := false
-	for _, p := range perms {
-		if p == "users:write" {
-			found = true
-			break
-		}
+func TestCan(t *testing.T) {
+	ctx := WithRoleContext(context.Background(), RoleContext{
+		Name:        "cliente_admin",
+		Permissions: []string{"perm_dashboard", "perm_users_view"},
+	})
+	if err := Can(ctx, "perm_dashboard"); err != nil {
+		t.Errorf("Can(perm_dashboard) = %v, want nil", err)
 	}
-	if !found {
-		t.Errorf("cliente_admin debería tener users:write (para crear roles/permisos custom de su tenant), perms=%v", perms)
+	if err := Can(ctx, "perm_users_manage"); !errors.Is(err, domain.ErrForbidden) {
+		t.Errorf("Can(perm_users_manage) = %v, want ErrForbidden", err)
+	}
+}
+
+func TestCanSinRolEnContexto(t *testing.T) {
+	if err := Can(context.Background(), "perm_dashboard"); !errors.Is(err, domain.ErrForbidden) {
+		t.Errorf("Can() sin rol = %v, want ErrForbidden (fail-closed)", err)
 	}
 }

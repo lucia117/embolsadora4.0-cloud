@@ -74,7 +74,12 @@ func TestGetMeAdminDePlataformaEsPlatformAdmin(t *testing.T) {
 	require.NotNil(t, resp.Tenant)
 	require.True(t, resp.Tenant.IsPlatform, "el tenant MRG debe venir marcado como plataforma")
 	require.True(t, resp.Capabilities.CanCrossTenant, "platform_admin puede operar cross-tenant")
-	require.Contains(t, resp.Permissions, "perm_tenants", "los permisos deben venir en vocabulario perm_*")
+	// perm_tenants_manage, NO perm_tenants_view solo: es la aserción que hace
+	// de este test la regresión real del fix de este task. admin (el rol
+	// crudo asignado en el seed) solo tiene perm_tenants_view - si GetMe
+	// devolviera los permisos del JOIN sin resolver el rol efectivo, este
+	// require fallaría, porque platform_admin es quien tiene manage completo.
+	require.Contains(t, resp.Permissions, "perm_tenants_manage", "platform_admin debe tener gestión completa de tenants, no solo view")
 	require.Contains(t, resp.Permissions, "perm_logs_view")
 	require.NotContains(t, resp.Permissions, "users:read", "el vocabulario resource:action no se expone")
 	require.NotContains(t, resp.Permissions, "perm_all_tenants", "perm_all_tenants ya no existe")
@@ -142,5 +147,6 @@ func TestGetMeSuperAdminConservaSuRol(t *testing.T) {
 
 	require.Equal(t, "super_admin", resp.Role.ID)
 	require.True(t, resp.Capabilities.CanCrossTenant)
-	require.Contains(t, resp.Permissions, "perm_users")
+	require.Contains(t, resp.Permissions, "perm_users_view")
+	require.Contains(t, resp.Permissions, "perm_users_manage")
 }

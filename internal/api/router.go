@@ -70,24 +70,24 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 
 	// Read operations (no RBAC required — ver DEUDA-TECNICA.md: "RBAC en GET /users")
 	// NOTE: /users/pending MUST be registered before /users/:id to avoid Gin treating "pending" as :id
-	userRoutes.GET("/users/pending", middleware.RBACCheck("users:read"), uh.ListPendingUsers)
+	userRoutes.GET("/users/pending", middleware.RBACCheck("perm_users_view"), uh.ListPendingUsers)
 	userRoutes.GET("/users", uh.ListUsers)
 	userRoutes.GET("/users/:id", uh.GetUser)
-	// RBACCheck("users:read"): esta ruta se había registrado sin ningún chequeo, así
+	// RBACCheck("perm_users_view"): esta ruta se había registrado sin ningún chequeo, así
 	// que cualquier usuario autenticado (un operario) podía pedir los roles y los
 	// tenants de cualquier user_id. Es el mismo permiso que GET /user-roles porque es
 	// la misma información indexada de otra forma. El scoping por tenant y el cloaking
 	// los aplica el handler (ver get_user_roles).
-	userRoutes.GET("/users/:id/roles", middleware.RBACCheck("users:read"), getUserRolesHandler.Handle)
+	userRoutes.GET("/users/:id/roles", middleware.RBACCheck("perm_users_view"), getUserRolesHandler.Handle)
 
 	// Write operations (admin only)
-	userRoutes.POST("/users", middleware.RBACCheck("users:write"), uh.CreateUser)
+	userRoutes.POST("/users", middleware.RBACCheck("perm_users_manage"), uh.CreateUser)
 	// Self-service: sin RBAC, el userID sale del JWT (uh.UpdateMe), nunca de la URL.
 	// Registrada antes de "/users/:id" — mismo motivo que /users/pending arriba.
 	userRoutes.PATCH("/users/me", uh.UpdateMe)
-	userRoutes.PATCH("/users/:id", middleware.RBACCheck("users:write"), uh.UpdateUser)
-	userRoutes.PATCH("/users/:id/status", middleware.RBACCheck("users:write"), uh.UpdateUserStatus)
-	userRoutes.DELETE("/users/:id", middleware.RBACCheck("users:write"), uh.DeleteUser)
+	userRoutes.PATCH("/users/:id", middleware.RBACCheck("perm_users_manage"), uh.UpdateUser)
+	userRoutes.PATCH("/users/:id/status", middleware.RBACCheck("perm_users_manage"), uh.UpdateUserStatus)
+	userRoutes.DELETE("/users/:id", middleware.RBACCheck("perm_users_manage"), uh.DeleteUser)
 
 	// Machines
 	g.GET("/machines", ListMachines)
@@ -106,30 +106,30 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 	updateTenantHandler := updateTenant.NewUpdateTenantHandler(updateTenantUseCase)
 	deleteTenantHandler := deleteTenant.NewDeleteTenantHandler(deleteTenantUseCase)
 
-	g.GET("/tenants", middleware.RBACCheck("tenants:read"), getAllTenantsHandler.GetAllTenants)
-	g.POST("/tenants", middleware.RBACCheck("tenants:write"), createTenantHandler.CreateTenant)
-	g.GET("/tenants/:tenantId", middleware.RBACCheck("tenants:read"), getTenantHandler.GetTenant)
-	g.PATCH("/tenants/:tenantId", middleware.RBACCheck("tenants:write"), updateTenantHandler.UpdateTenant)
-	g.DELETE("/tenants/:tenantId", middleware.RBACCheck("tenants:write"), deleteTenantHandler.DeleteTenant)
+	g.GET("/tenants", middleware.RBACCheck("perm_tenants_view"), getAllTenantsHandler.GetAllTenants)
+	g.POST("/tenants", middleware.RBACCheck("perm_tenants_manage"), createTenantHandler.CreateTenant)
+	g.GET("/tenants/:tenantId", middleware.RBACCheck("perm_tenants_view"), getTenantHandler.GetTenant)
+	g.PATCH("/tenants/:tenantId", middleware.RBACCheck("perm_tenants_manage"), updateTenantHandler.UpdateTenant)
+	g.DELETE("/tenants/:tenantId", middleware.RBACCheck("perm_tenants_manage"), deleteTenantHandler.DeleteTenant)
 
 	// User Roles
 	assignUserRoleUseCase := ucAssignUserRole.NewUseCase(deps.UserRoleRepo, deps.RoleRepo)
 	assignUserRoleHandler := assignUserRole.NewAssignUserRoleHandler(assignUserRoleUseCase)
-	g.POST("/user-roles", middleware.RBACCheck("users:write"), assignUserRoleHandler.Handle)
+	g.POST("/user-roles", middleware.RBACCheck("perm_users_manage"), assignUserRoleHandler.Handle)
 
 	listUserRolesUseCase := ucListUserRoles.NewUseCase(deps.UserRoleRepo)
 	listUserRolesHandler := listUserRoles.NewListUserRolesHandler(listUserRolesUseCase)
-	g.GET("/user-roles", middleware.RBACCheck("users:read"), listUserRolesHandler.Handle)
+	g.GET("/user-roles", middleware.RBACCheck("perm_users_view"), listUserRolesHandler.Handle)
 
 	bulkAssignUserRoleUseCase := ucBulkAssignUserRole.NewUseCase(deps.UserRoleRepo, deps.RoleRepo)
 	bulkAssignUserRoleHandler := bulkAssignUserRole.NewBulkAssignUserRolesHandler(bulkAssignUserRoleUseCase)
-	g.POST("/user-roles/bulk", middleware.RBACCheck("users:write"), bulkAssignUserRoleHandler.Handle)
+	g.POST("/user-roles/bulk", middleware.RBACCheck("perm_users_manage"), bulkAssignUserRoleHandler.Handle)
 
 	updateUserRoleUseCase := ucUpdateUserRole.NewUseCase(deps.UserRoleRepo, deps.RoleRepo)
 	updateUserRoleHandler := updateUserRole.NewUpdateUserRoleHandler(updateUserRoleUseCase)
-	g.PUT("/user-roles/:id", middleware.RBACCheck("users:write"), updateUserRoleHandler.Handle)
+	g.PUT("/user-roles/:id", middleware.RBACCheck("perm_users_manage"), updateUserRoleHandler.Handle)
 
 	revokeUserRoleUseCase := ucRevokeUserRole.NewUseCase(deps.UserRoleRepo)
 	revokeUserRoleHandler := revokeUserRole.NewRevokeUserRoleHandler(revokeUserRoleUseCase)
-	g.DELETE("/user-roles/:id", middleware.RBACCheck("users:write"), revokeUserRoleHandler.Handle)
+	g.DELETE("/user-roles/:id", middleware.RBACCheck("perm_users_manage"), revokeUserRoleHandler.Handle)
 }
