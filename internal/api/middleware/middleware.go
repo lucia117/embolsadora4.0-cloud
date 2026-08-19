@@ -107,10 +107,12 @@ func JWTAuth(verifier security.Verifier, authUC *usecases.AuthUsecase, activator
 		// 'invited' so it costs no extra queries on regular requests.
 		if activator != nil && user.Status == domain.UserStatusInvited && email != "" {
 			if err := activator.ActivatePendingInvitations(ctx, email, user.ID); err != nil {
-				Log.Warn("failed to activate pending invitations",
+				Log.Error("failed to activate pending invitations",
 					zap.String("user_id", user.ID),
 					zap.Error(err),
 				)
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"success": false, "error": "activation failed"})
+				return
 			} else if refreshed, err := authUC.ProvisionUser(ctx, sub, email); err != nil {
 				// The activation committed; this request just keeps the stale
 				// 'invited' status in context. Log so it doesn't fail silently.

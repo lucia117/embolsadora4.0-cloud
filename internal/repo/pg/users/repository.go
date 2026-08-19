@@ -13,8 +13,13 @@ type Repository interface {
 	// includeGlobal=false oculta miembros con rol is_global — ver security.CanSeePlatformInternals.
 	ListByTenant(ctx context.Context, tenantID string, limit, offset int, includeGlobal bool) ([]*users.User, int64, error)
 
-	// GetByID retrieves a single user by ID (returns ErrNotFound if soft-deleted, not found u oculto)
-	GetByID(ctx context.Context, tenantID, userID string, includeGlobal bool) (*users.User, error)
+	// GetByID retrieves a single user by ID (returns ErrNotFound if soft-deleted, not found u oculto).
+	// crossTenant=true omite el filtro de tenant por completo (ver Hallazgo A:
+	// un caller con security.IsCrossTenantRole debe poder resolver un usuario
+	// de cualquier tenant, no solo el de la request). includeGlobal sigue
+	// siendo un eje separado — decide si un usuario cuyo rol es is_global es
+	// visible, no afecta el scoping por tenant.
+	GetByID(ctx context.Context, tenantID, userID string, crossTenant, includeGlobal bool) (*users.User, error)
 
 	// GetByIDWithRoles retrieves a user with their active role assignment in the tenant.
 	// Returns ErrNotFound if user doesn't exist, is soft-deleted, or (includeGlobal=false) su

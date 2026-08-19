@@ -51,10 +51,13 @@ func (s *Service) ListUsers(ctx context.Context, tenantID string, limit, offset 
 
 // GetUser retrieves a single user by ID.
 // includeGlobal lo decide el handler vía security.CanSeePlatformInternals.
-func (s *Service) GetUser(ctx context.Context, tenantID, userID string, includeGlobal bool) (*domainUsers.User, error) {
+// crossTenant es un eje separado, decidido vía security.IsCrossTenantRole: deja
+// resolver un usuario de un tenant distinto al de la request, pero no afecta el
+// cloaking de includeGlobal — ver el comentario de Repository.GetByID.
+func (s *Service) GetUser(ctx context.Context, tenantID, userID string, crossTenant, includeGlobal bool) (*domainUsers.User, error) {
 	s.logger.Debug("getting user", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 
-	user, err := s.repo.GetByID(ctx, tenantID, userID, includeGlobal)
+	user, err := s.repo.GetByID(ctx, tenantID, userID, crossTenant, includeGlobal)
 	if err != nil {
 		if errors.Is(err, domainUsers.ErrNotFound) {
 			s.logger.Debug("user not found", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
@@ -182,7 +185,7 @@ func (s *Service) UpdateUser(ctx context.Context, tenantID, userID string, inclu
 	s.logger.Debug("updating user", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 
 	// Get current user
-	current, err := s.repo.GetByID(ctx, tenantID, userID, includeGlobal)
+	current, err := s.repo.GetByID(ctx, tenantID, userID, false, includeGlobal)
 	if err != nil {
 		if errors.Is(err, domainUsers.ErrNotFound) {
 			s.logger.Debug("user not found for update", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
@@ -243,7 +246,7 @@ func (s *Service) UpdateUser(ctx context.Context, tenantID, userID string, inclu
 func (s *Service) DeleteUser(ctx context.Context, tenantID, userID string, includeGlobal bool) error {
 	s.logger.Debug("deleting user", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 
-	if _, err := s.repo.GetByID(ctx, tenantID, userID, includeGlobal); err != nil {
+	if _, err := s.repo.GetByID(ctx, tenantID, userID, false, includeGlobal); err != nil {
 		if errors.Is(err, domainUsers.ErrNotFound) {
 			s.logger.Debug("user not found for deletion", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 			return err
@@ -307,7 +310,7 @@ func (s *Service) UpdateUserStatus(ctx context.Context, tenantID, userID, caller
 	}
 
 	// Verify user belongs to this tenant (existence check only)
-	if _, err := s.repo.GetByID(ctx, tenantID, userID, includeGlobal); err != nil {
+	if _, err := s.repo.GetByID(ctx, tenantID, userID, false, includeGlobal); err != nil {
 		if errors.Is(err, domainUsers.ErrNotFound) {
 			s.logger.Debug("user not found for status update", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 			return nil, err
@@ -343,7 +346,7 @@ func (s *Service) UpdateUserStatus(ctx context.Context, tenantID, userID, caller
 		zap.String("status", status))
 
 	// Re-fetch to return the latest state (updatedAt reflects the mutation)
-	updated, err := s.repo.GetByID(ctx, tenantID, userID, includeGlobal)
+	updated, err := s.repo.GetByID(ctx, tenantID, userID, false, includeGlobal)
 	if err != nil {
 		s.logger.Error("failed to re-fetch user after status update",
 			zap.String("tenant_id", tenantID), zap.String("user_id", userID), zap.Error(err))

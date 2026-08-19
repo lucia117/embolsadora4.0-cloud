@@ -72,7 +72,7 @@ func TestUpdate_UserWithNullTenantIDColumn_Succeeds(t *testing.T) {
 
 	// Sanity check: GetByID must find this user via their user_tenant_roles membership
 	// (this is the read path the prior investigation confirmed already works).
-	current, err := repo.GetByID(ctx, tenantID, userID, false)
+	current, err := repo.GetByID(ctx, tenantID, userID, false, false)
 	require.NoError(t, err, "GetByID should find the user via their user_tenant_roles membership")
 
 	current.FirstName = "After"
