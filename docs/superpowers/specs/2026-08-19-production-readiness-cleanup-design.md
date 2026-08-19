@@ -40,6 +40,29 @@ No hay causa raíz identificada todavía — no hay diseño posible sin esa inve
 2. Identificar qué ocurre **después** del `UPDATE`/`DELETE` SQL que ya committeó — candidatos: limpieza de Supabase Auth (borrar el usuario en GoTrue), algún paso async con timeout, un error en la serialización de la respuesta.
 3. Una vez identificada la causa, decidir el fix concreto (puede ser tan simple como no fallar la request si el paso post-commit falla y loguearlo en cambio, o mover el paso a fire-and-forget).
 
+### 🆕 Investigación completada (2026-08-19, sesión de cierre de producción) — causa raíz identificada, NO es un bug del backend Go
+
+**Metodología**: se ubicó el timestamp exacto del soft-delete del usuario de smoketest vía SQL directo (`deleted_at = 2026-08-19 12:25:50.036909+00`), y se cruzó contra los logs de Cloud Run del backend y los logs de runtime de Vercel del frontend para esa misma ventana.
+
+**Hallazgo — logs de Cloud Run (backend)**: el `DELETE /api/v1/users/{id}` que produjo ese `deleted_at` **devolvió 204** (`users/service.go:268 "user soft-deleted"` a las `12:25:50.109Z`, log HTTP `status: 204`). El `DELETE` del tenant en la misma sesión también muestra `status: 200`. **El backend Go nunca devolvió un 5xx para estos dos borrados** — el paso post-commit que se sospechaba (limpieza de Supabase Auth, serialización, etc.) no existe como tal; no hay ningún log de error entre el `UPDATE` y la respuesta.
+
+**Hallazgo — logs de runtime de Vercel (frontend BFF)**: `get_runtime_errors` sobre el proyecto `v0-embolsadora` muestra un error agrupado:
+```
+[BFF DELETE /api/users] backend status: 503 body: Backend unreachable
+routes: /api/users/[id]
+last=2026-08-19T12:25:48.000Z   (2 ocurrencias totales, la otra el 2026-08-04)
+```
+Ese timestamp es **~1.7s antes** de que el backend registre haber recibido el request (`12:25:49.725Z`, `delete user request`). El mensaje "Backend unreachable" sale de `src/lib/backend-fetch.ts:82-105`: el `fetch()` de la función serverless de Vercel hacia Cloud Run está envuelto en un `try/catch` desnudo — si el `fetch` en sí lanza (timeout, conexión rechazada, TLS), se mapea incondicionalmente a `{ status: 503, error: 'Backend unreachable' }`, sin ninguna forma de saber si el backend llegó a recibir el request.
+
+**Causa raíz real**: Cloud Run (`embolsadora-api`) no tiene `minScale` configurado (confirmado vía `gcloud run services describe`, el campo viene vacío = default 0) — el servicio puede hacer *cold start* completo ante tráfico esporádico. El handler Go de `DeleteUser` **no chequea `r.Context().Done()`**, así que aunque el `fetch()` de Vercel aborte/timeout del lado del cliente, el request ya aceptado por el runtime de Go sigue procesándose hasta el final y committea el `UPDATE`. El resultado observable es exactamente el síntoma reportado: el cliente ve un 5xx, pero el dato ya quedó escrito — porque son dos partes independientes de la misma llamada HTTP que se desincronizaron por la latencia del cold start, no un bug de lógica de aplicación en ningún lado.
+
+**Por qué no se propone un fix acotado en este plan**: la causa es de infraestructura/configuración (cold start de Cloud Run + timeout de `fetch` de Vercel), no un bug de código con un fix chico y aislado. Las dos palancas reales disponibles tienen trade-offs que le corresponden decidir al usuario, no a una corrección silenciosa:
+- **`gcloud run services update embolsadora-api --min-instances=1`**: elimina el cold start en este servicio a costa de un instance corriendo 24/7 (costo continuo en vez de escalar a cero).
+- **Subir el timeout del `fetch` en `backend-fetch.ts`** (hoy usa el default, sin `AbortSignal`/timeout explícito) le da más margen a un cold start antes de que Vercel se dé por vencido — pero no lo elimina, solo lo hace menos frecuente, y alarga la latencia percibida en el peor caso.
+- Ya existe una mitigación parcial en el frontend (Fix 1 de la sesión del 2026-08-19): un DELETE reintentado sobre un recurso que ya se borró da 404, y el toast lo trata como éxito — así que el impacto real hoy es "mensaje de error confuso en el primer intento", no pérdida de datos ni un estado inconsistente.
+
+**Cierre**: pendiente documentado, no bloqueante — no se identificó ningún bug de aplicación para arreglar en `embolsadora4.0-cloud` ni en `embolsadora-frontend`. Recomendación para una decisión futura del usuario: evaluar `min-instances=1` en Cloud Run si estos cold starts se vuelven más frecuentes al salir de la fase MVP (ver la nota de `CLAUDE.md` del backend sobre "producción funciona como entorno de prueba").
+
 Este sub-proyecto no tiene "diseño" cerrado — el resultado de la investigación determina el fix. Se documenta acá como placeholder; el plan de implementación lo trata como una tarea de investigación con salida abierta.
 
 ---
