@@ -163,3 +163,48 @@ func TestTriggerRechazaInsertRawDeAdminEnTenantNoPlataforma(t *testing.T) {
 	require.Equal(t, "23514", pgErr.Code,
 		"trg_enforce_platform_role_tenant debe rechazar con check_violation (23514)")
 }
+
+// TestTriggerRechazaInsertRawDePlatformAdminEnTenantNoPlataforma y su par
+// ...SuperAdminEnTenantNoPlataforma cierran el item #8 del handoff
+// 2026-08-19: no había test directo confirmando que platform_admin/
+// super_admin (ambos is_global=TRUE) sean rechazados fuera del tenant
+// plataforma por el mismo trigger que ya se probaba solo para 'admin'.
+func TestTriggerRechazaInsertRawDePlatformAdminEnTenantNoPlataforma(t *testing.T) {
+	pool := poolOrSkip(t)
+	ctx := context.Background()
+
+	tenantID := seedTenant(t, pool)
+	s := seedMembership(t, pool, tenantID, "", "revoked")
+
+	_, err := pool.Exec(ctx,
+		`INSERT INTO user_tenant_roles (id, user_id, tenant_id, role_id, status, assigned_at)
+		 VALUES ($1, $2, $3, 'platform_admin', 'active', NOW())`,
+		uuid.New(), s.UserID, tenantID,
+	)
+	require.Error(t, err)
+
+	var pgErr *pgconn.PgError
+	require.True(t, errors.As(err, &pgErr), "el rechazo del trigger debe llegar como *pgconn.PgError")
+	require.Equal(t, "23514", pgErr.Code,
+		"trg_enforce_platform_role_tenant debe rechazar platform_admin con check_violation (23514)")
+}
+
+func TestTriggerRechazaInsertRawDeSuperAdminEnTenantNoPlataforma(t *testing.T) {
+	pool := poolOrSkip(t)
+	ctx := context.Background()
+
+	tenantID := seedTenant(t, pool)
+	s := seedMembership(t, pool, tenantID, "", "revoked")
+
+	_, err := pool.Exec(ctx,
+		`INSERT INTO user_tenant_roles (id, user_id, tenant_id, role_id, status, assigned_at)
+		 VALUES ($1, $2, $3, 'super_admin', 'active', NOW())`,
+		uuid.New(), s.UserID, tenantID,
+	)
+	require.Error(t, err)
+
+	var pgErr *pgconn.PgError
+	require.True(t, errors.As(err, &pgErr), "el rechazo del trigger debe llegar como *pgconn.PgError")
+	require.Equal(t, "23514", pgErr.Code,
+		"trg_enforce_platform_role_tenant debe rechazar super_admin con check_violation (23514)")
+}
