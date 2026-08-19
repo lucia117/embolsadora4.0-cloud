@@ -15,6 +15,7 @@ import (
 func RegisterRoutes(g *gin.RouterGroup, service *edge_devices.Service) {
 	view := middleware.RBACCheck("perm_edge_devices_view")
 	manage := middleware.RBACCheck("perm_edge_devices_manage")
+	check := middleware.RBACCheck("perm_edge_devices_check")
 
 	// US1 – List
 	g.GET("/edge-devices", view, ListDevices(service))
@@ -32,13 +33,16 @@ func RegisterRoutes(g *gin.RouterGroup, service *edge_devices.Service) {
 	g.POST("/edge-devices/:deviceId/enable", manage, EnableDevice(service))
 	g.POST("/edge-devices/:deviceId/disable", manage, DisableDevice(service))
 
-	// US6 – Status Check: dispara una acción activa contra el device (el
-	// handler pasa userID/userEmail al service para audit trail), no es una
-	// lectura pasiva — requiere _manage, igual que enable/disable.
-	g.POST("/edge-devices/:deviceId/status", manage, StatusCheck(service))
+	// US6 – Status Check: requiere perm_edge_devices_check (no _manage).
+	// Aunque dispara una acción activa contra el device (el handler pasa
+	// userID/userEmail al service para audit trail), el seed define check como
+	// un permiso distinto e independiente de manage: se otorga a operario y
+	// tenant_manager explícitamente (migrations/000002_seed_essentials.up.sql:37,
+	// migrations/000005_translate_permissions_and_seed_role_permissions.up.sql:35-38).
+	g.POST("/edge-devices/:deviceId/status", check, StatusCheck(service))
 
-	// US7 – Health Check: mismo criterio que status check.
-	g.POST("/edge-devices/:deviceId/health-check", manage, HealthCheck(service))
+	// US7 – Health Check: requiere perm_edge_devices_check, igual que status check.
+	g.POST("/edge-devices/:deviceId/health-check", check, HealthCheck(service))
 
 	// US8 – Telemetry
 	g.GET("/edge-devices/:deviceId/telemetry", view, GetTelemetry(service))

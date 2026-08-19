@@ -71,10 +71,47 @@ func TestEdgeDevicesPostCreateSoloConManagePasaElGate(t *testing.T) {
 	require.NotEqual(t, http.StatusForbidden, w2.Code, "perm_edge_devices_manage debe pasar el gate de POST /edge-devices")
 }
 
-func TestEdgeDevicesStatusCheckRequiereManageNoSoloView(t *testing.T) {
-	r := newTestRouterWithRole(t, []string{"perm_edge_devices_view"})
+func TestEdgeDevicesStatusCheckRequiereCheckNoViewNiManage(t *testing.T) {
+	// Sin permisos: debe dar 403
+	rNoPerms := newTestRouterWithRole(t, nil)
 	req := httptest.NewRequest(http.MethodPost, "/edge-devices/11111111-1111-1111-1111-111111111111/status", nil)
 	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-	require.Equal(t, http.StatusForbidden, w.Code, "status check dispara una acción activa contra el device (pasa userID/userEmail para audit trail), requiere _manage no _view")
+	rNoPerms.ServeHTTP(w, req)
+	require.Equal(t, http.StatusForbidden, w.Code, "sin perm_edge_devices_check debe dar 403 en status check")
+
+	// Con solo view: no alcanza, debe dar 403
+	rView := newTestRouterWithRole(t, []string{"perm_edge_devices_view"})
+	req = httptest.NewRequest(http.MethodPost, "/edge-devices/11111111-1111-1111-1111-111111111111/status", nil)
+	w = httptest.NewRecorder()
+	rView.ServeHTTP(w, req)
+	require.Equal(t, http.StatusForbidden, w.Code, "perm_edge_devices_view no alcanza para status check, requiere _check")
+
+	// Con solo manage: no alcanza, debe dar 403
+	// (admin tiene manage pero no check per seed — no puede correr chequeos)
+	rManage := newTestRouterWithRole(t, []string{"perm_edge_devices_manage"})
+	req = httptest.NewRequest(http.MethodPost, "/edge-devices/11111111-1111-1111-1111-111111111111/status", nil)
+	w = httptest.NewRecorder()
+	rManage.ServeHTTP(w, req)
+	require.Equal(t, http.StatusForbidden, w.Code, "perm_edge_devices_manage no alcanza para status check, requiere _check (per migrations/000005:35-38, admin NO tiene _check)")
+
+	// Con check: debe pasar el gate
+	rCheck := newTestRouterWithRole(t, []string{"perm_edge_devices_check"})
+	req = httptest.NewRequest(http.MethodPost, "/edge-devices/11111111-1111-1111-1111-111111111111/status", nil)
+	w = httptest.NewRecorder()
+	rCheck.ServeHTTP(w, req)
+	require.NotEqual(t, http.StatusForbidden, w.Code, "perm_edge_devices_check debe pasar el gate de status check")
+
+	// Mismo para health-check
+	rCheckHealth := newTestRouterWithRole(t, []string{"perm_edge_devices_check"})
+	req = httptest.NewRequest(http.MethodPost, "/edge-devices/11111111-1111-1111-1111-111111111111/health-check", nil)
+	w = httptest.NewRecorder()
+	rCheckHealth.ServeHTTP(w, req)
+	require.NotEqual(t, http.StatusForbidden, w.Code, "perm_edge_devices_check debe pasar el gate de health-check")
+
+	// health-check con solo manage debe dar 403
+	rManageHealth := newTestRouterWithRole(t, []string{"perm_edge_devices_manage"})
+	req = httptest.NewRequest(http.MethodPost, "/edge-devices/11111111-1111-1111-1111-111111111111/health-check", nil)
+	w = httptest.NewRecorder()
+	rManageHealth.ServeHTTP(w, req)
+	require.Equal(t, http.StatusForbidden, w.Code, "health-check con solo _manage debe dar 403, requiere _check")
 }
