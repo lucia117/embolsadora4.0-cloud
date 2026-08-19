@@ -99,7 +99,7 @@ func (r *PostgresRepository) ListByTenant(ctx context.Context, tenantID string, 
 // includeGlobal=false hace que un miembro con rol is_global sea indistinguible
 // de uno inexistente: ambos devuelven ErrNotFound → 404. Un 403 confirmaría que
 // el usuario existe, que es justamente lo que hay que no filtrar.
-func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, userID string, includeGlobal bool) (*users.User, error) {
+func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, userID string, crossTenant, includeGlobal bool) (*users.User, error) {
 	query := `
 		SELECT u.id,
 		       COALESCE(u.tenant_id, $2) AS tenant_id,
@@ -114,11 +114,11 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, userID strin
 		LEFT JOIN roles r ON r.id = utr.role_id
 		WHERE u.id = $1
 		  AND u.deleted_at IS NULL
-		  AND (u.tenant_id = $2 OR utr.id IS NOT NULL)
+		  AND (u.tenant_id = $2 OR utr.id IS NOT NULL OR $4)
 		  AND (COALESCE(r.is_global, FALSE) = FALSE OR $3)
 	`
 
-	row := r.db.QueryRow(ctx, query, userID, tenantID, includeGlobal)
+	row := r.db.QueryRow(ctx, query, userID, tenantID, includeGlobal, crossTenant)
 	user, err := scanUser(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

@@ -29,7 +29,7 @@ type fakeUserRepo struct {
 func (f *fakeUserRepo) ListByTenant(ctx context.Context, tenantID string, limit, offset int, includeGlobal bool) ([]*domainUsers.User, int64, error) {
 	return nil, 0, nil
 }
-func (f *fakeUserRepo) GetByID(ctx context.Context, tenantID, userID string, includeGlobal bool) (*domainUsers.User, error) {
+func (f *fakeUserRepo) GetByID(ctx context.Context, tenantID, userID string, crossTenant, includeGlobal bool) (*domainUsers.User, error) {
 	if f.stored == nil || f.stored.ID != userID {
 		return nil, domainUsers.ErrNotFound
 	}

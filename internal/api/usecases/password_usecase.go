@@ -73,7 +73,7 @@ func (uc *PasswordUsecase) ForcePasswordChange(ctx context.Context, targetUserID
 	// Cloaking: si el rol activo del target en este tenant es is_global y el
 	// caller no puede verlo, tratarlo como si no existiera. Nada de lo que
 	// sigue (SetPasswordChangeRequired, email) debe ejecutarse.
-	if _, err := uc.mgmtUserRepo.GetByID(ctx, tenantID, targetUserID, includeGlobal); err != nil {
+	if _, err := uc.mgmtUserRepo.GetByID(ctx, tenantID, targetUserID, false, includeGlobal); err != nil {
 		if errors.Is(err, domainUsers.ErrNotFound) {
 			return domain.ErrNotFound
 		}

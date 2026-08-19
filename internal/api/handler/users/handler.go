@@ -110,6 +110,7 @@ func (h *Handler) GetUser(c *gin.Context) {
 	h.logger.Debug("get user request", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 
 	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+	crossTenant := security.IsCrossTenantRole(c.Request.Context())
 
 	// If include=roles is requested, fetch user with role data
 	if c.Query("include") == "roles" {
@@ -123,7 +124,7 @@ func (h *Handler) GetUser(c *gin.Context) {
 		return
 	}
 
-	user, err := h.service.GetUser(c.Request.Context(), tenantID, userID, includeGlobal)
+	user, err := h.service.GetUser(c.Request.Context(), tenantID, userID, crossTenant, includeGlobal)
 	if err != nil {
 		h.logger.Error("get user failed", zap.Error(err))
 		HandleError(c, err)
