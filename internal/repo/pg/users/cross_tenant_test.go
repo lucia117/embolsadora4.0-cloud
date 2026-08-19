@@ -172,3 +172,40 @@ func TestGetByIDCrossTenantTrueConDobleMembresiaPrefiereLaDelTenantDeLaRequest(t
 	require.Equal(t, tenantA, u.TenantID, "debe ganar la membresía del tenant de la request")
 	require.Equal(t, "cliente_operario", u.Role, "el rol debe corresponder a la membresía de tenantA, no a la de tenantB")
 }
+
+// TestGetByIDCrossTenantTrueConMembresiaSinAssignedAtNoGanaElDesempate cubre
+// item #7 del handoff 2026-08-19: sin NULLS LAST explícito, el default de
+// Postgres para DESC es NULLS FIRST, así que una membresía activa con
+// assigned_at NULL ganaba el desempate aunque no fuera "la más reciente".
+func TestGetByIDCrossTenantTrueConMembresiaSinAssignedAtNoGanaElDesempate(t *testing.T) {
+	pool := poolOrSkip(t)
+	repo := usersRepo.NewPostgresRepository(pool)
+	ctx := context.Background()
+
+	tenantA := seedTenant(t, pool)
+	tenantB := seedTenant(t, pool)
+
+	// Membresía en tenantB con assigned_at seteado (la que debe ganar el desempate).
+	userID := seedUserWithRole(t, pool, tenantB, "cliente_operario")
+
+	// Segunda membresía activa, en tenantC, con assigned_at NULL — antes del
+	// fix, NULLS FIRST la hacía ganar el ORDER BY ... assigned_at DESC pese a
+	// no tener fecha real.
+	tenantC := seedTenant(t, pool)
+	utrCID := uuid.New().String()
+	_, err := pool.Exec(ctx,
+		`INSERT INTO user_tenant_roles (id, user_id, tenant_id, role_id, status, assigned_at)
+		 VALUES ($1, $2, $3, 'cliente_admin', 'active', NULL)`,
+		utrCID, userID, tenantC)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM user_tenant_roles WHERE id = $1`, utrCID)
+	})
+
+	// La request pide parada en tenantA (no matchea ninguna de las dos
+	// membresías), así que el desempate cae en assigned_at DESC: debe ganar
+	// la de tenantB (assigned_at real), no la de tenantC (NULL).
+	u, err := repo.GetByID(ctx, tenantA, userID, true, false)
+	require.NoError(t, err)
+	require.Equal(t, tenantB, u.TenantID, "la membresía con assigned_at real debe ganar sobre la de assigned_at NULL")
+}

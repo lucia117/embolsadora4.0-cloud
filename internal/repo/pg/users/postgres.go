@@ -112,7 +112,9 @@ func (r *PostgresRepository) ListByTenant(ctx context.Context, tenantID string, 
 // el índice único es (user_id, tenant_id), no (user_id) — ver
 // idx_utr_active_unique), así que el ORDER BY desempata determinísticamente:
 // la membresía del tenant de la request ($2) gana si existe, y si no, la más
-// reciente por assigned_at.
+// reciente por assigned_at (NULLS LAST explícito: el default de Postgres para
+// DESC es NULLS FIRST, lo que haría ganar a una membresía sin assigned_at
+// aunque no sea la más reciente — item #7 del handoff 2026-08-19).
 func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, userID string, crossTenant, includeGlobal bool) (*users.User, error) {
 	query := `
 		SELECT u.id,
@@ -129,7 +131,7 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, userID strin
 			WHERE t.user_id = u.id
 			  AND t.status = 'active'
 			  AND (t.tenant_id = $2 OR $4)
-			ORDER BY (t.tenant_id = $2) DESC, t.assigned_at DESC
+			ORDER BY (t.tenant_id = $2) DESC, t.assigned_at DESC NULLS LAST
 			LIMIT 1
 		) utr ON TRUE
 		LEFT JOIN roles r ON r.id = utr.role_id
@@ -322,7 +324,7 @@ func (r *PostgresRepository) Delete(ctx context.Context, tenantID, userID string
 //
 // ORDER BY ... assigned_at DESC NULLS LAST: sin esto, una membresía activa con
 // assigned_at NULL ganaba el desempate por ser NULLS FIRST el default de
-// Postgres en DESC — lo mismo que se corrigió en GetByID (item #7 del handoff).
+// Postgres en DESC — lo mismo que se corrige en GetByID (item #7 del handoff 2026-08-19).
 func (r *PostgresRepository) GetByIDWithRoles(ctx context.Context, tenantID, userID string, crossTenant, includeGlobal bool) (*users.UserWithRoles, error) {
 	query := `
 		SELECT u.id,
