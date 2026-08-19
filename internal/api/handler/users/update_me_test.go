@@ -36,7 +36,7 @@ func (f *fakeUserRepo) GetByID(ctx context.Context, tenantID, userID string, cro
 	cp := *f.stored
 	return &cp, nil
 }
-func (f *fakeUserRepo) GetByIDWithRoles(ctx context.Context, tenantID, userID string, includeGlobal bool) (*domainUsers.UserWithRoles, error) {
+func (f *fakeUserRepo) GetByIDWithRoles(ctx context.Context, tenantID, userID string, crossTenant, includeGlobal bool) (*domainUsers.UserWithRoles, error) {
 	return nil, domainUsers.ErrNotFound
 }
 func (f *fakeUserRepo) ListPendingByTenant(ctx context.Context, tenantID string, includeGlobal bool) ([]*domainUsers.User, error) {

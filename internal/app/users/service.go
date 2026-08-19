@@ -73,10 +73,13 @@ func (s *Service) GetUser(ctx context.Context, tenantID, userID string, crossTen
 
 // GetUserWithRoles retrieves a user and their active role assignment in the tenant.
 // includeGlobal lo decide el handler vía security.CanSeePlatformInternals.
-func (s *Service) GetUserWithRoles(ctx context.Context, tenantID, userID string, includeGlobal bool) (*domainUsers.UserWithRoles, error) {
+// crossTenant lo decide el handler vía security.IsCrossTenantRole (item #3 del
+// handoff 2026-08-19: el fix de Hallazgo A solo cubrió GetUser sin
+// include=roles, esta variante quedó con el mismo bug).
+func (s *Service) GetUserWithRoles(ctx context.Context, tenantID, userID string, crossTenant, includeGlobal bool) (*domainUsers.UserWithRoles, error) {
 	s.logger.Debug("getting user with roles", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 
-	uwr, err := s.repo.GetByIDWithRoles(ctx, tenantID, userID, includeGlobal)
+	uwr, err := s.repo.GetByIDWithRoles(ctx, tenantID, userID, crossTenant, includeGlobal)
 	if err != nil {
 		if errors.Is(err, domainUsers.ErrNotFound) {
 			s.logger.Debug("user not found", zap.String("tenant_id", tenantID), zap.String("user_id", userID))

@@ -114,7 +114,7 @@ func (h *Handler) GetUser(c *gin.Context) {
 
 	// If include=roles is requested, fetch user with role data
 	if c.Query("include") == "roles" {
-		uwr, err := h.service.GetUserWithRoles(c.Request.Context(), tenantID, userID, includeGlobal)
+		uwr, err := h.service.GetUserWithRoles(c.Request.Context(), tenantID, userID, crossTenant, includeGlobal)
 		if err != nil {
 			h.logger.Error("get user with roles failed", zap.Error(err))
 			HandleError(c, err)
