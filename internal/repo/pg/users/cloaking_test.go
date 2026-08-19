@@ -132,10 +132,10 @@ func TestGetByIDDevuelveNotFoundParaUsuarioOculto(t *testing.T) {
 
 	superID := seedMemberWithRole(t, pool, "super_admin", "active")
 
-	_, err := repo.GetByID(ctx, platformTenant, superID, false)
+	_, err := repo.GetByID(ctx, platformTenant, superID, false, false)
 	require.Error(t, err, "404, no 403: un 403 confirmaría que el usuario existe")
 
-	u, err := repo.GetByID(ctx, platformTenant, superID, true)
+	u, err := repo.GetByID(ctx, platformTenant, superID, false, true)
 	require.NoError(t, err)
 	require.Equal(t, superID, u.ID)
 }
