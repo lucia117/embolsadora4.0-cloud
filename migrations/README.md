@@ -30,6 +30,7 @@ sudo mv migrate /usr/local/bin/
 | 9 | `000009_grant_logs_view_to_admin` | Otorga `perm_logs_view` al rol `admin`. |
 | 10 | `000010_platform_only_roles` | **Ver "⚠️ Orden de deploy" abajo.** Extiende `tenant_can_use_role` (ahora `tenant_can_use_role(uuid, text)`, reemplaza la firma `(uuid, boolean)` de la 000004) para que también trate `admin`/`operario` como platform-only, no solo `is_global=TRUE`. Antes de esta migración, un admin de un tenant cliente podía asignarse a sí mismo o a otros el rol `admin` dentro de su propio tenant. |
 | 11 | `000011_dynamic_role_permissions` | **Ver "⚠️ Orden de deploy" abajo.** Extiende el catálogo de permisos con `perm_users_view`/`perm_users_manage`/`perm_tenants_view`/`perm_tenants_manage`, reemplazando los permisos gruesos `perm_users`/`perm_tenants`. Agrega la fila `platform_admin` a `roles` (antes solo se calculaba en runtime). Resiembra `permissions` de los 7 roles de sistema. |
+| 12 | `000012_cascade_user_tenant_roles_tenant_fkey` | Cambia `user_tenant_roles_tenant_id_fkey` a `ON DELETE CASCADE`, igual que el resto de las FKs que referencian `tenants(id)`. Era la única sin CASCADE desde la `000001` — borrar un tenant con asignaciones de rol activas fallaba con una violación de FK. Sin riesgo de orden de deploy: no requiere cambios de código Go. |
 
 ## Comandos
 
