@@ -167,7 +167,7 @@ func TestUpdateUserNoPuedePintarRolGlobal(t *testing.T) {
 	require.NoError(t, err)
 
 	rolGlobal := "super_admin"
-	updated, err := svc.UpdateUser(ctx, platformTenant, user.ID, false, &domainUsers.UpdateUserCommand{
+	updated, err := svc.UpdateUser(ctx, platformTenant, user.ID, false, false, &domainUsers.UpdateUserCommand{
 		TenantID: platformTenant, UserID: user.ID, Role: &rolGlobal,
 	})
 	require.Nil(t, updated)

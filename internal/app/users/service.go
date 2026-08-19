@@ -176,7 +176,13 @@ func (s *Service) CreateUser(ctx context.Context, tenantID string, cmd *domainUs
 // includeGlobal lo decide el handler vía security.CanSeePlatformInternals: resuelve
 // el usuario actual con el mismo scoping que GetUser, para que un usuario oculto dé
 // 404 antes de llegar al UPDATE — no 200/403, que confirmarían su existencia.
-func (s *Service) UpdateUser(ctx context.Context, tenantID, userID string, includeGlobal bool, cmd *domainUsers.UpdateUserCommand) (*domainUsers.User, error) {
+// crossTenant lo decide el handler vía security.IsCrossTenantRole (extensión de
+// Hallazgo C acordada): sin esto, un super_admin/platform_admin parado en un
+// tenant distinto al del target no podía editarlo. El UPDATE en sí no necesita
+// su propio crossTenant: repo.Update ya escribe contra current.TenantID (el
+// tenant real del target, resuelto acá abajo), no contra el tenantID de la
+// request.
+func (s *Service) UpdateUser(ctx context.Context, tenantID, userID string, crossTenant, includeGlobal bool, cmd *domainUsers.UpdateUserCommand) (*domainUsers.User, error) {
 	if err := cmd.Validate(); err != nil {
 		s.logger.Warn("invalid update user command", zap.String("tenant_id", tenantID), zap.String("user_id", userID), zap.Error(err))
 		return nil, fmt.Errorf("%w: %v", domainUsers.ErrValidation, err)
@@ -185,7 +191,7 @@ func (s *Service) UpdateUser(ctx context.Context, tenantID, userID string, inclu
 	s.logger.Debug("updating user", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 
 	// Get current user
-	current, err := s.repo.GetByID(ctx, tenantID, userID, false, includeGlobal)
+	current, err := s.repo.GetByID(ctx, tenantID, userID, crossTenant, includeGlobal)
 	if err != nil {
 		if errors.Is(err, domainUsers.ErrNotFound) {
 			s.logger.Debug("user not found for update", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
@@ -209,11 +215,16 @@ func (s *Service) UpdateUser(ctx context.Context, tenantID, userID string, inclu
 		// 'super_admin' acá no da permisos, y aun así se valida con el mismo lookup
 		// cloakeado: dejarla libre permitiría pintar a un usuario como superadmin y,
 		// peor, sacarlo del filtro de cloaking de los listados de users.
-		tenantUUID, err := uuid.Parse(tenantID)
+		//
+		// Se valida contra current.TenantID (el tenant REAL del target), no contra
+		// tenantID (el de la request): bajo crossTenant=true esos dos pueden ser
+		// distintos, y tenant_can_use_role() debe evaluarse para el tenant donde
+		// el rol realmente se va a aplicar.
+		targetTenantUUID, err := uuid.Parse(current.TenantID)
 		if err != nil {
 			return nil, fmt.Errorf("%w: invalid tenant_id: %v", domainUsers.ErrValidation, err)
 		}
-		if err := appRoles.EnsureAssignable(ctx, s.roleRepo, *cmd.Role, tenantUUID, includeGlobal); err != nil {
+		if err := appRoles.EnsureAssignable(ctx, s.roleRepo, *cmd.Role, targetTenantUUID, includeGlobal); err != nil {
 			s.logger.Warn("rol no asignable en update user",
 				zap.String("tenant_id", tenantID), zap.String("role", *cmd.Role), zap.Error(err))
 			return nil, err

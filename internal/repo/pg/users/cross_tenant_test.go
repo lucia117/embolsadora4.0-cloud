@@ -45,8 +45,14 @@ func seedUserWithRole(t *testing.T, pool *pgxpool.Pool, tenantID, roleID string)
 	userID := uuid.New().String()
 	utrID := uuid.New().String()
 
+	// last_name se siembra explícito (a diferencia de first_name, que cae a
+	// COALESCE(u.first_name, u.name, '') en las lecturas) porque
+	// UpdateUser.Validate/Repository.Update validan el User completo, no solo
+	// los campos que cambian: sin esto, TestUpdateUserCrossTenantTrue... (que
+	// solo pisa FirstName) fallaba con "last_name is required" al reusar el
+	// last_name vacío que trae este fixture.
 	_, err := pool.Exec(ctx,
-		`INSERT INTO users (id, email, name, status) VALUES ($1, $2, 'Cross Tenant User', 'active')`,
+		`INSERT INTO users (id, email, name, last_name, status) VALUES ($1, $2, 'Cross Tenant User', 'Tenant', 'active')`,
 		userID, userID+"@xtenant.local")
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx,

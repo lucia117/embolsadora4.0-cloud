@@ -296,7 +296,7 @@ func (h *Handler) UpdateMe(c *gin.Context) {
 	}
 
 	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
-	updated, err := h.service.UpdateUser(c.Request.Context(), tenantID, user.ID, includeGlobal, cmd)
+	updated, err := h.service.UpdateUser(c.Request.Context(), tenantID, user.ID, false, includeGlobal, cmd)
 	if err != nil {
 		h.logger.Error("update me failed", zap.Error(err))
 		HandleError(c, err)
@@ -344,7 +344,8 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 	}
 
 	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
-	user, err := h.service.UpdateUser(c.Request.Context(), tenantID, userID, includeGlobal, cmd)
+	crossTenant := security.IsCrossTenantRole(c.Request.Context())
+	user, err := h.service.UpdateUser(c.Request.Context(), tenantID, userID, crossTenant, includeGlobal, cmd)
 	if err != nil {
 		h.logger.Error("update user failed", zap.Error(err))
 		HandleError(c, err)
