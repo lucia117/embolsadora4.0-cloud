@@ -371,7 +371,8 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 	h.logger.Debug("delete user request", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 
 	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
-	err := h.service.DeleteUser(c.Request.Context(), tenantID, userID, includeGlobal)
+	crossTenant := security.IsCrossTenantRole(c.Request.Context())
+	err := h.service.DeleteUser(c.Request.Context(), tenantID, userID, crossTenant, includeGlobal)
 	if err != nil {
 		h.logger.Error("delete user failed", zap.Error(err))
 		HandleError(c, err)

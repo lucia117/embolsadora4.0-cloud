@@ -29,7 +29,7 @@ func TestDeleteUser_SideDoorFix_NoPuedeBorrarSuperadminOculto(t *testing.T) {
 
 	// includeGlobal=false (caller no-superadmin): debe fallar con ErrNotFound, NO
 	// debe borrar la fila.
-	err := svc.DeleteUser(ctx, platformTenant, superID, false)
+	err := svc.DeleteUser(ctx, platformTenant, superID, false, false)
 	require.Error(t, err)
 
 	var deletedAt *string
@@ -38,7 +38,7 @@ func TestDeleteUser_SideDoorFix_NoPuedeBorrarSuperadminOculto(t *testing.T) {
 	require.Nil(t, deletedAt, "el usuario oculto NO debe quedar soft-deleted por un caller no-superadmin")
 
 	// includeGlobal=true (caller superadmin): debe poder borrarlo normalmente.
-	err = svc.DeleteUser(ctx, platformTenant, superID, true)
+	err = svc.DeleteUser(ctx, platformTenant, superID, false, true)
 	require.NoError(t, err)
 
 	scanErr = pool.QueryRow(ctx, "SELECT deleted_at::text FROM users WHERE id = $1", superID).Scan(&deletedAt)

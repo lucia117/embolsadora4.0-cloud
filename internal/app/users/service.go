@@ -236,6 +236,10 @@ func (s *Service) UpdateUser(ctx context.Context, tenantID, userID string, inclu
 
 // DeleteUser soft-deletes a user.
 // includeGlobal lo decide el handler vía security.CanSeePlatformInternals.
+// crossTenant lo decide el handler vía security.IsCrossTenantRole (Hallazgo C):
+// sin esto, el precheck de abajo solo podía resolver un usuario del tenant de
+// la request, así que un super_admin/platform_admin parado en un tenant
+// distinto al del target recibía 404 en vez de poder borrarlo.
 //
 // Resuelve el usuario con GetByID (mismo scoping que GetUser/UpdateUser) antes de
 // tocar el repo.Delete: repo.Delete no filtra por rol, así que sin este precheck un
@@ -243,10 +247,16 @@ func (s *Service) UpdateUser(ctx context.Context, tenantID, userID string, inclu
 // pudiera verlo — un efecto observable (el usuario oculto deja de poder operar)
 // que delata su existencia igual que un 403. Con el precheck, un usuario oculto
 // da 404 y el DELETE nunca se ejecuta.
-func (s *Service) DeleteUser(ctx context.Context, tenantID, userID string, includeGlobal bool) error {
+//
+// El DELETE en sí se ejecuta contra current.TenantID (el tenant REAL del target,
+// resuelto por el precheck), no contra el tenantID de la request: así
+// repo.Delete no necesita su propio parámetro crossTenant/escape hatch — ya
+// recibe el tenant correcto para el usuario que se está borrando.
+func (s *Service) DeleteUser(ctx context.Context, tenantID, userID string, crossTenant, includeGlobal bool) error {
 	s.logger.Debug("deleting user", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 
-	if _, err := s.repo.GetByID(ctx, tenantID, userID, false, includeGlobal); err != nil {
+	current, err := s.repo.GetByID(ctx, tenantID, userID, crossTenant, includeGlobal)
+	if err != nil {
 		if errors.Is(err, domainUsers.ErrNotFound) {
 			s.logger.Debug("user not found for deletion", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 			return err
@@ -255,8 +265,7 @@ func (s *Service) DeleteUser(ctx context.Context, tenantID, userID string, inclu
 		return err
 	}
 
-	err := s.repo.Delete(ctx, tenantID, userID)
-	if err != nil {
+	if err := s.repo.Delete(ctx, current.TenantID, userID); err != nil {
 		if errors.Is(err, domainUsers.ErrNotFound) {
 			s.logger.Debug("user not found for deletion", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 			return err
