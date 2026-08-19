@@ -310,7 +310,14 @@ func (s *Service) ListPendingUsers(ctx context.Context, tenantID string, include
 // includeGlobal lo decide el handler vía security.CanSeePlatformInternals: así un
 // platform_admin tampoco puede cambiarle el estado a un superadmin invisible, y
 // recibe el mismo 404 coherente con GetUser/ListUsers.
-func (s *Service) UpdateUserStatus(ctx context.Context, tenantID, userID, callerID, status string, includeGlobal bool) (*domainUsers.User, error) {
+// crossTenant lo decide el handler vía security.IsCrossTenantRole (extensión de
+// Hallazgo C acordada): sin esto, el precheck solo resolvía un usuario del
+// tenant de la request, y la mutación de abajo (userRoleRepo.UpdateStatus)
+// usaba ese mismo tenantID de la request en vez del tenant real del target —
+// un super_admin parado en tenantA no podía suspender a un usuario de
+// tenantB. Con el precheck resolviendo current.TenantID (el tenant real), la
+// mutación usa ese tenant resuelto, no el de la request.
+func (s *Service) UpdateUserStatus(ctx context.Context, tenantID, userID, callerID, status string, crossTenant, includeGlobal bool) (*domainUsers.User, error) {
 	// Guard: admin cannot deactivate themselves
 	if userID == callerID {
 		return nil, domainUsers.ErrCannotDeactivateSelf
@@ -329,8 +336,9 @@ func (s *Service) UpdateUserStatus(ctx context.Context, tenantID, userID, caller
 		return nil, domainUsers.ErrInvalidStatus
 	}
 
-	// Verify user belongs to this tenant (existence check only)
-	if _, err := s.repo.GetByID(ctx, tenantID, userID, false, includeGlobal); err != nil {
+	// Resolve the user (existence check + su tenant real, ver comentario arriba)
+	current, err := s.repo.GetByID(ctx, tenantID, userID, crossTenant, includeGlobal)
+	if err != nil {
 		if errors.Is(err, domainUsers.ErrNotFound) {
 			s.logger.Debug("user not found for status update", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 			return nil, err
@@ -339,7 +347,7 @@ func (s *Service) UpdateUserStatus(ctx context.Context, tenantID, userID, caller
 		return nil, err
 	}
 
-	tenantUUID, err := uuid.Parse(tenantID)
+	targetTenantUUID, err := uuid.Parse(current.TenantID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid tenant_id: %w", err)
 	}
@@ -348,7 +356,7 @@ func (s *Service) UpdateUserStatus(ctx context.Context, tenantID, userID, caller
 		return nil, fmt.Errorf("invalid user_id: %w", err)
 	}
 
-	_, err = s.userRoleRepo.UpdateStatus(ctx, userUUID, tenantUUID, utrStatus, includeGlobal)
+	_, err = s.userRoleRepo.UpdateStatus(ctx, userUUID, targetTenantUUID, utrStatus, includeGlobal)
 	if err != nil {
 		if errors.Is(err, domain.ErrNoActiveAssignment) {
 			s.logger.Warn("no active assignment found for status update",
@@ -365,12 +373,18 @@ func (s *Service) UpdateUserStatus(ctx context.Context, tenantID, userID, caller
 		zap.String("user_id", userID),
 		zap.String("status", status))
 
-	// Re-fetch to return the latest state (updatedAt reflects the mutation)
-	updated, err := s.repo.GetByID(ctx, tenantID, userID, false, includeGlobal)
-	if err != nil {
-		s.logger.Error("failed to re-fetch user after status update",
-			zap.String("tenant_id", tenantID), zap.String("user_id", userID), zap.Error(err))
-		return nil, err
-	}
-	return updated, nil
+	// Return current (ya resuelto arriba) en vez de re-fetchear: domainUsers.User
+	// no tiene un campo Status (el estado vive únicamente en user_tenant_roles),
+	// así que un GetByID posterior no aportaría nada nuevo — y de hecho es
+	// activamente incorrecto acá. GetByID resuelve tenant_id/role vía un JOIN
+	// LATERAL que exige t.status = 'active' (ver postgres.go); tras suspender o
+	// revocar la UTR que acabamos de mutar, ese JOIN ya no la encuentra, y para
+	// un usuario sin users.tenant_id legado (el caso normal, ver comentario en
+	// postgres.go:32) GetByID devolvía ErrNotFound pese a que la mutación fue
+	// exitosa — un bug preexistente e independiente de este fix, no capturado
+	// hasta ahora porque no había un test de integración que ejercitara el
+	// round-trip completo de Service.UpdateUserStatus. Ninguno de los otros
+	// campos de current (nombre, email, rol, tenant) cambia con un status
+	// update, así que devolverlo es equivalente y evita el re-fetch roto.
+	return current, nil
 }

@@ -201,7 +201,8 @@ func (h *Handler) UpdateUserStatus(c *gin.Context) {
 		zap.String("status", req.Status))
 
 	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
-	user, err := h.service.UpdateUserStatus(c.Request.Context(), tenantID, userID, callerID, req.Status, includeGlobal)
+	crossTenant := security.IsCrossTenantRole(c.Request.Context())
+	user, err := h.service.UpdateUserStatus(c.Request.Context(), tenantID, userID, callerID, req.Status, crossTenant, includeGlobal)
 	if err != nil {
 		h.logger.Error("update user status failed", zap.Error(err))
 		HandleError(c, err)
