@@ -99,22 +99,43 @@ func (r *PostgresRepository) ListByTenant(ctx context.Context, tenantID string, 
 // includeGlobal=false hace que un miembro con rol is_global sea indistinguible
 // de uno inexistente: ambos devuelven ErrNotFound → 404. Un 403 confirmaría que
 // el usuario existe, que es justamente lo que hay que no filtrar.
+//
+// crossTenant=true resuelve la membresía activa REAL del target (en el tenant
+// que sea, no solo en $2) vía un LEFT JOIN LATERAL — no un simple `OR $4` sobre
+// el join fijo a $2. Con un join fijo, un target de otro tenant siempre da
+// utr/r NULL, y COALESCE(r.is_global, FALSE) evalúa a TRUE incondicionalmente:
+// eso bypasea includeGlobal por completo (dejaría a un tenant_manager o
+// platform_admin —cross-tenant pero NO CanSeePlatformInternals— resolver un
+// super_admin ajeno) y además hace que role/tenant_id caigan al fallback legado
+// (u.role, $2) en vez de al dato real del target. Un usuario puede tener
+// membresías activas simultáneas en más de un tenant (raro pero real acá —
+// el índice único es (user_id, tenant_id), no (user_id) — ver
+// idx_utr_active_unique), así que el ORDER BY desempata determinísticamente:
+// la membresía del tenant de la request ($2) gana si existe, y si no, la más
+// reciente por assigned_at.
 func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, userID string, crossTenant, includeGlobal bool) (*users.User, error) {
 	query := `
 		SELECT u.id,
-		       COALESCE(u.tenant_id, $2) AS tenant_id,
+		       COALESCE(u.tenant_id, utr.tenant_id, $2) AS tenant_id,
 		       COALESCE(u.first_name, u.name, '') AS first_name,
 		       COALESCE(u.last_name, '') AS last_name,
 		       u.email,
 		       COALESCE(utr.role_id, u.role) AS role,
 		       u.image, u.created_at, u.updated_at, u.deleted_at
 		FROM users u
-		LEFT JOIN user_tenant_roles utr
-			ON utr.user_id = u.id AND utr.tenant_id = $2 AND utr.status = 'active'
+		LEFT JOIN LATERAL (
+			SELECT t.tenant_id, t.role_id
+			FROM user_tenant_roles t
+			WHERE t.user_id = u.id
+			  AND t.status = 'active'
+			  AND (t.tenant_id = $2 OR $4)
+			ORDER BY (t.tenant_id = $2) DESC, t.assigned_at DESC
+			LIMIT 1
+		) utr ON TRUE
 		LEFT JOIN roles r ON r.id = utr.role_id
 		WHERE u.id = $1
 		  AND u.deleted_at IS NULL
-		  AND (u.tenant_id = $2 OR utr.id IS NOT NULL OR $4)
+		  AND (u.tenant_id = $2 OR utr.tenant_id IS NOT NULL OR $4)
 		  AND (COALESCE(r.is_global, FALSE) = FALSE OR $3)
 	`
 

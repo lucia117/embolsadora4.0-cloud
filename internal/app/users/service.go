@@ -51,6 +51,9 @@ func (s *Service) ListUsers(ctx context.Context, tenantID string, limit, offset 
 
 // GetUser retrieves a single user by ID.
 // includeGlobal lo decide el handler vía security.CanSeePlatformInternals.
+// crossTenant es un eje separado, decidido vía security.IsCrossTenantRole: deja
+// resolver un usuario de un tenant distinto al de la request, pero no afecta el
+// cloaking de includeGlobal — ver el comentario de Repository.GetByID.
 func (s *Service) GetUser(ctx context.Context, tenantID, userID string, crossTenant, includeGlobal bool) (*domainUsers.User, error) {
 	s.logger.Debug("getting user", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 
