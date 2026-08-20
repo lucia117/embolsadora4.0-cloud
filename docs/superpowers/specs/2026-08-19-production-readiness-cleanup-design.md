@@ -107,6 +107,17 @@ Revisado `src/components/tenants/tenant-form.tsx` a fondo por análisis estátic
 
 No se pudo confirmar la causa raíz por análisis estático — candidatos no descartados: interacción con autofill del browser, un comportamiento de React 19/Zod no evidente en el código fuente, o que el bug ya no reproduzca (posible que se haya corregido indirectamente en un cambio posterior no relacionado). Plan: reproducir interactivamente (dev server + browser automation) llenando el form y forzando un error de validación real, antes de proponer cualquier fix — esto es un caso para `systematic-debugging`, no un diseño cerrado.
 
+### 🆕 Investigación completada (2026-08-19, sesión de cierre de producción) — no reproduce
+
+Se reprodujo interactivamente contra `mrgsrl` (dev server local apuntando al backend/DB reales de producción, login como Super Admin real):
+
+1. **Intento 1** — se llenaron todos los campos de "Información Básica" y "Dirección" (Calle, Ciudad, Provincia, Código Postal, País) con valores de prueba, se dejó vacío el email del admin (el único campo que dispara `form.setError('adminEmail', ...)` explícitamente en `tenant-form.tsx`), y se hizo submit. Apareció el error "Email del admin es requerido" — **todos los valores de dirección tipeados permanecieron intactos**, sin excepción.
+2. **Intento 2** — con el email ya completo, se vació el campo Ciudad para forzar el error de validación de Zod directamente sobre un campo de dirección (`react-hook-form` revalida en `onChange` tras el primer submit, así que el error "La ciudad es requerida" apareció sin necesidad de un segundo submit). **El resto de los campos de dirección (Calle, Provincia, Código Postal, País) permanecieron intactos.**
+
+**Conclusión**: el bug no reproduce con ninguno de los dos triggers de validación disponibles en el formulario actual. Esto es consistente con el análisis estático original: no existe ningún `form.reset()`, remount, ni refetch en el flujo de creación que pudiera limpiar valores — react-hook-form simplemente no toca campos que no fallaron su propia validación. No se identificó ningún cambio de código posterior al reporte original que explique una corrección indirecta; lo más probable es que el reporte original haya sido un caso puntual de autofill del browser interfiriendo, o una observación imprecisa del momento.
+
+**Cierre**: pendiente cerrado sin fix — no hay nada que reproducir ni arreglar en el estado actual del código. Si el problema reaparece, sería valioso capturar la secuencia exacta de acciones (incluyendo si el browser autocompletó algún campo) la próxima vez que ocurra.
+
 ---
 
 ## Sub-proyecto G — Decisiones diferidas documentadas (items #9, #15)
