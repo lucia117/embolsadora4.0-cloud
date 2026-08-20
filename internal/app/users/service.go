@@ -73,10 +73,13 @@ func (s *Service) GetUser(ctx context.Context, tenantID, userID string, crossTen
 
 // GetUserWithRoles retrieves a user and their active role assignment in the tenant.
 // includeGlobal lo decide el handler vía security.CanSeePlatformInternals.
-func (s *Service) GetUserWithRoles(ctx context.Context, tenantID, userID string, includeGlobal bool) (*domainUsers.UserWithRoles, error) {
+// crossTenant lo decide el handler vía security.IsCrossTenantRole (item #3 del
+// handoff 2026-08-19: el fix de Hallazgo A solo cubrió GetUser sin
+// include=roles, esta variante quedó con el mismo bug).
+func (s *Service) GetUserWithRoles(ctx context.Context, tenantID, userID string, crossTenant, includeGlobal bool) (*domainUsers.UserWithRoles, error) {
 	s.logger.Debug("getting user with roles", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 
-	uwr, err := s.repo.GetByIDWithRoles(ctx, tenantID, userID, includeGlobal)
+	uwr, err := s.repo.GetByIDWithRoles(ctx, tenantID, userID, crossTenant, includeGlobal)
 	if err != nil {
 		if errors.Is(err, domainUsers.ErrNotFound) {
 			s.logger.Debug("user not found", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
@@ -176,7 +179,13 @@ func (s *Service) CreateUser(ctx context.Context, tenantID string, cmd *domainUs
 // includeGlobal lo decide el handler vía security.CanSeePlatformInternals: resuelve
 // el usuario actual con el mismo scoping que GetUser, para que un usuario oculto dé
 // 404 antes de llegar al UPDATE — no 200/403, que confirmarían su existencia.
-func (s *Service) UpdateUser(ctx context.Context, tenantID, userID string, includeGlobal bool, cmd *domainUsers.UpdateUserCommand) (*domainUsers.User, error) {
+// crossTenant lo decide el handler vía security.IsCrossTenantRole (extensión de
+// Hallazgo C acordada): sin esto, un super_admin/platform_admin parado en un
+// tenant distinto al del target no podía editarlo. El UPDATE en sí no necesita
+// su propio crossTenant: repo.Update ya escribe contra current.TenantID (el
+// tenant real del target, resuelto acá abajo), no contra el tenantID de la
+// request.
+func (s *Service) UpdateUser(ctx context.Context, tenantID, userID string, crossTenant, includeGlobal bool, cmd *domainUsers.UpdateUserCommand) (*domainUsers.User, error) {
 	if err := cmd.Validate(); err != nil {
 		s.logger.Warn("invalid update user command", zap.String("tenant_id", tenantID), zap.String("user_id", userID), zap.Error(err))
 		return nil, fmt.Errorf("%w: %v", domainUsers.ErrValidation, err)
@@ -185,7 +194,7 @@ func (s *Service) UpdateUser(ctx context.Context, tenantID, userID string, inclu
 	s.logger.Debug("updating user", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 
 	// Get current user
-	current, err := s.repo.GetByID(ctx, tenantID, userID, false, includeGlobal)
+	current, err := s.repo.GetByID(ctx, tenantID, userID, crossTenant, includeGlobal)
 	if err != nil {
 		if errors.Is(err, domainUsers.ErrNotFound) {
 			s.logger.Debug("user not found for update", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
@@ -209,11 +218,16 @@ func (s *Service) UpdateUser(ctx context.Context, tenantID, userID string, inclu
 		// 'super_admin' acá no da permisos, y aun así se valida con el mismo lookup
 		// cloakeado: dejarla libre permitiría pintar a un usuario como superadmin y,
 		// peor, sacarlo del filtro de cloaking de los listados de users.
-		tenantUUID, err := uuid.Parse(tenantID)
+		//
+		// Se valida contra current.TenantID (el tenant REAL del target), no contra
+		// tenantID (el de la request): bajo crossTenant=true esos dos pueden ser
+		// distintos, y tenant_can_use_role() debe evaluarse para el tenant donde
+		// el rol realmente se va a aplicar.
+		targetTenantUUID, err := uuid.Parse(current.TenantID)
 		if err != nil {
 			return nil, fmt.Errorf("%w: invalid tenant_id: %v", domainUsers.ErrValidation, err)
 		}
-		if err := appRoles.EnsureAssignable(ctx, s.roleRepo, *cmd.Role, tenantUUID, includeGlobal); err != nil {
+		if err := appRoles.EnsureAssignable(ctx, s.roleRepo, *cmd.Role, targetTenantUUID, includeGlobal); err != nil {
 			s.logger.Warn("rol no asignable en update user",
 				zap.String("tenant_id", tenantID), zap.String("role", *cmd.Role), zap.Error(err))
 			return nil, err
@@ -236,6 +250,10 @@ func (s *Service) UpdateUser(ctx context.Context, tenantID, userID string, inclu
 
 // DeleteUser soft-deletes a user.
 // includeGlobal lo decide el handler vía security.CanSeePlatformInternals.
+// crossTenant lo decide el handler vía security.IsCrossTenantRole (Hallazgo C):
+// sin esto, el precheck de abajo solo podía resolver un usuario del tenant de
+// la request, así que un super_admin/platform_admin parado en un tenant
+// distinto al del target recibía 404 en vez de poder borrarlo.
 //
 // Resuelve el usuario con GetByID (mismo scoping que GetUser/UpdateUser) antes de
 // tocar el repo.Delete: repo.Delete no filtra por rol, así que sin este precheck un
@@ -243,10 +261,16 @@ func (s *Service) UpdateUser(ctx context.Context, tenantID, userID string, inclu
 // pudiera verlo — un efecto observable (el usuario oculto deja de poder operar)
 // que delata su existencia igual que un 403. Con el precheck, un usuario oculto
 // da 404 y el DELETE nunca se ejecuta.
-func (s *Service) DeleteUser(ctx context.Context, tenantID, userID string, includeGlobal bool) error {
+//
+// El DELETE en sí se ejecuta contra current.TenantID (el tenant REAL del target,
+// resuelto por el precheck), no contra el tenantID de la request: así
+// repo.Delete no necesita su propio parámetro crossTenant/escape hatch — ya
+// recibe el tenant correcto para el usuario que se está borrando.
+func (s *Service) DeleteUser(ctx context.Context, tenantID, userID string, crossTenant, includeGlobal bool) error {
 	s.logger.Debug("deleting user", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 
-	if _, err := s.repo.GetByID(ctx, tenantID, userID, false, includeGlobal); err != nil {
+	current, err := s.repo.GetByID(ctx, tenantID, userID, crossTenant, includeGlobal)
+	if err != nil {
 		if errors.Is(err, domainUsers.ErrNotFound) {
 			s.logger.Debug("user not found for deletion", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 			return err
@@ -255,8 +279,7 @@ func (s *Service) DeleteUser(ctx context.Context, tenantID, userID string, inclu
 		return err
 	}
 
-	err := s.repo.Delete(ctx, tenantID, userID)
-	if err != nil {
+	if err := s.repo.Delete(ctx, current.TenantID, userID); err != nil {
 		if errors.Is(err, domainUsers.ErrNotFound) {
 			s.logger.Debug("user not found for deletion", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 			return err
@@ -290,7 +313,14 @@ func (s *Service) ListPendingUsers(ctx context.Context, tenantID string, include
 // includeGlobal lo decide el handler vía security.CanSeePlatformInternals: así un
 // platform_admin tampoco puede cambiarle el estado a un superadmin invisible, y
 // recibe el mismo 404 coherente con GetUser/ListUsers.
-func (s *Service) UpdateUserStatus(ctx context.Context, tenantID, userID, callerID, status string, includeGlobal bool) (*domainUsers.User, error) {
+// crossTenant lo decide el handler vía security.IsCrossTenantRole (extensión de
+// Hallazgo C acordada): sin esto, el precheck solo resolvía un usuario del
+// tenant de la request, y la mutación de abajo (userRoleRepo.UpdateStatus)
+// usaba ese mismo tenantID de la request en vez del tenant real del target —
+// un super_admin parado en tenantA no podía suspender a un usuario de
+// tenantB. Con el precheck resolviendo current.TenantID (el tenant real), la
+// mutación usa ese tenant resuelto, no el de la request.
+func (s *Service) UpdateUserStatus(ctx context.Context, tenantID, userID, callerID, status string, crossTenant, includeGlobal bool) (*domainUsers.User, error) {
 	// Guard: admin cannot deactivate themselves
 	if userID == callerID {
 		return nil, domainUsers.ErrCannotDeactivateSelf
@@ -309,8 +339,9 @@ func (s *Service) UpdateUserStatus(ctx context.Context, tenantID, userID, caller
 		return nil, domainUsers.ErrInvalidStatus
 	}
 
-	// Verify user belongs to this tenant (existence check only)
-	if _, err := s.repo.GetByID(ctx, tenantID, userID, false, includeGlobal); err != nil {
+	// Resolve the user (existence check + su tenant real, ver comentario arriba)
+	current, err := s.repo.GetByID(ctx, tenantID, userID, crossTenant, includeGlobal)
+	if err != nil {
 		if errors.Is(err, domainUsers.ErrNotFound) {
 			s.logger.Debug("user not found for status update", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 			return nil, err
@@ -319,7 +350,7 @@ func (s *Service) UpdateUserStatus(ctx context.Context, tenantID, userID, caller
 		return nil, err
 	}
 
-	tenantUUID, err := uuid.Parse(tenantID)
+	targetTenantUUID, err := uuid.Parse(current.TenantID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid tenant_id: %w", err)
 	}
@@ -328,7 +359,7 @@ func (s *Service) UpdateUserStatus(ctx context.Context, tenantID, userID, caller
 		return nil, fmt.Errorf("invalid user_id: %w", err)
 	}
 
-	_, err = s.userRoleRepo.UpdateStatus(ctx, userUUID, tenantUUID, utrStatus, includeGlobal)
+	_, err = s.userRoleRepo.UpdateStatus(ctx, userUUID, targetTenantUUID, utrStatus, includeGlobal)
 	if err != nil {
 		if errors.Is(err, domain.ErrNoActiveAssignment) {
 			s.logger.Warn("no active assignment found for status update",
@@ -345,12 +376,18 @@ func (s *Service) UpdateUserStatus(ctx context.Context, tenantID, userID, caller
 		zap.String("user_id", userID),
 		zap.String("status", status))
 
-	// Re-fetch to return the latest state (updatedAt reflects the mutation)
-	updated, err := s.repo.GetByID(ctx, tenantID, userID, false, includeGlobal)
-	if err != nil {
-		s.logger.Error("failed to re-fetch user after status update",
-			zap.String("tenant_id", tenantID), zap.String("user_id", userID), zap.Error(err))
-		return nil, err
-	}
-	return updated, nil
+	// Return current (ya resuelto arriba) en vez de re-fetchear: domainUsers.User
+	// no tiene un campo Status (el estado vive únicamente en user_tenant_roles),
+	// así que un GetByID posterior no aportaría nada nuevo — y de hecho es
+	// activamente incorrecto acá. GetByID resuelve tenant_id/role vía un JOIN
+	// LATERAL que exige t.status = 'active' (ver postgres.go); tras suspender o
+	// revocar la UTR que acabamos de mutar, ese JOIN ya no la encuentra, y para
+	// un usuario sin users.tenant_id legado (el caso normal, ver comentario en
+	// postgres.go:32) GetByID devolvía ErrNotFound pese a que la mutación fue
+	// exitosa — un bug preexistente e independiente de este fix, no capturado
+	// hasta ahora porque no había un test de integración que ejercitara el
+	// round-trip completo de Service.UpdateUserStatus. Ninguno de los otros
+	// campos de current (nombre, email, rol, tenant) cambia con un status
+	// update, así que devolverlo es equivalente y evita el re-fetch roto.
+	return current, nil
 }

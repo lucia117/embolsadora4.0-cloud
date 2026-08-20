@@ -21,11 +21,14 @@ type Repository interface {
 	// visible, no afecta el scoping por tenant.
 	GetByID(ctx context.Context, tenantID, userID string, crossTenant, includeGlobal bool) (*users.User, error)
 
-	// GetByIDWithRoles retrieves a user with their active role assignment in the tenant.
-	// Returns ErrNotFound if user doesn't exist, is soft-deleted, or (includeGlobal=false) su
-	// rol activo es is_global — ver security.CanSeePlatformInternals.
+	// GetByIDWithRoles retrieves a user with their active role assignment.
+	// crossTenant=true resuelve la membresía activa REAL del target en
+	// cualquier tenant, no solo en tenantID — mismo patrón LATERAL que GetByID
+	// (ver su comentario para el detalle de por qué no alcanza un simple OR $N
+	// sobre un join fijo). Returns ErrNotFound if user doesn't exist, is
+	// soft-deleted, or (includeGlobal=false) su rol activo es is_global.
 	// The Roles field is an empty slice if no active UTR is found.
-	GetByIDWithRoles(ctx context.Context, tenantID, userID string, includeGlobal bool) (*users.UserWithRoles, error)
+	GetByIDWithRoles(ctx context.Context, tenantID, userID string, crossTenant, includeGlobal bool) (*users.UserWithRoles, error)
 
 	// ListPendingByTenant retrieves users with a pending UTR in the tenant.
 	ListPendingByTenant(ctx context.Context, tenantID string, includeGlobal bool) ([]*users.User, error)
