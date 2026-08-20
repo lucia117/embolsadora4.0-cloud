@@ -112,7 +112,9 @@ func (r *PostgresRepository) ListByTenant(ctx context.Context, tenantID string, 
 // el índice único es (user_id, tenant_id), no (user_id) — ver
 // idx_utr_active_unique), así que el ORDER BY desempata determinísticamente:
 // la membresía del tenant de la request ($2) gana si existe, y si no, la más
-// reciente por assigned_at.
+// reciente por assigned_at (NULLS LAST explícito: el default de Postgres para
+// DESC es NULLS FIRST, lo que haría ganar a una membresía sin assigned_at
+// aunque no sea la más reciente — item #7 del handoff 2026-08-19).
 func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, userID string, crossTenant, includeGlobal bool) (*users.User, error) {
 	query := `
 		SELECT u.id,
@@ -129,7 +131,7 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, userID strin
 			WHERE t.user_id = u.id
 			  AND t.status = 'active'
 			  AND (t.tenant_id = $2 OR $4)
-			ORDER BY (t.tenant_id = $2) DESC, t.assigned_at DESC
+			ORDER BY (t.tenant_id = $2) DESC, t.assigned_at DESC NULLS LAST
 			LIMIT 1
 		) utr ON TRUE
 		LEFT JOIN roles r ON r.id = utr.role_id
@@ -309,18 +311,24 @@ func (r *PostgresRepository) Delete(ctx context.Context, tenantID, userID string
 }
 
 // GetByIDWithRoles retrieves a user with their active role assignment in the tenant.
-// Uses LEFT JOINs so users without an active UTR still return with Roles: [].
-// Membership via user_tenant_roles also qualifies (see ListByTenant).
+// Uses a LEFT JOIN LATERAL (mismo patrón que GetByID) en vez de un join fijo a
+// $2, para poder resolver la membresía REAL del target bajo crossTenant=true —
+// ver el comentario de GetByID para el detalle completo de por qué un join fijo
+// no alcanza (bypasea includeGlobal, y role/tenant caen al fallback legado).
 //
 // includeGlobal=false aplica la misma regla de cloaking que GetByID: un miembro
 // con rol is_global es indistinguible de uno inexistente (ErrNotFound → 404).
 // Esta consulta expone además el nombre y permisos del rol, así que sin este
 // filtro el ?include=roles delataría no solo la existencia del super_admin sino
 // su rol completo — una fuga peor que la de GetByID.
-func (r *PostgresRepository) GetByIDWithRoles(ctx context.Context, tenantID, userID string, includeGlobal bool) (*users.UserWithRoles, error) {
+//
+// ORDER BY ... assigned_at DESC NULLS LAST: sin esto, una membresía activa con
+// assigned_at NULL ganaba el desempate por ser NULLS FIRST el default de
+// Postgres en DESC — lo mismo que se corrige en GetByID (item #7 del handoff 2026-08-19).
+func (r *PostgresRepository) GetByIDWithRoles(ctx context.Context, tenantID, userID string, crossTenant, includeGlobal bool) (*users.UserWithRoles, error) {
 	query := `
 		SELECT u.id,
-		       COALESCE(u.tenant_id, $2) AS tenant_id,
+		       COALESCE(u.tenant_id, utr.tenant_id, $2) AS tenant_id,
 		       COALESCE(u.first_name, u.name, '') AS first_name,
 		       COALESCE(u.last_name, '') AS last_name,
 		       u.email,
@@ -331,20 +339,23 @@ func (r *PostgresRepository) GetByIDWithRoles(ctx context.Context, tenantID, use
 		       r.name      AS role_name,
 		       r.permissions AS role_permissions
 		FROM users u
-		LEFT JOIN user_tenant_roles utr
-		    ON utr.user_id = u.id
-		    AND utr.tenant_id = $2
-		    AND utr.status = 'active'
-		LEFT JOIN roles r
-		    ON r.id = utr.role_id
-		    AND r.deleted_at IS NULL
+		LEFT JOIN LATERAL (
+			SELECT t.tenant_id, t.role_id
+			FROM user_tenant_roles t
+			WHERE t.user_id = u.id
+			  AND t.status = 'active'
+			  AND (t.tenant_id = $2 OR $4)
+			ORDER BY (t.tenant_id = $2) DESC, t.assigned_at DESC NULLS LAST
+			LIMIT 1
+		) utr ON TRUE
+		LEFT JOIN roles r ON r.id = utr.role_id AND r.deleted_at IS NULL
 		WHERE u.id = $1
 		  AND u.deleted_at IS NULL
-		  AND (u.tenant_id = $2 OR utr.id IS NOT NULL)
+		  AND (u.tenant_id = $2 OR utr.tenant_id IS NOT NULL OR $4)
 		  AND (COALESCE(r.is_global, FALSE) = FALSE OR $3)
 	`
 
-	row := r.db.QueryRow(ctx, query, userID, tenantID, includeGlobal)
+	row := r.db.QueryRow(ctx, query, userID, tenantID, includeGlobal, crossTenant)
 
 	var u users.User
 	var roleID *string
