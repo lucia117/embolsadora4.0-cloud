@@ -37,9 +37,12 @@ type CreateDeviceRequest struct {
 }
 
 // UpdateDeviceRequest is the request body for updating a device.
+// machineId / edgeType are immutable and ignored if sent.
 type UpdateDeviceRequest struct {
-	Name        *string `json:"name"`
-	Description *string `json:"description"`
+	Name             *string `json:"name"`
+	Description      *string `json:"description"`
+	RaspberryBaseURL *string `json:"raspberryBaseUrl"`
+	PLCAddress       *string `json:"plcAddress"`
 }
 
 // CheckResultResponse represents a check result in JSON.

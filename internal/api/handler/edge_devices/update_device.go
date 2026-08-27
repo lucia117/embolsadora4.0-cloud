@@ -3,6 +3,7 @@ package edge_devices
 import (
 	"errors"
 	"net/http"
+	"net/url"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -12,7 +13,8 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/platform"
 )
 
-// UpdateDevice updates a device's name and/or description.
+// UpdateDevice updates a device's mutable fields (name, description,
+// raspberryBaseUrl, plcAddress). machineId and edgeType are immutable.
 func UpdateDevice(service *edge_devices.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Extract tenant ID from context
@@ -37,10 +39,21 @@ func UpdateDevice(service *edge_devices.Service) gin.HandlerFunc {
 			return
 		}
 
+		// Validate raspberryBaseUrl as an http(s) URL when present
+		if req.RaspberryBaseURL != nil {
+			u, perr := url.ParseRequestURI(*req.RaspberryBaseURL)
+			if perr != nil || (u.Scheme != "http" && u.Scheme != "https") {
+				c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "VALIDATION_ERROR: raspberryBaseUrl inválida"})
+				return
+			}
+		}
+
 		// Build command
 		cmd := edgeerrors.UpdateDeviceCommand{
-			Name:        req.Name,
-			Description: req.Description,
+			Name:             req.Name,
+			Description:      req.Description,
+			RaspberryBaseURL: req.RaspberryBaseURL,
+			PLCAddress:       req.PLCAddress,
 		}
 
 		// Update device
