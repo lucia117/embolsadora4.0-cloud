@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -39,10 +40,16 @@ func UpdateDevice(service *edge_devices.Service) gin.HandlerFunc {
 			return
 		}
 
+		// Reject a blank name on update (CreateDevice guards this too).
+		if req.Name != nil && strings.TrimSpace(*req.Name) == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "VALIDATION_ERROR: name no puede estar vacío"})
+			return
+		}
+
 		// Validate raspberryBaseUrl as an http(s) URL when present
 		if req.RaspberryBaseURL != nil {
 			u, perr := url.ParseRequestURI(*req.RaspberryBaseURL)
-			if perr != nil || (u.Scheme != "http" && u.Scheme != "https") {
+			if perr != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 				c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "VALIDATION_ERROR: raspberryBaseUrl inválida"})
 				return
 			}

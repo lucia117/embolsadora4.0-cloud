@@ -93,6 +93,61 @@ func TestUpdateDeviceHandlerRechazaURLInvalida(t *testing.T) {
 	require.Empty(t, repo.updateCalls, "una URL inválida no debe llegar a persistirse")
 }
 
+func TestUpdateDeviceHandlerRechazaURLSoloEsquema(t *testing.T) {
+	repo := &handlerFakeRepo{device: &domain.EdgeDevice{
+		ID: uuid.New(), Name: "E", MachineID: "m", EdgeType: "RASPBERRY_PLC",
+		RaspberryBaseURL: "http://x", Status: "ACTIVE", LastHealthStatus: "UNKNOWN",
+	}}
+	r := newUpdateDeviceTestRouter(repo)
+
+	body := `{"raspberryBaseUrl":"http://"}`
+	req := httptest.NewRequest(http.MethodPut, "/edge-devices/"+uuid.NewString(), strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+	require.Contains(t, w.Body.String(), "VALIDATION_ERROR")
+	require.Empty(t, repo.updateCalls, "una URL sin host no debe llegar a persistirse")
+}
+
+func TestUpdateDeviceHandlerRechazaNombreVacio(t *testing.T) {
+	repo := &handlerFakeRepo{device: &domain.EdgeDevice{
+		ID: uuid.New(), Name: "E", MachineID: "m", EdgeType: "RASPBERRY_PLC",
+		RaspberryBaseURL: "http://x", Status: "ACTIVE", LastHealthStatus: "UNKNOWN",
+	}}
+	r := newUpdateDeviceTestRouter(repo)
+
+	body := `{"name":"   "}`
+	req := httptest.NewRequest(http.MethodPut, "/edge-devices/"+uuid.NewString(), strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusBadRequest, w.Code)
+	require.Contains(t, w.Body.String(), "VALIDATION_ERROR")
+	require.Empty(t, repo.updateCalls, "un nombre en blanco no debe llegar a persistirse")
+}
+
+func TestUpdateDeviceHandlerIgnoraCamposInmutables(t *testing.T) {
+	repo := &handlerFakeRepo{device: &domain.EdgeDevice{
+		ID: uuid.New(), Name: "E", MachineID: "m1", EdgeType: "RASPBERRY_PLC",
+		RaspberryBaseURL: "http://x", Status: "ACTIVE", LastHealthStatus: "UNKNOWN",
+	}}
+	r := newUpdateDeviceTestRouter(repo)
+
+	body := `{"name":"Nuevo","machineId":"hacked","edgeType":"OTRO"}`
+	req := httptest.NewRequest(http.MethodPut, "/edge-devices/"+uuid.NewString(), strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Body.String(), `"machineId":"m1"`)
+	require.Contains(t, w.Body.String(), `"edgeType":"RASPBERRY_PLC"`)
+	require.NotContains(t, w.Body.String(), "hacked")
+}
+
 func TestUpdateDeviceHandlerPersisteCamposNuevos(t *testing.T) {
 	repo := &handlerFakeRepo{device: &domain.EdgeDevice{
 		ID: uuid.New(), Name: "E", MachineID: "m", EdgeType: "RASPBERRY_PLC",
