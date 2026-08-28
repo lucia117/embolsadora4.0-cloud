@@ -82,7 +82,7 @@ func (s *Service) CreateDevice(ctx context.Context, tenantID uuid.UUID, cmd edge
 	return device, nil
 }
 
-// UpdateDevice updates an existing device (name, description).
+// UpdateDevice updates an existing device (name, description, raspberryBaseURL, plcAddress).
 func (s *Service) UpdateDevice(ctx context.Context, tenantID, deviceID uuid.UUID, cmd edge_devices.UpdateDeviceCommand) (*edge_devices.EdgeDevice, error) {
 	// Get current device
 	device, err := s.repo.GetByID(ctx, tenantID, deviceID)
@@ -103,6 +103,12 @@ func (s *Service) UpdateDevice(ctx context.Context, tenantID, deviceID uuid.UUID
 	}
 	if cmd.Description != nil {
 		device.Description = cmd.Description
+	}
+	if cmd.RaspberryBaseURL != nil {
+		device.RaspberryBaseURL = *cmd.RaspberryBaseURL
+	}
+	if cmd.PLCAddress != nil {
+		device.PLCAddress = cmd.PLCAddress
 	}
 
 	// Persist update

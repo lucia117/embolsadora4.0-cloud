@@ -11,8 +11,11 @@ type CreateDeviceCommand struct {
 }
 
 // UpdateDeviceCommand represents a request to update an edge device.
-// Both fields are optional (pointers indicate optionality).
+// All fields are optional (nil pointer = "leave unchanged").
+// machineId and edgeType are immutable and not part of the command.
 type UpdateDeviceCommand struct {
-	Name        *string
-	Description *string
+	Name             *string
+	Description      *string
+	RaspberryBaseURL *string
+	PLCAddress       *string
 }
