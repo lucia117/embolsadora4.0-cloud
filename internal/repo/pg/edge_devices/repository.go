@@ -105,14 +105,15 @@ func (r *PostgresRepository) Create(ctx context.Context, device *edge_devices.Ed
 func (r *PostgresRepository) Update(ctx context.Context, device *edge_devices.EdgeDevice) error {
 	query := `
 		UPDATE edge_devices
-		SET name = $1, description = $2, plc_address = $3, status = $4, updated_at = CURRENT_TIMESTAMP
-		WHERE tenant_id = $5 AND id = $6
+		SET name = $1, description = $2, plc_address = $3, raspberry_base_url = $4,
+		    status = $5, updated_at = CURRENT_TIMESTAMP
+		WHERE tenant_id = $6 AND id = $7
 		RETURNING updated_at
 	`
 
 	err := r.pool.QueryRow(ctx, query,
-		device.Name, device.Description, device.PLCAddress, device.Status,
-		device.TenantID, device.ID).Scan(&device.UpdatedAt)
+		device.Name, device.Description, device.PLCAddress, device.RaspberryBaseURL,
+		device.Status, device.TenantID, device.ID).Scan(&device.UpdatedAt)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
