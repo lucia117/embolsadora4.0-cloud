@@ -76,9 +76,10 @@ func TestRun_AppliesAndIsIdempotent(t *testing.T) {
 		t.Fatalf("expected translated perm_dashboard, got name=%q description=%q", permName, permDescription)
 	}
 
-	// Arrays leídos de la DB migrada a version 13 (000011 fine-grained users +
-	// 000013 reseed edge). El orden importa: 000013 hace `permissions - k || [...]`,
-	// que mueve las 4 claves perm_edge_devices_* al tail en el orden del literal.
+	// Conjuntos leídos de la DB migrada a version 13 (000011 fine-grained users +
+	// 000013 reseed edge). La comparación de abajo es order-independent (ordena
+	// copias de ambos lados), así que el orden en que 000013 hace
+	// `permissions - k || [...]` no importa — solo el conjunto de claves.
 	expectedRolePermissions := map[string][]string{
 		"super_admin": {
 			"perm_dashboard", "perm_alerts", "perm_reports", "perm_settings", "perm_maintenance",
@@ -101,16 +102,8 @@ func TestRun_AppliesAndIsIdempotent(t *testing.T) {
 		"operario": {
 			"perm_dashboard", "perm_alerts", "perm_reports_view", "perm_edge_devices_view", "perm_edge_devices_check",
 		},
-		// cliente_admin: la DB local de desarrollo trae `perm_users` (permiso
-		// grueso pre-000011) en vez de `perm_users_view`/`perm_users_manage` —
-		// suciedad de la DB local documentada en el ledger del controller, NO el
-		// estado que produce 000011 en limpio. El `want` de abajo es el array
-		// que una DB limpia (000011 + 000013) dejaría: base sin claves edge
-		// (perm_dashboard, perm_alerts, perm_reports_view, perm_users_view,
-		// perm_users_manage) + las claves edge que 000013 mueve al tail para
-		// cliente_admin (view, check, manage). Si la DB local está sucia, esta
-		// entrada falla con `got` conteniendo "perm_users"; eso es esperado y no
-		// bloquea (ver task-A4-report.md).
+		// cliente_admin: conjunto limpio que dejan 000011 (users fine-grained) +
+		// 000013 (reseed edge): base sin claves edge + view/check/manage.
 		"cliente_admin": {
 			"perm_dashboard", "perm_alerts", "perm_reports_view",
 			"perm_users_view", "perm_users_manage",
@@ -127,7 +120,13 @@ func TestRun_AppliesAndIsIdempotent(t *testing.T) {
 			"SELECT permissions FROM roles WHERE id = $1", roleID).Scan(&got); err != nil {
 			t.Fatalf("query role %s permissions: %v", roleID, err)
 		}
-		if !slices.Equal(got, want) {
+		// Order-independent: la migración usa `permissions - k || [...]`, que
+		// reordena el JSONB. Lo que importa es el conjunto de claves, no su orden.
+		gotSorted := slices.Clone(got)
+		wantSorted := slices.Clone(want)
+		slices.Sort(gotSorted)
+		slices.Sort(wantSorted)
+		if !slices.Equal(gotSorted, wantSorted) {
 			t.Fatalf("role %s: expected permissions %v, got %v", roleID, want, got)
 		}
 	}

@@ -89,6 +89,7 @@ func ResolveTenantAndCheckMembership(db *pgxpool.Pool) gin.HandlerFunc {
 					zap.String("user_id", user.ID),
 					zap.String("tenant_slug", tenantSlug),
 					zap.String("endpoint", c.Request.URL.Path),
+					zap.Error(err),
 				)
 				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"success": false, "error": "tenant access denied"})
 				return

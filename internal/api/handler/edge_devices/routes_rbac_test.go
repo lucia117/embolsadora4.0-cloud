@@ -80,6 +80,30 @@ func TestEdgeDevicesPostCreateRequiereCreateNoManage(t *testing.T) {
 	require.NotEqual(t, http.StatusForbidden, w3.Code, "perm_edge_devices_create debe pasar el gate de POST /edge-devices")
 }
 
+// TestEdgeDevicesCreateNoAbreManage es la assertion conversa de
+// TestEdgeDevicesPostCreateRequiereCreateNoManage: así como _manage no alcanza
+// para el alta, _create SOLO no alcanza para las rutas que piden _manage
+// (update / enable / disable).
+func TestEdgeDevicesCreateNoAbreManage(t *testing.T) {
+	const deviceID = "11111111-1111-1111-1111-111111111111"
+	cases := []struct {
+		method string
+		path   string
+	}{
+		{http.MethodPut, "/edge-devices/" + deviceID},
+		{http.MethodPost, "/edge-devices/" + deviceID + "/enable"},
+		{http.MethodPost, "/edge-devices/" + deviceID + "/disable"},
+	}
+	for _, tc := range cases {
+		r := newTestRouterWithRole(t, []string{"perm_edge_devices_create"})
+		req := httptest.NewRequest(tc.method, tc.path, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		require.Equal(t, http.StatusForbidden, w.Code,
+			"%s %s requiere perm_edge_devices_manage; _create solo no debe pasar el gate", tc.method, tc.path)
+	}
+}
+
 func TestEdgeDevicesStatusCheckRequiereCheckNoViewNiManage(t *testing.T) {
 	// Sin permisos: debe dar 403
 	rNoPerms := newTestRouterWithRole(t, nil)
