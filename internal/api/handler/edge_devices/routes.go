@@ -14,6 +14,7 @@ import (
 // solo faltaba cablearlos. Ver docs/superpowers/specs/2026-08-19-production-readiness-cleanup-design.md §C.
 func RegisterRoutes(g *gin.RouterGroup, service *edge_devices.Service) {
 	view := middleware.RBACCheck("perm_edge_devices_view")
+	create := middleware.RBACCheck("perm_edge_devices_create")
 	manage := middleware.RBACCheck("perm_edge_devices_manage")
 	check := middleware.RBACCheck("perm_edge_devices_check")
 
@@ -21,7 +22,7 @@ func RegisterRoutes(g *gin.RouterGroup, service *edge_devices.Service) {
 	g.GET("/edge-devices", view, ListDevices(service))
 
 	// US2 – Create
-	g.POST("/edge-devices", manage, CreateDevice(service))
+	g.POST("/edge-devices", create, CreateDevice(service))
 
 	// US3 – Get
 	g.GET("/edge-devices/:deviceId", view, GetDevice(service))

@@ -448,6 +448,7 @@ paths:
 
     post:
       summary: Register a new edge device
+      description: Requiere el permiso perm_edge_devices_create.
       operationId: createEdgeDevice
       tags: [Edge Devices]
       parameters:

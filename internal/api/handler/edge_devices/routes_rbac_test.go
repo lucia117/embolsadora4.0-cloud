@@ -57,18 +57,27 @@ func TestEdgeDevicesGetConPermisoViewPasaElGate(t *testing.T) {
 	require.NotEqual(t, http.StatusForbidden, w.Code, "con perm_edge_devices_view el request debe pasar el gate de RBAC")
 }
 
-func TestEdgeDevicesPostCreateSoloConManagePasaElGate(t *testing.T) {
+func TestEdgeDevicesPostCreateRequiereCreateNoManage(t *testing.T) {
+	// Solo view: 403
 	rView := newTestRouterWithRole(t, []string{"perm_edge_devices_view"})
 	req := httptest.NewRequest(http.MethodPost, "/edge-devices", nil)
 	w := httptest.NewRecorder()
 	rView.ServeHTTP(w, req)
-	require.Equal(t, http.StatusForbidden, w.Code, "perm_edge_devices_view no debe alcanzar para POST /edge-devices")
+	require.Equal(t, http.StatusForbidden, w.Code, "perm_edge_devices_view no alcanza para POST /edge-devices")
 
+	// Solo manage: 403 (manage ya no cubre el alta — ver migración 000013)
 	rManage := newTestRouterWithRole(t, []string{"perm_edge_devices_manage"})
 	req2 := httptest.NewRequest(http.MethodPost, "/edge-devices", nil)
 	w2 := httptest.NewRecorder()
 	rManage.ServeHTTP(w2, req2)
-	require.NotEqual(t, http.StatusForbidden, w2.Code, "perm_edge_devices_manage debe pasar el gate de POST /edge-devices")
+	require.Equal(t, http.StatusForbidden, w2.Code, "perm_edge_devices_manage no alcanza para POST /edge-devices, requiere _create")
+
+	// Con create: pasa el gate
+	rCreate := newTestRouterWithRole(t, []string{"perm_edge_devices_create"})
+	req3 := httptest.NewRequest(http.MethodPost, "/edge-devices", nil)
+	w3 := httptest.NewRecorder()
+	rCreate.ServeHTTP(w3, req3)
+	require.NotEqual(t, http.StatusForbidden, w3.Code, "perm_edge_devices_create debe pasar el gate de POST /edge-devices")
 }
 
 func TestEdgeDevicesStatusCheckRequiereCheckNoViewNiManage(t *testing.T) {
@@ -86,8 +95,8 @@ func TestEdgeDevicesStatusCheckRequiereCheckNoViewNiManage(t *testing.T) {
 	rView.ServeHTTP(w, req)
 	require.Equal(t, http.StatusForbidden, w.Code, "perm_edge_devices_view no alcanza para status check, requiere _check")
 
-	// Con solo manage: no alcanza, debe dar 403
-	// (admin tiene manage pero no check per seed — no puede correr chequeos)
+	// Con solo manage: no alcanza, debe dar 403.
+	// (manage nunca implicó check; son permisos independientes en el seed)
 	rManage := newTestRouterWithRole(t, []string{"perm_edge_devices_manage"})
 	req = httptest.NewRequest(http.MethodPost, "/edge-devices/11111111-1111-1111-1111-111111111111/status", nil)
 	w = httptest.NewRecorder()
