@@ -101,7 +101,7 @@ func TestEdgeDevicesStatusCheckRequiereCheckNoViewNiManage(t *testing.T) {
 	req = httptest.NewRequest(http.MethodPost, "/edge-devices/11111111-1111-1111-1111-111111111111/status", nil)
 	w = httptest.NewRecorder()
 	rManage.ServeHTTP(w, req)
-	require.Equal(t, http.StatusForbidden, w.Code, "perm_edge_devices_manage no alcanza para status check, requiere _check (per migrations/000005:35-38, admin NO tiene _check)")
+	require.Equal(t, http.StatusForbidden, w.Code, "perm_edge_devices_manage no alcanza para status check, requiere _check")
 
 	// Con check: debe pasar el gate
 	rCheck := newTestRouterWithRole(t, []string{"perm_edge_devices_check"})

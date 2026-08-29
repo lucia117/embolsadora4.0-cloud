@@ -8,10 +8,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"go.uber.org/zap"
 	"github.com/tu-org/embolsadora-api/internal/domain"
 	"github.com/tu-org/embolsadora-api/internal/platform"
 	"github.com/tu-org/embolsadora-api/internal/security"
+	"go.uber.org/zap"
 )
 
 // ResolveTenantAndCheckMembership resolves the tenant from the :tenantId subdomain
