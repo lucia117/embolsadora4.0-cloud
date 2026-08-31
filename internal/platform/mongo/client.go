@@ -20,9 +20,11 @@ type Client struct {
 	db     *mongodriver.Database
 }
 
-// Connect abre la conexion y verifica que el servidor responda. Falla rapido:
-// si Mongo no esta disponible al arrancar, la ingesta no puede cumplir su
-// contrato y es preferible no levantar a aceptar eventos que se van a perder.
+// Connect abre la conexion y verifica que el servidor responda, devolviendo
+// error si Mongo no esta disponible. Connect NO decide fatal vs degradado —
+// eso es responsabilidad del llamador: routes/url_mappings.go arranca la API
+// igual ante este error y deja la ingesta degradada (responde 500) en vez de
+// tumbar el resto de los endpoints, que no dependen de Mongo.
 func Connect(ctx context.Context, cfg config.MongoConfig) (*Client, error) {
 	pingCtx, cancel := context.WithTimeout(ctx, cfg.Timeout)
 	defer cancel()

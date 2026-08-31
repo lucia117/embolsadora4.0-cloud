@@ -5,7 +5,9 @@ import "context"
 // Repository persiste mediciones.
 //
 // La idempotencia es responsabilidad de la implementacion —un indice unico
-// sobre eventId— y no del service. Resolverla en la aplicacion (leer, decidir,
+// compuesto (tenantId, eventId), no solo sobre eventId: eventId no lleva el
+// tenant adentro, y dos tenants distintos pueden generarlo igual de forma
+// legitima— y no del service. Resolverla en la aplicacion (leer, decidir,
 // escribir) tendria una condicion de carrera entre dos batches concurrentes con
 // el mismo evento; la base no la tiene.
 type Repository interface {

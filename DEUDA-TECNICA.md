@@ -403,14 +403,49 @@ Decisiones a tomar en la rama que lo implemente:
 
 ---
 
+### 11. Mensaje de 403 Distingue Header Ausente de API Key Invalida
+**Severity**: BAJA
+**Status**: ACEPTADO (no se va a corregir)
+**Detectado por**: GitHub Copilot Code Review (PR #56)
+**Fecha**: 2026-08-31
+
+#### Problema
+`internal/consumers/middleware/middleware.go` (`APIKeyAuth`) responde 403 tanto
+si falta el header `X-Api-Key` como si la key es invalida, pero con mensajes
+distintos (`"falta el header X-Api-Key"` vs `"API key invalida"`). Un cliente
+—o un atacante— puede distinguir "no mandaste credencial" de "tu credencial es
+incorrecta" aunque el status code sea igual, lo que en el patrón clásico de
+login es un oráculo de enumeración de usuarios.
+
+#### Por qué se acepta como está
+Ese patrón no aplica ONE a ONE aca: el secreto es la propia API key
+(`emb_<key_id>_<secret>`, 32 bytes de entropia, ver `internal/domain/apikeys/keygen.go`),
+no un identificador de cuenta enumerable como un email o username. Conocer que
+"falta el header" no acerca a un atacante a adivinar una key valida — no hay
+superficie de enumeración real que explotar. A cambio, la distinción es útil
+para diagnosticar problemas de configuración del Edge Pi Service en producción
+(header no seteado vs. key rotada/revocada son causas y remediaciones
+distintas).
+
+#### Ubicación
+- **Archivo**: `internal/consumers/middleware/middleware.go`, función `APIKeyAuth` (~líneas 24 y 34)
+
+#### Si se revisita
+Si en algún momento las API keys dejan de ser el único secreto (por ejemplo si
+se agrega un identificador de device público separado del secreto), reevaluar:
+ahí sí podría haber una superficie de enumeración real y valdría la pena
+colapsar ambos mensajes a uno genérico.
+
+---
+
 ## 📊 Resumen por Severidad
 
 | Severidad | Cantidad | Fix Before | Archivos |
 |-----------|----------|------------|----------|
 | 🔴 ALTA | 2 | MVP Completamente | 4 |
 | 🟡 MEDIA | 6 | Pre-Release | 11 |
-| 🟢 BAJA | 2 | Nice-to-Have | 4 |
-| **TOTAL** | **10** | | **19** |
+| 🟢 BAJA | 3 | Nice-to-Have | 5 |
+| **TOTAL** | **11** | | **20** |
 
 ---
 
@@ -428,6 +463,7 @@ Decisiones a tomar en la rama que lo implemente:
 | 8 | Docs Comandos | ⏳ NO INICIADO | - | - |
 | 9 | Telemetry Mismatch | ⏳ NO INICIADO | - | - |
 | 10 | Sin Shutdown Gracioso HTTP | ⏳ NO INICIADO | - | - |
+| 11 | Mensaje 403 distingue header ausente de key invalida | ✅ ACEPTADO | PR #56 | Ver justificación arriba |
 
 ---
 
