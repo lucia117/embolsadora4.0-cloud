@@ -39,6 +39,22 @@ services:
     networks:
       - embolsadora_network
 
+  mongo:
+    image: mongo:7
+    container_name: embolsadora_mongo
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - embolsadora_network
+
   api:
     build: 
       context: .
@@ -49,11 +65,21 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      mongo:
+        condition: service_healthy
     environment:
       APP_ENV: local
       PORT: 8080
       DATABASE_URL: postgres://embolsadora_user:embolsadora_password@db:5432/embolsadora_dev?sslmode=disable
       REDIS_URL: redis://:embolsadora_redis_pass@redis:6379/0
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DATABASE: embolsadora
+      MONGO_TIMEOUT: 10s
+      INGEST_MAX_BODY_BYTES: 4194304
+      INGEST_MAX_EVENTS: 1000
+      INGEST_RATE_LIMIT_RPS: 200
+      INGEST_RATE_LIMIT_BURST: 1000
+      APIKEY_CACHE_TTL: 60s
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_JWKS_URL: ${SUPABASE_JWKS_URL}
       SUPABASE_JWT_ISSUER: ${SUPABASE_JWT_ISSUER}
@@ -77,3 +103,4 @@ networks:
 volumes:
   postgres_data:
   redis_data:
+  mongo_data:

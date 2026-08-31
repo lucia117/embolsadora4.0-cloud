@@ -6,13 +6,18 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/app/edge_devices"
 )
 
-// RegisterRoutes registers all edge device endpoints on the given Gin group.
+// RegisterRoutes registra los endpoints de edge devices.
 //
-// Hasta esta fix, ningún endpoint acá tenía RBACCheck — cualquier miembro
-// autenticado del tenant (incluido operario) podía crear/actualizar/habilitar
-// dispositivos. Los permission ids ya existían en el seed (migración 000011),
-// solo faltaba cablearlos. Ver docs/superpowers/specs/2026-08-19-production-readiness-cleanup-design.md §C.
-func RegisterRoutes(g *gin.RouterGroup, service *edge_devices.Service) {
+// Hasta la fix de producction-readiness, ningún endpoint acá tenía RBACCheck —
+// cualquier miembro autenticado del tenant (incluido operario) podía
+// crear/actualizar/habilitar dispositivos. Los permission ids ya existían en
+// el seed (migración 000011), solo faltaba cablearlos. Ver
+// docs/superpowers/specs/2026-08-19-production-readiness-cleanup-design.md §C.
+//
+// writeGroup lleva RBACCheck("machines:write"): emitir/revocar credenciales
+// que dan acceso de escritura a la ingesta no puede ser una operacion de
+// solo-lectura.
+func RegisterRoutes(g *gin.RouterGroup, writeGroup *gin.RouterGroup, service *edge_devices.Service) {
 	view := middleware.RBACCheck("perm_edge_devices_view")
 	create := middleware.RBACCheck("perm_edge_devices_create")
 	manage := middleware.RBACCheck("perm_edge_devices_manage")
@@ -50,4 +55,10 @@ func RegisterRoutes(g *gin.RouterGroup, service *edge_devices.Service) {
 
 	// US9 – Events
 	g.GET("/edge-devices/:deviceId/events", view, ListEvents(service))
+
+	// API keys del device: emitir/revocar pasan por writeGroup (machines:write);
+	// listar solo expone metadata (no el secreto), alcanza con _view.
+	writeGroup.POST("/edge-devices/:deviceId/api-keys", CreateAPIKey(service))
+	g.GET("/edge-devices/:deviceId/api-keys", view, ListAPIKeys(service))
+	writeGroup.DELETE("/edge-devices/:deviceId/api-keys/:keyId", RevokeAPIKey(service))
 }

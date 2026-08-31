@@ -348,14 +348,104 @@ ram:
 
 ---
 
+### 10. Sin Shutdown Gracioso del Servidor HTTP
+**Severity**: MEDIA
+**Status**: NO INICIADO
+**Detectado por**: Revisión manual (sesión Claude Code)
+**Fecha**: 2026-08-27
+
+#### Problema
+`cmd/api/main.go` arranca el servidor con `srv.ListenAndServe()` (línea 106) pero no hay ningún manejo de señales ni llamada a `srv.Shutdown()` en todo el repo — confirmado por grep sin resultados para `signal.Notify|\.Shutdown\(|os/signal|SIGTERM|SIGINT`.
+
+Cuando el proceso recibe SIGTERM (redeploy en Koyeb, `docker stop`, etc.), el runtime de Go mata el proceso de inmediato, sin oportunidad de drenar conexiones en curso.
+
+#### Impacto
+- Requests en vuelo se cortan a mitad de camino en cada deploy — por ejemplo un `POST /api/v1/consumers/events` con batch de hasta 4 MiB a mitad de lectura, o un insert a Mongo en curso.
+- El branch `err != http.ErrServerClosed` de `cmd/api/main.go:106` es código muerto: nada llama `Shutdown()`, así que `ListenAndServe()` nunca devuelve `http.ErrServerClosed`.
+- Cada deploy tiene una ventana de pérdida de respuestas/datos para clientes conectados en ese momento (Edge Pi Service incluido).
+
+#### Ubicación
+- **Archivo**: `cmd/api/main.go`, bloque de arranque del servidor (líneas ~96-108, el mismo `http.Server` explícito agregado en `fix(http): timeouts explicitos en el server y bound en la llamada a Mongo`)
+
+#### Solución Requerida
+Capturar SIGINT/SIGTERM con `signal.NotifyContext`, mover `ListenAndServe()` a una goroutine, y llamar `srv.Shutdown(ctx)` con timeout al recibir la señal:
+
+```go
+import (
+    "os/signal"
+    "syscall"
+)
+
+// ...
+
+go func() {
+    log.Printf("Starting server on :%s", cfg.HTTP.Port)
+    if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+        log.Fatalf("Server error: %v", err)
+    }
+}()
+
+ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+defer stop()
+<-ctx.Done()
+
+shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+defer cancel()
+if err := srv.Shutdown(shutdownCtx); err != nil {
+    log.Printf("graceful shutdown failed: %v", err)
+}
+```
+
+Decisiones a tomar en la rama que lo implemente:
+- Timeout de `Shutdown` (sugerido 15s — el comentario del bloque `http.Server` ya referencia `mongoTimeout` como el bound del lado Mongo; alinear ambos valores si tiene sentido).
+- `db` (pgxpool) y `redisClient` ya se cierran vía `defer` al final de `main()` (líneas 51 y donde corresponda); con este cambio esos `defer` siguen corriendo después de que `Shutdown()` retorna, así que no deberían necesitar tocarse — solo confirmarlo al implementar.
+- Reemplazar `log.Printf`/`log.Fatalf` por el logger `zap` ya inicializado (`logger`) para consistencia con el resto del archivo, si se toca esta zona igual.
+
+---
+
+### 11. Mensaje de 403 Distingue Header Ausente de API Key Invalida
+**Severity**: BAJA
+**Status**: ACEPTADO (no se va a corregir)
+**Detectado por**: GitHub Copilot Code Review (PR #56)
+**Fecha**: 2026-08-31
+
+#### Problema
+`internal/consumers/middleware/middleware.go` (`APIKeyAuth`) responde 403 tanto
+si falta el header `X-Api-Key` como si la key es invalida, pero con mensajes
+distintos (`"falta el header X-Api-Key"` vs `"API key invalida"`). Un cliente
+—o un atacante— puede distinguir "no mandaste credencial" de "tu credencial es
+incorrecta" aunque el status code sea igual, lo que en el patrón clásico de
+login es un oráculo de enumeración de usuarios.
+
+#### Por qué se acepta como está
+Ese patrón no aplica ONE a ONE aca: el secreto es la propia API key
+(`emb_<key_id>_<secret>`, 32 bytes de entropia, ver `internal/domain/apikeys/keygen.go`),
+no un identificador de cuenta enumerable como un email o username. Conocer que
+"falta el header" no acerca a un atacante a adivinar una key valida — no hay
+superficie de enumeración real que explotar. A cambio, la distinción es útil
+para diagnosticar problemas de configuración del Edge Pi Service en producción
+(header no seteado vs. key rotada/revocada son causas y remediaciones
+distintas).
+
+#### Ubicación
+- **Archivo**: `internal/consumers/middleware/middleware.go`, función `APIKeyAuth` (~líneas 24 y 34)
+
+#### Si se revisita
+Si en algún momento las API keys dejan de ser el único secreto (por ejemplo si
+se agrega un identificador de device público separado del secreto), reevaluar:
+ahí sí podría haber una superficie de enumeración real y valdría la pena
+colapsar ambos mensajes a uno genérico.
+
+---
+
 ## 📊 Resumen por Severidad
 
 | Severidad | Cantidad | Fix Before | Archivos |
 |-----------|----------|------------|----------|
 | 🔴 ALTA | 2 | MVP Completamente | 4 |
-| 🟡 MEDIA | 5 | Pre-Release | 10 |
-| 🟢 BAJA | 2 | Nice-to-Have | 4 |
-| **TOTAL** | **9** | | **18** |
+| 🟡 MEDIA | 6 | Pre-Release | 11 |
+| 🟢 BAJA | 3 | Nice-to-Have | 5 |
+| **TOTAL** | **11** | | **20** |
 
 ---
 
@@ -372,6 +462,8 @@ ram:
 | 7 | Timestamps Update | ⏳ NO INICIADO | - | - |
 | 8 | Docs Comandos | ⏳ NO INICIADO | - | - |
 | 9 | Telemetry Mismatch | ⏳ NO INICIADO | - | - |
+| 10 | Sin Shutdown Gracioso HTTP | ⏳ NO INICIADO | - | - |
+| 11 | Mensaje 403 distingue header ausente de key invalida | ✅ ACEPTADO | PR #56 | Ver justificación arriba |
 
 ---
 

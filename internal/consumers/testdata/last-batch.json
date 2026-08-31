@@ -1,0 +1,1516 @@
+{
+  "events": [
+    {
+      "eventId": "c80240ebc4761f8562a4e70936f9e5c51976ef6a33e20321b6a1f4992fac5d0d",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:37.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "41ede0572a6ccc7498629a6cf31f117b9439c718db8f86c70ec4f3abe7bdb86d",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:37.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "ba4fb4c2ed5f3a27019153e30ffce3c319628d82ec70e44cf66196c08efd00ff",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:37.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "2fd5a5d3db5fbc91881bd1544ffb634011d835e8723e67745695028856b70694",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:37.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "74d70cb64b0c94c1ac6c640d255ee8a6d42b0713aad0941622c0660123a15005",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:38.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "9122caf656894d480f0ee938f5ef83fa486c09f26e10dd5b459d47749b9fa3f9",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:38.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "26d1e049f64eef1ad9d3d641dcaf7915c0f6d7fd48966fb0d057eb18bf361f04",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:38.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "a7604762ad4eeccb000a2628aeadb411bab34944812665e5a59360f5ce66c93c",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:38.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "c76e2a0fe455fafc0c9d0cd722111ef7ffa31b10b3fff8f942553b59804bef10",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:39.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "9432fb8706bcb17b862d687474d25ba361cb988c2a851dfdf1dd69a67b4162bb",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:39.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "046921999265af1e93d6a76f2ec206fdbde1ae54255953a8bfdc68bf3fac3ab3",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:39.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "6f6f12f00a4549d205f7304347eac07e62130d419d60194edab990fce9651c7a",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:39.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "715c8a40684ca031abadd33885543f6995a1692f81ad122e315a531a05a57257",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:40.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "9d5eaceeda2f1f1fc5841d63859e3438d14e0ddec4548877590b015712305473",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:40.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "6574f171494c7dcb98ab7ffa9b36674bdc0c44221a409d74ba53813ff52e5029",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:40.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "bdbb9057718095ef27da4557948677915df59bce33d4df4194b9cd9ff8d89233",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:40.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "57ac1366842d2d42267d6282051ec322ce8db157e3a95d08868d2d79a7e6566b",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:41.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "d6acc04fe1e61d02f7c0c58071922031a0bb8922f282ca2b545077be76ca7e97",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:41.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "59ddda5749f82c33d7915b2b882945248cbf41d9e7fc12757e7f29bcf9ebca74",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:41.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "37938f890ef24d48aff8e630a43a6e5bb33ef4b11284645e0b680bdb99767076",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:41.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "7d0a1cd2a1cfb1cc4eca3025936cd0419f3ae792060ceca1aefecb6e6699d15c",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:42.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "866cd3d21b7fbec0b373cba424acd138d128db96d269f8129abcc19d7a880550",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:42.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "c8cc6362d8cad4bb3c3836c4ed11f39787cefe2ad1276f48ded857d78fff4a15",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:42.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "8954f244f17b87c331719a461a1b3b19932c6c1726f82aabf51d2bcce55ef6a6",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:42.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "e5aa7ee11154f419714ac33b0b6c0389e1dc6e68e6311e245615ce31ac03290d",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:43.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "3f92647b64acf045d0484b88e86bf8f724776d1500805a55bce85b2ea82e9fb2",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:43.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "f63432a84a50ef8cbb5b8fb99c9ef032985db0a7caee1ed339635ec9fb79e23a",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:43.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "63b813760e7607405b61b079f905650e93c747e1badd8c80eade7d748d649635",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:43.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "25d30f986087fb4c301f2968b1de7137f3f7e07e7a9f15ffa93cdf0a4cef9850",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:44.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "236532d7d4f0c630e43dda9931528e2bc3cd3d26b15fe410336dc832024e851a",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:44.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "53876283d852bc1b779d1875cff833d51f3dae26d5643b2740bfee16e2fb873e",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:44.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "3cd7bfc1536eba6ad9f979e30793014500e1de657f54d94c35c349b5331fb191",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:44.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "7f6f5697bf7d7d8d65da545b232c24e9dd46ab4fc306db48678d1f6a6ad851b8",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:45.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "07d87b5fc5709b66038f8df4342d9ad6b488479ee901008e3b471954a6070347",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:45.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "c2ceb0c1b350e8fe9be70416e6ecab016d9d2f3575241e2503b84d113a14fd08",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:45.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "621405a2a28d794b6acb3f39c13c5aac3d9bd3f6ba70d1838839480cadefc810",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:45.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "3fb1404e1aef0d340ff77474fc6b99e670cc591949e1c14f21ce7741189f2ef0",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:46.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "11813fc5303515fc6edef40f2e49090574f92291e5c20dea0ef515eebe128fe5",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:46.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "6efe78f8f433567ef3d281d4b9044ffa5b9a6f02a7c79e9e60bb7cb42140c66c",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:46.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "65962ac6bd03715429780f59aa02f02887d2e0c586602bd53b534d219bc845a2",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:46.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "3ca2203d08fd45a3e92029d69de2511d991d594ac2dbe908b6a56b933f1e95ef",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:47.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "436e0fb6a4de59a7d372cfa117f0e01cb7c8ec879be99384361d8b2d25461461",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:47.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "b12ae9781d39378aef6c2f59262be46c94a7b55561f3094eaf401e82e495b07c",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:47.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "16c13967b185e7df3148bdfa1ea536f1bf1ea8c351df645d1debb28b723348ba",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:47.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "57fefd7cbb7f6a2e97b0e317d98d68b1b615e9925dcbb92619384bdca794bd8f",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:48.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "2616d943d48e6f454a275705c20f5e6e4d47959cd5fcbead9f56145c1932f332",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:48.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "9897317bd81314bdbff4947f5843eefb39f7f60a5b34e167fc6fea56980baec2",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:48.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "4c3ab28fe1390240922a617bc232ab4433410ae681f371c8bd548387cb7663cf",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:48.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "b74f40ed6046807b48beb635d68194df792fb029801068575bcdb41bfa1ec3d5",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:49.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "0cdc70a74c4ca3f4eb121e41d6fedfdda6f326a946a710842ab5803f9edbc127",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:49.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "7e371143c7261112f03f6e534e908483c5faee359cc91e7aac20a36e4fd5a63b",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:49.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "051a1b12cb3346f6719b4037709b8f6ecb684e0f2af7508c34671fd6ff06dbd4",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:49.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "4ba3f467ab70fce12407019e02801cf0688b421b4d212615ffce6c4ca573a663",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:50.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "c5b5b4085225abcb15cd8c4ef8843c44e4646f56953c666fe10c9926118fc5bc",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:50.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "d72eaa3b5a66bc938478b7a5fcb69859a352c8c47baa4e17356d8ca4fcce1d8a",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:50.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "4fd3dbcf775b69421296c2b78892ffaf0025d83f6fd8354e84aa6c230abd02a7",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:50.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "d5a37ed2067ec1a4a81bba4ce0dffd6d440d3c62048a3fa13bcffb64b2d2ca44",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:51.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "fb45fa754e7d7764bc76e0199ba1ee41a1167ee2252c427a4b6cff031e7aa910",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:51.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "82b9f867c2bca1ee32aac03e638c7d8874b52c95e7abd76e34752c1df5dd08a4",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:51.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "cde25d2779b6fa830aac4629426028a0da1781507c072e8b0c551d0932c1a097",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:51.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "835118155ad71f833824fb979d91ff69465e2c5139dcd41e148517faf2dacc69",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:52.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "ad2e43fb5fd7e28fc378ff107c31c606066c4f6b3465da58cfea04cea8b6b075",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:52.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "a6d9a8dab7384c6a9b7a73fd783efc5e123746b8499578054f8e792bb2ecfb2a",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:52.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "3a6f708abfbde0008527a31e2ace9238d49d85e82922adebebf9703f2938f5bb",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:52.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "09f49eb67f4a6a9f9ade5a45e693e54aa74b2b8009ed23e1fc0599dd5e4bdb1b",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:53.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "82f9b7af02cec38751ff48fd4ca7d489c360b7994bc58fb3cfb39a0921c75221",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:53.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "be5bb51a3e35abe4a5cffc1733262ba74b6cb886e945b1bb256f70769c5c77d0",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:53.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "b6a4cf1373356997822ac7b70abe12e71e7d44a7163d64d2b644aceacef1e018",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:53.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "d40a0976eb4ebff423ea3cf76733a9c6c5e2a359443604ad45dfb3e4185846df",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:54.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "4514cb270a51422cfe1b5dbbf13413a5c462d6f4216322c17695da3ba6874120",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:54.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "b559333aac5f67abe4d8ce631bcf74154c753ad2efbb2c1615188aa43aa6478e",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:54.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "2fb3991a8a54e425f9647729f7bda07351ce300442191cd88db3a8949fcf2a51",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:54.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "6c8865cef38efe22e8beea7660cabfb8b50182397e224ed8de2b20a10ba3d973",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:55.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "71891091045258e94d03736a2ff2faadf79ecda72dcae9aae30a3c0005a1ecb0",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:55.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "c375d0dc2a463c8640a8087914139ecd1cd40b39bb338d6c281407e9c5337547",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:55.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "8a7aa2aedbc29faf0429e50f6c0d4191f669c5d50a625e41792ea160e6e2b185",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:55.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "b2807213c807aa479c08f6ff48f95f39aee8fe8b4bb76c9f304e4524ebf522c8",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:56.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "07792baba9e66bbe9d4f8919a13c9420b90383551268f59867ba7e37a2f1336b",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:56.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "e19c33f2b5af306d9251b289dd739568bc089e916e2b710e45125d6711384eff",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:56.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "bbc6a6e955c8f57d136a6b9464137265e9e29ff1d825f536c0ae4972f4c442c1",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:56.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "004f31ed916511d39de379b8b007f3ecf4ce21b48b24ae026940619b8fb028e1",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:57.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "22e1fcdda4be7ca15454ccac988170b711fe7e34262439df1ce1e0303d380302",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:57.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "55c6b9d6db2beca07797b5f463bc401753e864a693f294b87dcac11190f22434",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:57.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "2f80964259dc7acc12b75582612f1c1f59d09467b62763246c580c0aa35297d6",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:57.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "e310f53dea1da7e7666bbf89202247535ec9180afd8a45c98638e6ab29662714",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:58.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "19a840787088f210c41668c826439f3fc5476bb5bcfc891df94db0d1084c3948",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:58.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "2475272c706202558deac05b615b3a25efb288bf2a4eda17e0763d713e560c1b",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:58.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "c463cf433db0aa1f51027f45e1bb496cee488a47b3ff01520f155160476f91c8",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:58.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "3a1ad085c6c2cd5b2207a7dd86f5b34b42eca391424bcfce15f054a7dbc78772",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:59.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "2acd0df56854372c37c1ae6646ce5433ebb1c423ced051696b411e01836f3dd0",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:59.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "a48d1db784f1e89c1077ac0f079784850d27c737882d3cd79b46e5ca26d60097",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:59.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "39208a09120dfe13a712f1d31a3537fff94d7845320ca2ef8af398622772cba2",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:06:59.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "cd4f624cebe32ef8c671dd2f6a24dccce6da49f4d6c2c0a60610ddb2de63a32e",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:07:00.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "929824d18fa545ff0f34fd4b0f55615daeb2c144ae6a54943a539417b92e7b40",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:07:00.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "c52c6b2bb3f7a95c2d5b1d0a8092d9f030b1ab6478400cf60abfcc62ed99e438",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:07:00.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "8609eeb77870fd98d0fdff7358ff46e117381f94be65cccad0647045c8134a98",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:07:00.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "8041d13ed455b84dbd8c1c4a1c8f6a6af36cef9dc1072e1f286f42b0c061b7d5",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:07:01.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "53c4847bb2369624cd568f6d90a06c1b1c2c16a9b3006de668c9a5adc8005fb4",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:07:01.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "f0d8da99f8a4f6b505c0592a4dd5a4f82090ff6583aab95bb6f7e7f0a5adfba2",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:07:01.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "306bf4b1e3a20c12e2936ad282fa1bc6b432c6491755e20caa7542ded5554f60",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:07:01.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "d89decb612383c1291be8f75ee1da20a7e0d98015e0389b3affbe9aee47e0431",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:07:02.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "aba50cc6e9e239b1b985d9053cd7908a518c0853026fb769fa0856ad6ca43d2f",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:07:02.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "083ced3e48e58c37c7a56cba60be12bdcc5a16341297d4def449f5da625e3b7c",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:07:02.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "69bc392a29afc5c02710bc8398e0dde9401e0a22762d5242a1659f3d096c8f43",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:07:02.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    },
+    {
+      "eventId": "c1a8a7efa5d5b0a7d5ff5f5d22ccbc48174cf34ca6410d10db90ca67c71eac42",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:07:03.147166Z",
+      "seq": 0,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/peso",
+        "unit": "kg",
+        "value": 1,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "81ba2646e3aaa18639d75e956bab95cbaa4f8ce26b07d74493d512367c8832c3",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:07:03.147166Z",
+      "seq": 1,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Pesada/contador",
+        "unit": "count",
+        "value": 100,
+        "valueType": "xs:int"
+      }
+    },
+    {
+      "eventId": "efa168177809ae92d8a5c2ee58f6c910e54176dab7e27b63b46aceac2490393d",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:07:03.147166Z",
+      "seq": 2,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Operativos/Sellado/temperatura",
+        "unit": "degC",
+        "value": 82.5,
+        "valueType": "xs:float"
+      }
+    },
+    {
+      "eventId": "5794d2185b6d3affb18d5cbce5315a61ced8446526a863b71708a7e14eb8392a",
+      "machineId": "EMB-DEV-001",
+      "ts": "2026-07-31T01:07:03.147166Z",
+      "seq": 3,
+      "kind": "metric",
+      "schemaVersion": 1,
+      "payload": {
+        "aasPath": "Alarmas/estado",
+        "unit": "bool",
+        "value": false,
+        "valueType": "xs:boolean"
+      }
+    }
+  ]
+}

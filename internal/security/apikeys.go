@@ -1,18 +1,7 @@
 package security
 
-// TODO: Define API Keys validation and middleware wiring.
-
-// APIKeyLookup resolves API Keys to tenant identity and scopes. Do not store raw keys.
-type APIKeyLookup interface {
-    Lookup(key string) (tenantID string, apiKeyID string, scopes []string, ok bool)
-}
-
-// StubAPIKeyLookup returns a no-op lookup placeholder.
-func StubAPIKeyLookup() APIKeyLookup { return stubAPIKeyLookup{} }
-
-type stubAPIKeyLookup struct{}
-
-func (stubAPIKeyLookup) Lookup(key string) (string, string, []string, bool) {
-    // TODO: implement lookup against hashed keys storage.
-    return "", "", nil, false
-}
+// La resolucion real de API keys vive en apikeys_authenticator.go.
+// La interfaz APIKeyLookup y su stub fueron removidos: eran un placeholder que
+// devolvia siempre "no autorizado" y su firma (tenantID string, scopes []string)
+// no representa el modelo real, donde una key resuelve a un tenant Y un device
+// concretos y no maneja scopes.

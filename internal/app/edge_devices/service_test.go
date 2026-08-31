@@ -61,7 +61,7 @@ func TestUpdateDeviceAplicaRaspberryBaseURLYPLCAddress(t *testing.T) {
 		Status:           "ACTIVE",
 		LastHealthStatus: "UNKNOWN",
 	}}
-	svc := app.NewService(repo, nil, zap.NewNop())
+	svc := app.NewService(repo, nil, zap.NewNop(), nil, nil)
 
 	updated, err := svc.UpdateDevice(context.Background(), tenantID, deviceID, domain.UpdateDeviceCommand{
 		RaspberryBaseURL: strptr("http://new.local:8080"),
@@ -84,7 +84,7 @@ func TestUpdateDeviceSinCamposNoRompe(t *testing.T) {
 		EdgeType: "RASPBERRY_PLC", RaspberryBaseURL: "http://x.local", Status: "ACTIVE",
 		LastHealthStatus: "UNKNOWN",
 	}}
-	svc := app.NewService(repo, nil, zap.NewNop())
+	svc := app.NewService(repo, nil, zap.NewNop(), nil, nil)
 
 	updated, err := svc.UpdateDevice(context.Background(), tenantID, deviceID, domain.UpdateDeviceCommand{
 		Name: strptr("Edge nuevo"),
