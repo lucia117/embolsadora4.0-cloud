@@ -9,19 +9,29 @@ import (
 
 // Repository defines user persistence operations
 type Repository interface {
-	// ListByTenant retrieves paginated users belonging to a tenant (excludes soft-deleted)
-	ListByTenant(ctx context.Context, tenantID string, limit, offset int) ([]*users.User, int64, error)
+	// ListByTenant retrieves paginated users belonging to a tenant (excludes soft-deleted).
+	// includeGlobal=false oculta miembros con rol is_global — ver security.CanSeePlatformInternals.
+	ListByTenant(ctx context.Context, tenantID string, limit, offset int, includeGlobal bool) ([]*users.User, int64, error)
 
-	// GetByID retrieves a single user by ID (returns ErrNotFound if soft-deleted or not found)
-	GetByID(ctx context.Context, tenantID, userID string) (*users.User, error)
+	// GetByID retrieves a single user by ID (returns ErrNotFound if soft-deleted, not found u oculto).
+	// crossTenant=true omite el filtro de tenant por completo (ver Hallazgo A:
+	// un caller con security.IsCrossTenantRole debe poder resolver un usuario
+	// de cualquier tenant, no solo el de la request). includeGlobal sigue
+	// siendo un eje separado — decide si un usuario cuyo rol es is_global es
+	// visible, no afecta el scoping por tenant.
+	GetByID(ctx context.Context, tenantID, userID string, crossTenant, includeGlobal bool) (*users.User, error)
 
-	// GetByIDWithRoles retrieves a user with their active role assignment in the tenant.
-	// Returns ErrNotFound if user doesn't exist or is soft-deleted.
+	// GetByIDWithRoles retrieves a user with their active role assignment.
+	// crossTenant=true resuelve la membresía activa REAL del target en
+	// cualquier tenant, no solo en tenantID — mismo patrón LATERAL que GetByID
+	// (ver su comentario para el detalle de por qué no alcanza un simple OR $N
+	// sobre un join fijo). Returns ErrNotFound if user doesn't exist, is
+	// soft-deleted, or (includeGlobal=false) su rol activo es is_global.
 	// The Roles field is an empty slice if no active UTR is found.
-	GetByIDWithRoles(ctx context.Context, tenantID, userID string) (*users.UserWithRoles, error)
+	GetByIDWithRoles(ctx context.Context, tenantID, userID string, crossTenant, includeGlobal bool) (*users.UserWithRoles, error)
 
 	// ListPendingByTenant retrieves users with a pending UTR in the tenant.
-	ListPendingByTenant(ctx context.Context, tenantID string) ([]*users.User, error)
+	ListPendingByTenant(ctx context.Context, tenantID string, includeGlobal bool) ([]*users.User, error)
 
 	// Create inserts a new user and returns it with server-generated fields
 	// Returns ErrEmailTaken if email exists in same tenant

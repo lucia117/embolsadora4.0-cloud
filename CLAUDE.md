@@ -74,7 +74,7 @@ internal/
     apikeys/                 — APIKey, Credential, DeviceIdentity; keygen.go (Generate/Parse/Hash/Matches)
   security/
     jwt.go                   — JWKSVerifier (Verifier interface + ErrJWKSUnavailable sentinel)
-    rbac.go                  — rolePermissions map, Can(), PermissionsForRole(), WithRole()
+    rbac.go                  — RoleContext (Name/Permissions/IsGlobal), Can(), IsCrossTenantRole(), WithRoleContext()/WithRole()
   platform/
     tenantctx.go             — context helpers: WithTenantID, WithDomainUser, WithSupabaseSub, etc.
     supabase/admin_client.go — AdminClient interface (InviteUserByEmail, SendPasswordResetEmail)
@@ -130,6 +130,36 @@ docs/superpowers/plans/      — implementation plans (e.g. cloud-ingest-endpoin
 **Circular import prevention**: Response types for `GET /me` live in `usecases` package (not in handler/me/models), because handler imports usecase.
 
 **JWKS unavailable → 503**: `ErrJWKSUnavailable` sentinel in `security/jwt.go`; `JWTAuth` maps it to HTTP 503.
+
+## Estado de producción (fase MVP)
+
+Al día de hoy (2026-08-18) producción funciona como entorno de prueba: todavía no
+hay usuarios reales dependiendo de uptime/datos, así que aplicar una migración
+directo contra la DB de producción (Supabase) para destrabar un incidente es
+aceptable sin el mismo nivel de cautela que tendría un prod con usuarios reales.
+Esto puede cambiar una vez el MVP salga de esta fase — no asumir que sigue
+siendo así más adelante sin confirmarlo.
+
+- **2026-08-18 — incidente de orden de deploy (resuelto)**: el frontend
+  (`embolsadora-frontend`, PR #69 develop→main) se mergeó y deployó a
+  producción (Vercel) antes que el backend (`embolsadora4.0-cloud`, PR #62)
+  llegara a `main`. El frontend nuevo exige los ids finos del catálogo
+  (`perm_users_view`, `perm_tenants_manage`, etc. — migración
+  `000011_dynamic_role_permissions`), pero la DB de prod seguía en la
+  versión 10 con los ids viejos (`perm_users`, `perm_tenants`), dejando la
+  sección admin inaccesible para todos los roles, incluido `super_admin`
+  (ver comentario "no superadmin bypass" en `sidebar.tsx` del frontend).
+  Fix aplicado: se corrió `migrate ... up` directo contra producción para
+  llevarla a la versión 11, sin esperar el deploy del backend a `main`. Esto
+  alcanzó porque `GetMe` (`internal/api/usecases/me_usecase.go`) arma
+  `Permissions` leyendo `roles.permissions` en vivo desde la DB — no depende
+  del mapa hardcodeado de Go, que solo lo usa el enforcement interno
+  (`security.Can()`/`RBACCheck`). El binario viejo de `main` sigue sirviendo
+  con el mapa hardcodeado (sin regresión), y ahora también devuelve los ids
+  nuevos en `/me`, así que el frontend vuelve a mostrar la sección admin sin
+  necesidad de redeploy del backend. Pendiente real: promover
+  `feat/rbac-dynamic-permissions-backend` → `develop` → `main` para que el
+  enforcement de roles custom (B-004) funcione de verdad en producción.
 
 ## Pending Manual Steps
 

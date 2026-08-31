@@ -9,8 +9,10 @@ import (
 
 	"github.com/tu-org/embolsadora-api/internal/api/handler/users/dto"
 	"github.com/tu-org/embolsadora-api/internal/app/users"
+	"github.com/tu-org/embolsadora-api/internal/domain"
 	domainUsers "github.com/tu-org/embolsadora-api/internal/domain/users"
 	"github.com/tu-org/embolsadora-api/internal/platform"
+	"github.com/tu-org/embolsadora-api/internal/security"
 )
 
 // Handler handles user HTTP requests
@@ -64,7 +66,8 @@ func (h *Handler) ListUsers(c *gin.Context) {
 
 	h.logger.Debug("list users request", zap.String("tenant_id", tenantID), zap.Int("limit", limit), zap.Int("offset", offset))
 
-	users, total, err := h.service.ListUsers(c.Request.Context(), tenantID, limit, offset)
+	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+	users, total, err := h.service.ListUsers(c.Request.Context(), tenantID, limit, offset, includeGlobal)
 	if err != nil {
 		h.logger.Error("list users failed", zap.Error(err))
 		HandleError(c, err)
@@ -106,9 +109,12 @@ func (h *Handler) GetUser(c *gin.Context) {
 
 	h.logger.Debug("get user request", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 
+	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+	crossTenant := security.IsCrossTenantRole(c.Request.Context())
+
 	// If include=roles is requested, fetch user with role data
 	if c.Query("include") == "roles" {
-		uwr, err := h.service.GetUserWithRoles(c.Request.Context(), tenantID, userID)
+		uwr, err := h.service.GetUserWithRoles(c.Request.Context(), tenantID, userID, crossTenant, includeGlobal)
 		if err != nil {
 			h.logger.Error("get user with roles failed", zap.Error(err))
 			HandleError(c, err)
@@ -118,7 +124,7 @@ func (h *Handler) GetUser(c *gin.Context) {
 		return
 	}
 
-	user, err := h.service.GetUser(c.Request.Context(), tenantID, userID)
+	user, err := h.service.GetUser(c.Request.Context(), tenantID, userID, crossTenant, includeGlobal)
 	if err != nil {
 		h.logger.Error("get user failed", zap.Error(err))
 		HandleError(c, err)
@@ -134,7 +140,8 @@ func (h *Handler) ListPendingUsers(c *gin.Context) {
 
 	h.logger.Debug("list pending users request", zap.String("tenant_id", tenantID))
 
-	users, err := h.service.ListPendingUsers(c.Request.Context(), tenantID)
+	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+	users, err := h.service.ListPendingUsers(c.Request.Context(), tenantID, includeGlobal)
 	if err != nil {
 		h.logger.Error("list pending users failed", zap.Error(err))
 		HandleError(c, err)
@@ -193,7 +200,9 @@ func (h *Handler) UpdateUserStatus(c *gin.Context) {
 		zap.String("user_id", userID),
 		zap.String("status", req.Status))
 
-	user, err := h.service.UpdateUserStatus(c.Request.Context(), tenantID, userID, callerID, req.Status)
+	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+	crossTenant := security.IsCrossTenantRole(c.Request.Context())
+	user, err := h.service.UpdateUserStatus(c.Request.Context(), tenantID, userID, callerID, req.Status, crossTenant, includeGlobal)
 	if err != nil {
 		h.logger.Error("update user status failed", zap.Error(err))
 		HandleError(c, err)
@@ -240,7 +249,8 @@ func (h *Handler) CreateUser(c *gin.Context) {
 		AssignedBy: callerUUID.String(),
 	}
 
-	user, err := h.service.CreateUser(c.Request.Context(), tenantID, cmd)
+	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+	user, err := h.service.CreateUser(c.Request.Context(), tenantID, cmd, includeGlobal)
 	if err != nil {
 		h.logger.Error("create user failed", zap.Error(err))
 		HandleError(c, err)
@@ -248,6 +258,53 @@ func (h *Handler) CreateUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, userToResponse(user))
+}
+
+// UpdateMe handles PATCH /api/v1/users/me — self-service profile update
+// (firstName/lastName propios). A diferencia de UpdateUser, no requiere RBAC:
+// el userID sale del JWT vía platform.DomainUser(ctx), nunca del cliente, así
+// que no hay forma de apuntar a otro usuario. dto.UpdateMeRequest tampoco tiene
+// campo Role, así que tampoco hay forma de auto-asignarse un rol distinto.
+func (h *Handler) UpdateMe(c *gin.Context) {
+	tenantID := platform.TenantID(c.Request.Context())
+
+	user, ok := platform.DomainUser(c.Request.Context()).(*domain.User)
+	if !ok || user == nil {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error:   "UNAUTHORIZED",
+			Message: "No se pudo resolver el usuario autenticado",
+			Status:  http.StatusUnauthorized,
+		})
+		return
+	}
+
+	var req dto.UpdateMeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Warn("invalid update me request", zap.Error(err))
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "VALIDATION_ERROR",
+			Message: err.Error(),
+			Status:  http.StatusBadRequest,
+		})
+		return
+	}
+
+	cmd := &domainUsers.UpdateUserCommand{
+		TenantID:  tenantID,
+		UserID:    user.ID,
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+	}
+
+	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+	updated, err := h.service.UpdateUser(c.Request.Context(), tenantID, user.ID, false, includeGlobal, cmd)
+	if err != nil {
+		h.logger.Error("update me failed", zap.Error(err))
+		HandleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, userToResponse(updated))
 }
 
 // UpdateUser handles PATCH /api/v1/users/:id - update a user
@@ -287,7 +344,9 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 		Image:     req.Image,
 	}
 
-	user, err := h.service.UpdateUser(c.Request.Context(), tenantID, userID, cmd)
+	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+	crossTenant := security.IsCrossTenantRole(c.Request.Context())
+	user, err := h.service.UpdateUser(c.Request.Context(), tenantID, userID, crossTenant, includeGlobal, cmd)
 	if err != nil {
 		h.logger.Error("update user failed", zap.Error(err))
 		HandleError(c, err)
@@ -313,7 +372,9 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 
 	h.logger.Debug("delete user request", zap.String("tenant_id", tenantID), zap.String("user_id", userID))
 
-	err := h.service.DeleteUser(c.Request.Context(), tenantID, userID)
+	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+	crossTenant := security.IsCrossTenantRole(c.Request.Context())
+	err := h.service.DeleteUser(c.Request.Context(), tenantID, userID, crossTenant, includeGlobal)
 	if err != nil {
 		h.logger.Error("delete user failed", zap.Error(err))
 		HandleError(c, err)

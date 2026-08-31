@@ -27,7 +27,7 @@ type fakeRoleLookup struct {
 	err  error
 }
 
-func (f fakeRoleLookup) GetByIDForTenant(ctx context.Context, id string, tenantID uuid.UUID) (*domain.Role, error) {
+func (f fakeRoleLookup) GetByIDForTenant(ctx context.Context, id string, tenantID uuid.UUID, includeGlobal bool) (*domain.Role, error) {
 	return f.role, f.err
 }
 
@@ -36,7 +36,7 @@ func TestResolveInviteDisplayNames_ResuelveAmbosNombres(t *testing.T) {
 		context.Background(),
 		fakeTenantLookup{tenant: &domain.Tenant{Name: "MRG SRL"}},
 		fakeRoleLookup{role: &domain.Role{Name: "Operador"}},
-		testTenantID, "operator",
+		testTenantID, "operator", false,
 	)
 	assert.Equal(t, "MRG SRL", names.TenantName)
 	assert.Equal(t, "Operador", names.RoleName)
@@ -47,7 +47,7 @@ func TestResolveInviteDisplayNames_FallaDeTenantNoPierdeElRol(t *testing.T) {
 		context.Background(),
 		fakeTenantLookup{err: errors.New("db caida")},
 		fakeRoleLookup{role: &domain.Role{Name: "Operador"}},
-		testTenantID, "operator",
+		testTenantID, "operator", false,
 	)
 	assert.Empty(t, names.TenantName)
 	assert.Equal(t, "Operador", names.RoleName, "una falla de tenant no puede arrastrar al rol")
@@ -58,7 +58,7 @@ func TestResolveInviteDisplayNames_FallaDeRolNoPierdeElTenant(t *testing.T) {
 		context.Background(),
 		fakeTenantLookup{tenant: &domain.Tenant{Name: "MRG SRL"}},
 		fakeRoleLookup{err: errors.New("db caida")},
-		testTenantID, "operator",
+		testTenantID, "operator", false,
 	)
 	assert.Equal(t, "MRG SRL", names.TenantName)
 	assert.Empty(t, names.RoleName)
@@ -69,7 +69,7 @@ func TestResolveInviteDisplayNames_TenantIDInvalidoDevuelveVacio(t *testing.T) {
 		context.Background(),
 		fakeTenantLookup{tenant: &domain.Tenant{Name: "MRG SRL"}},
 		fakeRoleLookup{role: &domain.Role{Name: "Operador"}},
-		"no-es-un-uuid", "operator",
+		"no-es-un-uuid", "operator", false,
 	)
 	assert.Empty(t, names.TenantName)
 	assert.Empty(t, names.RoleName)
@@ -80,7 +80,7 @@ func TestResolveInviteDisplayNames_RoleIDVacioNoConsultaElRepo(t *testing.T) {
 		context.Background(),
 		fakeTenantLookup{tenant: &domain.Tenant{Name: "MRG SRL"}},
 		fakeRoleLookup{err: errors.New("no deberia llamarse")},
-		testTenantID, "",
+		testTenantID, "", false,
 	)
 	assert.Equal(t, "MRG SRL", names.TenantName)
 	assert.Empty(t, names.RoleName)
@@ -96,7 +96,7 @@ func TestResolveInviteDisplayNames_TenantNoEncontradoNoPierdeElRol(t *testing.T)
 		context.Background(),
 		fakeTenantLookup{},
 		fakeRoleLookup{role: &domain.Role{Name: "Operador"}},
-		testTenantID, "operator",
+		testTenantID, "operator", false,
 	)
 	assert.Empty(t, names.TenantName)
 	assert.Equal(t, "Operador", names.RoleName, "un tenant no encontrado no puede arrastrar al rol")
@@ -110,7 +110,7 @@ func TestResolveInviteDisplayNames_AmbosLookupsNilNoPanica(t *testing.T) {
 		context.Background(),
 		nil,
 		nil,
-		testTenantID, "operator",
+		testTenantID, "operator", false,
 	)
 	assert.Empty(t, names.TenantName)
 	assert.Empty(t, names.RoleName)

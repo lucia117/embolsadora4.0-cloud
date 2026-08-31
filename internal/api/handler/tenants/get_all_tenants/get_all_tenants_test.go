@@ -26,11 +26,17 @@ func (f *fakeRepo) FindAll(ctx context.Context) ([]domain.Tenant, error) {
 func (f *fakeRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Tenant, error) {
 	return &domain.Tenant{ID: id, Name: "Own Tenant"}, nil
 }
+func (f *fakeRepo) FindBySubdomain(ctx context.Context, subdomain string) (*domain.Tenant, error) {
+	return nil, nil
+}
 func (f *fakeRepo) Update(ctx context.Context, tenant *domain.Tenant) error { return nil }
 func (f *fakeRepo) Delete(ctx context.Context, id uuid.UUID) error         { return nil }
 
 func withActorContext(req *http.Request, role, tenantID string) *http.Request {
-	ctx := security.WithRole(req.Context(), role)
+	// Los 4 archivos de test de este paquete solo ejercitan "super_admin" (global)
+	// y "admin" (no-global) — misma señal que crossTenantRoles tenía hardcodeada
+	// antes de que IsCrossTenantRole pasara a leer RoleContext.IsGlobal.
+	ctx := security.WithRoleContext(req.Context(), security.RoleContext{Name: role, IsGlobal: role == "super_admin"})
 	ctx = platform.WithTenantID(ctx, tenantID)
 	return req.WithContext(ctx)
 }

@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
 	"github.com/tu-org/embolsadora-api/internal/platform/dbmigrate"
@@ -116,30 +118,41 @@ func TestRun_AppliesAndIsIdempotent(t *testing.T) {
 		t.Fatalf("expected translated perm_dashboard, got name=%q description=%q", permName, permDescription)
 	}
 
+	// Conjuntos leídos de la DB migrada a version 13 (000011 fine-grained users +
+	// 000013 reseed edge). La comparación de abajo es order-independent (ordena
+	// copias de ambos lados), así que el orden en que 000013 hace
+	// `permissions - k || [...]` no importa — solo el conjunto de claves.
 	expectedRolePermissions := map[string][]string{
 		"super_admin": {
-			"perm_dashboard", "perm_alerts", "perm_reports", "perm_users", "perm_tenants",
-			"perm_settings", "perm_maintenance", "perm_analytics", "perm_all_tenants",
-			"perm_logs_view", "perm_logs_export", "perm_logs_admin", "perm_edge_devices_view",
-			"perm_edge_devices_manage", "perm_edge_devices_check", "perm_reports_view", "perm_reports_manage",
+			"perm_dashboard", "perm_alerts", "perm_reports", "perm_settings", "perm_maintenance",
+			"perm_analytics", "perm_logs_view", "perm_logs_export", "perm_logs_admin",
+			"perm_reports_view", "perm_reports_manage", "perm_users_view", "perm_users_manage",
+			"perm_tenants_view", "perm_tenants_manage",
+			"perm_edge_devices_view", "perm_edge_devices_check", "perm_edge_devices_manage", "perm_edge_devices_create",
 		},
 		"tenant_manager": {
-			"perm_all_tenants", "perm_dashboard", "perm_alerts", "perm_reports",
-			"perm_reports_view", "perm_users", "perm_edge_devices_view", "perm_edge_devices_check",
+			"perm_dashboard", "perm_alerts", "perm_reports", "perm_reports_view",
+			"perm_users_view", "perm_users_manage", "perm_tenants_view",
+			"perm_edge_devices_view", "perm_edge_devices_check", "perm_edge_devices_manage", "perm_edge_devices_create",
 		},
 		"admin": {
 			"perm_dashboard", "perm_alerts", "perm_reports", "perm_reports_view", "perm_reports_manage",
-			"perm_users", "perm_tenants", "perm_settings", "perm_maintenance", "perm_analytics",
-			"perm_edge_devices_view", "perm_edge_devices_manage",
+			"perm_settings", "perm_maintenance", "perm_analytics", "perm_logs_view",
+			"perm_users_view", "perm_users_manage", "perm_tenants_view",
+			"perm_edge_devices_view", "perm_edge_devices_check", "perm_edge_devices_manage",
 		},
 		"operario": {
 			"perm_dashboard", "perm_alerts", "perm_reports_view", "perm_edge_devices_view", "perm_edge_devices_check",
 		},
+		// cliente_admin: conjunto limpio que dejan 000011 (users fine-grained) +
+		// 000013 (reseed edge): base sin claves edge + view/check/manage.
 		"cliente_admin": {
-			"perm_dashboard", "perm_alerts", "perm_reports_view", "perm_users", "perm_edge_devices_view",
+			"perm_dashboard", "perm_alerts", "perm_reports_view",
+			"perm_users_view", "perm_users_manage",
+			"perm_edge_devices_view", "perm_edge_devices_check", "perm_edge_devices_manage",
 		},
 		"cliente_operario": {
-			"perm_dashboard", "perm_edge_devices_view",
+			"perm_dashboard", "perm_edge_devices_view", "perm_edge_devices_check",
 		},
 	}
 
@@ -149,8 +162,57 @@ func TestRun_AppliesAndIsIdempotent(t *testing.T) {
 			"SELECT permissions FROM roles WHERE id = $1", roleID).Scan(&got); err != nil {
 			t.Fatalf("query role %s permissions: %v", roleID, err)
 		}
-		if !slices.Equal(got, want) {
+		// Order-independent: la migración usa `permissions - k || [...]`, que
+		// reordena el JSONB. Lo que importa es el conjunto de claves, no su orden.
+		gotSorted := slices.Clone(got)
+		wantSorted := slices.Clone(want)
+		slices.Sort(gotSorted)
+		slices.Sort(wantSorted)
+		if !slices.Equal(gotSorted, wantSorted) {
 			t.Fatalf("role %s: expected permissions %v, got %v", roleID, want, got)
 		}
 	}
+}
+
+func TestAdminRoleHasLogsView(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, dsn)
+	require.NoError(t, err)
+	defer pool.Close()
+
+	var perms []string
+	err = pool.QueryRow(ctx,
+		`SELECT ARRAY(SELECT jsonb_array_elements_text(permissions)) FROM roles WHERE id = 'admin'`,
+	).Scan(&perms)
+	require.NoError(t, err)
+	require.Contains(t, perms, "perm_logs_view")
+}
+
+func TestAllTenantsPermissionIsGone(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, dsn)
+	require.NoError(t, err)
+	defer pool.Close()
+
+	var count int
+	err = pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM permissions WHERE id = 'perm_all_tenants'`,
+	).Scan(&count)
+	require.NoError(t, err)
+	require.Equal(t, 0, count, "perm_all_tenants debe estar eliminado del catálogo")
+
+	var rolesWithIt int
+	err = pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM roles WHERE permissions @> '["perm_all_tenants"]'::jsonb`,
+	).Scan(&rolesWithIt)
+	require.NoError(t, err)
+	require.Equal(t, 0, rolesWithIt, "ningún rol debe conservar perm_all_tenants")
 }

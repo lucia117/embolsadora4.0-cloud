@@ -107,10 +107,12 @@ func JWTAuth(verifier security.Verifier, authUC *usecases.AuthUsecase, activator
 		// 'invited' so it costs no extra queries on regular requests.
 		if activator != nil && user.Status == domain.UserStatusInvited && email != "" {
 			if err := activator.ActivatePendingInvitations(ctx, email, user.ID); err != nil {
-				Log.Warn("failed to activate pending invitations",
+				Log.Error("failed to activate pending invitations",
 					zap.String("user_id", user.ID),
 					zap.Error(err),
 				)
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"success": false, "error": "activation failed"})
+				return
 			} else if refreshed, err := authUC.ProvisionUser(ctx, sub, email); err != nil {
 				// The activation committed; this request just keeps the stale
 				// 'invited' status in context. Log so it doesn't fail silently.
@@ -190,12 +192,27 @@ func TenantFromHeader(db *pgxpool.Pool) gin.HandlerFunc {
 				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"success": false, "error": "tenant access denied"})
 				return
 			}
-		} else if isPlatformTenant && roleID == "admin" {
-			roleID = "platform_admin"
+		} else {
+			roleID = security.EffectiveRole(roleID, isPlatformTenant)
+		}
+
+		permissions, isGlobal, err := loadRolePermissions(c.Request.Context(), db, roleID)
+		if err != nil {
+			Log.Error("failed to load role permissions",
+				zap.String("role_id", roleID),
+				zap.String("user_id", user.ID),
+				zap.Error(err),
+			)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"success": false, "error": "internal error"})
+			return
 		}
 
 		ctx := platform.WithTenantID(c.Request.Context(), tenantID)
-		ctx = security.WithRole(ctx, roleID)
+		ctx = security.WithRoleContext(ctx, security.RoleContext{
+			Name:        roleID,
+			Permissions: permissions,
+			IsGlobal:    isGlobal,
+		})
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
@@ -238,9 +255,37 @@ func resolvePlatformOperator(ctx context.Context, db *pgxpool.Pool, userID, targ
 	}
 
 	if !isGlobal {
-		return "platform_admin", nil
+		// El WHERE de la query (línea 221) solo deja pasar filas con
+		// is_global=true o role_id='admin'; acá isGlobal es false, así que
+		// roleID es necesariamente "admin". El JOIN de la línea 218 exige
+		// t.is_platform_tenant, así que esa membresía es necesariamente del
+		// tenant plataforma: isPlatformTenant=true es seguro, no una
+		// suposición — se apoya en la query, no en el valor de roleID.
+		return security.EffectiveRole(roleID, true), nil
 	}
-	return roleID, nil
+	// roleID es un rol global (super_admin o tenant_manager): EffectiveRole es
+	// identidad en este caso, pero se enruta por la misma función para que
+	// exista una única definición de la regla de ascenso, en vez de codificar
+	// acá un segundo "no cambia" que podría divergir si la regla cambia.
+	return security.EffectiveRole(roleID, true), nil
+}
+
+// loadRolePermissions fetches the DB-backed permission catalog (perm_*) and
+// cross-tenant flag for a resolved role id (already passed through
+// security.EffectiveRole). Called once per request by TenantFromHeader.
+func loadRolePermissions(ctx context.Context, db *pgxpool.Pool, roleID string) ([]string, bool, error) {
+	var permissions []string
+	var isGlobal bool
+	err := db.QueryRow(ctx,
+		`SELECT ARRAY(SELECT jsonb_array_elements_text(permissions)), is_global
+		 FROM roles
+		 WHERE id = $1 AND deleted_at IS NULL`,
+		roleID,
+	).Scan(&permissions, &isGlobal)
+	if err != nil {
+		return nil, false, fmt.Errorf("role %q not found in roles table: %w", roleID, err)
+	}
+	return permissions, isGlobal, nil
 }
 
 // PasswordChangeGuard blocks requests when user must change their password.

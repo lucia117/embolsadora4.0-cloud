@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/tu-org/embolsadora-api/internal/api/usecases"
 	"github.com/tu-org/embolsadora-api/internal/domain"
+	"github.com/tu-org/embolsadora-api/internal/security"
 )
 
 type Handler struct {
@@ -37,7 +38,8 @@ func (h *Handler) Handle(c *gin.Context) {
 		return
 	}
 
-	inv, err := h.uc.RevokeInvitation(c.Request.Context(), id)
+	includeGlobal := security.CanSeePlatformInternals(c.Request.Context())
+	inv, err := h.uc.RevokeInvitation(c.Request.Context(), id, includeGlobal)
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrNotFound):

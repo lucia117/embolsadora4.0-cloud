@@ -2,10 +2,13 @@ package user_roles_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -33,7 +36,10 @@ func TestFindByTenant_ResolvesUserAndRoleAcrossJoin(t *testing.T) {
 
 	db, err := pgxpool.New(context.Background(), dbURL)
 	require.NoError(t, err)
-	defer db.Close()
+	// t.Cleanup, NO defer: un defer cierra el pool ANTES de que corran los
+	// t.Cleanup que borran las filas sembradas, y la limpieza falla en silencio
+	// dejando basura en la DB compartida.
+	t.Cleanup(db.Close)
 
 	ctx := context.Background()
 	repo := user_roles.NewUserRoleRepository(db)
@@ -74,7 +80,7 @@ func TestFindByTenant_ResolvesUserAndRoleAcrossJoin(t *testing.T) {
 	err = db.QueryRow(ctx, `SELECT name FROM roles WHERE id = $1`, roleID).Scan(&expectedRoleName)
 	require.NoError(t, err)
 
-	results, err := repo.FindByTenant(ctx, tenantID, nil)
+	results, err := repo.FindByTenant(ctx, tenantID, nil, false)
 	require.NoError(t, err)
 
 	var active, pending *domain.UserTenantRoleDetail
@@ -98,4 +104,107 @@ func TestFindByTenant_ResolvesUserAndRoleAcrossJoin(t *testing.T) {
 	require.NotNil(t, pending, "pending assignment should be present in FindByTenant results")
 	assert.Equal(t, "", pending.RoleName)
 	assert.Equal(t, "join-fix-test@example.com", pending.UserEmail)
+}
+
+// TestCreateRechazaAdminEnTenantNoPlataforma cierra el gap de cobertura directa
+// que la revisión final señaló: hasta acá la regla de la migración 000010 (admin/
+// operario son platform-only aunque is_global=FALSE) solo tenía evidencia
+// indirecta, vía fixtures que dejaron de poder usar "admin" fuera de MRG
+// (ver me_usecase_test.go). Este test ejercita el mismo camino que
+// TestCreateRechazaRolGlobalParaCallerSinVisibilidad (cloaking_test.go) pero para
+// un rol is_global=FALSE, contra un tenant no-plataforma recién creado — usa
+// seedTenant/seedMembership/poolOrSkip de cloaking_test.go, mismo paquete.
+func TestCreateRechazaAdminEnTenantNoPlataforma(t *testing.T) {
+	pool := poolOrSkip(t)
+	repo := user_roles.NewUserRoleRepository(pool)
+	ctx := context.Background()
+
+	tenantID := seedTenant(t, pool)
+	// status "revoked" y roleID "" solo para tener un user_id válido sembrado sin
+	// que choque con idx_utr_active_unique cuando Create intente insertar la
+	// asignación activa de abajo.
+	s := seedMembership(t, pool, tenantID, "", "revoked")
+
+	rol := "admin"
+	now := time.Now()
+	utr := &domain.UserTenantRole{
+		ID: uuid.New(), UserID: s.UserID, TenantID: tenantID,
+		RoleID: &rol, Status: domain.UserRoleStatusActive, AssignedAt: &now,
+	}
+
+	created, err := repo.Create(ctx, utr, false)
+	require.Nil(t, created)
+	require.ErrorIs(t, err, domain.ErrRoleNotAllowedForTenant,
+		"admin es platform-only desde la migración 000010; checkRoleAllowedForTenant debe rechazarlo fuera de MRG")
+}
+
+// TestTriggerRechazaInsertRawDeAdminEnTenantNoPlataforma prueba el backstop de la
+// DB en sí (trg_enforce_platform_role_tenant / enforce_platform_role_tenant()),
+// sin pasar por checkRoleAllowedForTenant: un INSERT crudo contra
+// user_tenant_roles asignando "admin" a un tenant no-plataforma tiene que fallar
+// con check_violation (23514), igual que documenta errCodeCheckViolation en
+// repository.go.
+func TestTriggerRechazaInsertRawDeAdminEnTenantNoPlataforma(t *testing.T) {
+	pool := poolOrSkip(t)
+	ctx := context.Background()
+
+	tenantID := seedTenant(t, pool)
+	s := seedMembership(t, pool, tenantID, "", "revoked")
+
+	_, err := pool.Exec(ctx,
+		`INSERT INTO user_tenant_roles (id, user_id, tenant_id, role_id, status, assigned_at)
+		 VALUES ($1, $2, $3, 'admin', 'active', NOW())`,
+		uuid.New(), s.UserID, tenantID,
+	)
+	require.Error(t, err)
+
+	var pgErr *pgconn.PgError
+	require.True(t, errors.As(err, &pgErr), "el rechazo del trigger debe llegar como *pgconn.PgError")
+	require.Equal(t, "23514", pgErr.Code,
+		"trg_enforce_platform_role_tenant debe rechazar con check_violation (23514)")
+}
+
+// TestTriggerRechazaInsertRawDePlatformAdminEnTenantNoPlataforma y su par
+// ...SuperAdminEnTenantNoPlataforma cierran el item #8 del handoff
+// 2026-08-19: no había test directo confirmando que platform_admin/
+// super_admin (ambos is_global=TRUE) sean rechazados fuera del tenant
+// plataforma por el mismo trigger que ya se probaba solo para 'admin'.
+func TestTriggerRechazaInsertRawDePlatformAdminEnTenantNoPlataforma(t *testing.T) {
+	pool := poolOrSkip(t)
+	ctx := context.Background()
+
+	tenantID := seedTenant(t, pool)
+	s := seedMembership(t, pool, tenantID, "", "revoked")
+
+	_, err := pool.Exec(ctx,
+		`INSERT INTO user_tenant_roles (id, user_id, tenant_id, role_id, status, assigned_at)
+		 VALUES ($1, $2, $3, 'platform_admin', 'active', NOW())`,
+		uuid.New(), s.UserID, tenantID,
+	)
+	require.Error(t, err)
+
+	var pgErr *pgconn.PgError
+	require.True(t, errors.As(err, &pgErr), "el rechazo del trigger debe llegar como *pgconn.PgError")
+	require.Equal(t, "23514", pgErr.Code,
+		"trg_enforce_platform_role_tenant debe rechazar platform_admin con check_violation (23514)")
+}
+
+func TestTriggerRechazaInsertRawDeSuperAdminEnTenantNoPlataforma(t *testing.T) {
+	pool := poolOrSkip(t)
+	ctx := context.Background()
+
+	tenantID := seedTenant(t, pool)
+	s := seedMembership(t, pool, tenantID, "", "revoked")
+
+	_, err := pool.Exec(ctx,
+		`INSERT INTO user_tenant_roles (id, user_id, tenant_id, role_id, status, assigned_at)
+		 VALUES ($1, $2, $3, 'super_admin', 'active', NOW())`,
+		uuid.New(), s.UserID, tenantID,
+	)
+	require.Error(t, err)
+
+	var pgErr *pgconn.PgError
+	require.True(t, errors.As(err, &pgErr), "el rechazo del trigger debe llegar como *pgconn.PgError")
+	require.Equal(t, "23514", pgErr.Code,
+		"trg_enforce_platform_role_tenant debe rechazar super_admin con check_violation (23514)")
 }

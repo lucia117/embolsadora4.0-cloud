@@ -27,10 +27,8 @@ func NewGetAllTenantsHandler(uc *get_all_tenants.UseCase) *GetAllTenantsHandler 
 // GetAllTenants obtiene todos los tenants para roles cross-tenant, o únicamente
 // el tenant propio para roles no-globales.
 func (h *GetAllTenantsHandler) GetAllTenants(c *gin.Context) {
-	role := security.RoleFromContext(c.Request.Context())
-
 	var scopeToTenantID *uuid.UUID
-	if !security.IsCrossTenantRole(role) {
+	if !security.IsCrossTenantRole(c.Request.Context()) {
 		actorTenantID, err := uuid.Parse(platform.TenantID(c.Request.Context()))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, tenantserrors.ErrorResponse{Error: "INTERNAL_ERROR", Message: "Tenant context inválido", Status: http.StatusInternalServerError})
