@@ -348,14 +348,69 @@ ram:
 
 ---
 
+### 10. Sin Shutdown Gracioso del Servidor HTTP
+**Severity**: MEDIA
+**Status**: NO INICIADO
+**Detectado por**: Revisión manual (sesión Claude Code)
+**Fecha**: 2026-08-27
+
+#### Problema
+`cmd/api/main.go` arranca el servidor con `srv.ListenAndServe()` (línea 106) pero no hay ningún manejo de señales ni llamada a `srv.Shutdown()` en todo el repo — confirmado por grep sin resultados para `signal.Notify|\.Shutdown\(|os/signal|SIGTERM|SIGINT`.
+
+Cuando el proceso recibe SIGTERM (redeploy en Koyeb, `docker stop`, etc.), el runtime de Go mata el proceso de inmediato, sin oportunidad de drenar conexiones en curso.
+
+#### Impacto
+- Requests en vuelo se cortan a mitad de camino en cada deploy — por ejemplo un `POST /api/v1/consumers/events` con batch de hasta 4 MiB a mitad de lectura, o un insert a Mongo en curso.
+- El branch `err != http.ErrServerClosed` de `cmd/api/main.go:106` es código muerto: nada llama `Shutdown()`, así que `ListenAndServe()` nunca devuelve `http.ErrServerClosed`.
+- Cada deploy tiene una ventana de pérdida de respuestas/datos para clientes conectados en ese momento (Edge Pi Service incluido).
+
+#### Ubicación
+- **Archivo**: `cmd/api/main.go`, bloque de arranque del servidor (líneas ~96-108, el mismo `http.Server` explícito agregado en `fix(http): timeouts explicitos en el server y bound en la llamada a Mongo`)
+
+#### Solución Requerida
+Capturar SIGINT/SIGTERM con `signal.NotifyContext`, mover `ListenAndServe()` a una goroutine, y llamar `srv.Shutdown(ctx)` con timeout al recibir la señal:
+
+```go
+import (
+    "os/signal"
+    "syscall"
+)
+
+// ...
+
+go func() {
+    log.Printf("Starting server on :%s", cfg.HTTP.Port)
+    if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+        log.Fatalf("Server error: %v", err)
+    }
+}()
+
+ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+defer stop()
+<-ctx.Done()
+
+shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+defer cancel()
+if err := srv.Shutdown(shutdownCtx); err != nil {
+    log.Printf("graceful shutdown failed: %v", err)
+}
+```
+
+Decisiones a tomar en la rama que lo implemente:
+- Timeout de `Shutdown` (sugerido 15s — el comentario del bloque `http.Server` ya referencia `mongoTimeout` como el bound del lado Mongo; alinear ambos valores si tiene sentido).
+- `db` (pgxpool) y `redisClient` ya se cierran vía `defer` al final de `main()` (líneas 51 y donde corresponda); con este cambio esos `defer` siguen corriendo después de que `Shutdown()` retorna, así que no deberían necesitar tocarse — solo confirmarlo al implementar.
+- Reemplazar `log.Printf`/`log.Fatalf` por el logger `zap` ya inicializado (`logger`) para consistencia con el resto del archivo, si se toca esta zona igual.
+
+---
+
 ## 📊 Resumen por Severidad
 
 | Severidad | Cantidad | Fix Before | Archivos |
 |-----------|----------|------------|----------|
 | 🔴 ALTA | 2 | MVP Completamente | 4 |
-| 🟡 MEDIA | 5 | Pre-Release | 10 |
+| 🟡 MEDIA | 6 | Pre-Release | 11 |
 | 🟢 BAJA | 2 | Nice-to-Have | 4 |
-| **TOTAL** | **9** | | **18** |
+| **TOTAL** | **10** | | **19** |
 
 ---
 
@@ -372,6 +427,7 @@ ram:
 | 7 | Timestamps Update | ⏳ NO INICIADO | - | - |
 | 8 | Docs Comandos | ⏳ NO INICIADO | - | - |
 | 9 | Telemetry Mismatch | ⏳ NO INICIADO | - | - |
+| 10 | Sin Shutdown Gracioso HTTP | ⏳ NO INICIADO | - | - |
 
 ---
 
