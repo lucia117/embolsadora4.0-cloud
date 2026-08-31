@@ -332,3 +332,70 @@ func TestInsertManyReportsFailedForNonDuplicateWriteError(t *testing.T) {
 	assert.Contains(t, report.Failed, 1, "el indice reportado es la posicion del documento invalido dentro de docs")
 	assert.EqualValues(t, 1, count(t, db), "solo el documento valido debe haberse insertado")
 }
+
+// Un documento que no se puede serializar a BSON no puede llevarse puesto al
+// resto del lote.
+//
+// Collection.InsertMany codifica todo el lote del lado del cliente ANTES de
+// mandar nada, y aborta la llamada entera ante el primero que falla,
+// devolviendo un error que no es un BulkWriteException. Delegandole la
+// serializacion al driver, ese error salia como fallo total -> HTTP 500 ->
+// "reintenta": el Edge reenviaria este mismo batch para siempre, los otros dos
+// eventos no entrarian nunca y ninguno llegaria a DEAD. El outbox del Pi queda
+// trabado detras de un evento que jamas va a poder guardarse.
+//
+// El disparador es alcanzable con datos reales: `payload` no se valida jamas
+// (D-8), asi que una clave con un byte NUL -legal en JSON como escape unicode-
+// llega intacta hasta bson.Marshal, que la rechaza.
+func TestInsertManyIsolatesUnserializableDoc(t *testing.T) {
+	repo, db := newRepo(t)
+	tenant := uuid.NewString()
+
+	veneno := docForTenant("veneno", tenant)
+	veneno.Payload = map[string]any{claveConNUL(): 1.0}
+
+	docs := []ingest.Measurement{
+		docForTenant("s1", tenant),
+		veneno,
+		docForTenant("s3", tenant),
+	}
+	report, err := repo.InsertMany(context.Background(), docs)
+
+	require.NoError(t, err, "un documento roto no es un fallo total del lote")
+	require.Len(t, report.Invalid, 1)
+	assert.Contains(t, report.Invalid, 1, "el indice es la posicion dentro de docs")
+	assert.Empty(t, report.Failed, "no es infraestructura: reintentarlo no cambia nada")
+	assert.Equal(t, 2, report.Inserted(len(docs)))
+	assert.EqualValues(t, 2, count(t, db), "los dos eventos sanos se persistieron")
+}
+
+// Con un documento no serializable ANTES de un duplicado, el slice que recibe
+// el driver ya no es `docs` y sus indices se corren. Traducirlos mal marcaria
+// DEAD una medicion sana y daria por buena la rota (invariante I-3).
+func TestInsertManyTranslatesIndicesAcrossSkippedDocs(t *testing.T) {
+	repo, db := newRepo(t)
+	tenant := uuid.NewString()
+
+	_, err := repo.InsertMany(context.Background(), []ingest.Measurement{docForTenant("t3", tenant)})
+	require.NoError(t, err)
+
+	veneno := docForTenant("t1", tenant)
+	veneno.Payload = map[string]any{claveConNUL(): 1.0}
+
+	// docs = [veneno(0), t2(1), t3(2)]; el driver solo ve [t2, t3] y reporta
+	// el duplicado en su posicion 1, que es la 2 de docs.
+	docs := []ingest.Measurement{veneno, docForTenant("t2", tenant), docForTenant("t3", tenant)}
+	report, err := repo.InsertMany(context.Background(), docs)
+	require.NoError(t, err)
+
+	assert.Contains(t, report.Invalid, 0)
+	require.Len(t, report.Duplicated, 1)
+	assert.Contains(t, report.Duplicated, 2, "el duplicado es t3, no t2")
+	assert.Equal(t, 1, report.Inserted(len(docs)))
+	assert.EqualValues(t, 2, count(t, db))
+}
+
+// claveConNUL construye una clave de payload con un byte NUL adentro, que es
+// lo que bson.Marshal rechaza. Se arma en runtime y no como literal para que
+// el byte no viva en el fuente, donde el compilador de Go lo rechaza.
+func claveConNUL() string { return "clave" + string(rune(0)) + "rota" }

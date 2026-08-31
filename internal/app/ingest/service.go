@@ -105,6 +105,25 @@ func (s *Service) IngestBatch(ctx context.Context, dev domain.DeviceContext, raw
 				})
 				continue
 			}
+			if msg, bad := report.Invalid[j]; bad {
+				// El documento no se puede ni serializar: reintentarlo daria
+				// exactamente el mismo resultado para siempre. Es una de las pocas
+				// cosas que SI merecen un codigo terminal — mandarlo a DEAD pierde
+				// un evento, pero reportarlo como retriable bloquea el outbox del
+				// Edge con un batch que nunca va a drenar.
+				s.log.Warn("evento imposible de persistir, se reporta como terminal",
+					zap.String("motivo", msg),
+					zap.String("tenant_id", dev.TenantID),
+					zap.String("machine_id", dev.MachineID),
+					zap.String("event_id", valid[j].EventID),
+				)
+				errs = append(errs, domain.EventError{
+					Index:   origIndex[j],
+					Code:    domain.CodeInvalidSchema,
+					Message: "el evento no se puede serializar para almacenamiento",
+				})
+				continue
+			}
 			if msg, bad := report.Failed[j]; bad {
 				// I-1: esto es infraestructura, no payload. El codigo tiene que
 				// ser retriable o el Edge dara el evento por muerto.

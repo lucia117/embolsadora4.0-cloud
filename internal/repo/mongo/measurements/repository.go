@@ -130,14 +130,44 @@ func (r *Repository) InsertMany(ctx context.Context, docs []ingest.Measurement) 
 	report := ingest.InsertReport{
 		Duplicated: make(map[int]struct{}),
 		Failed:     make(map[int]string),
+		Invalid:    make(map[int]string),
 	}
 	if len(docs) == 0 {
 		return report, nil
 	}
 
-	raw := make([]any, len(docs))
+	// Serializar a BSON ACA, documento por documento, y no delegarlo al driver.
+	//
+	// Collection.InsertMany serializa todo el lote antes de hablar con el
+	// servidor y aborta la llamada entera ante el primer documento que no puede
+	// codificar, devolviendo un error pelado —no un BulkWriteException—. Ese
+	// error caeria en el camino de "fallo total" de mas abajo y se traduciria a
+	// un 500, o sea "reintenta": el Edge reenviaria el MISMO batch para siempre,
+	// los otros 999 eventos no se guardarian nunca y ninguno llegaria a DEAD.
+	// Es el escenario opuesto al invariante I-2, y es alcanzable con datos
+	// reales: `payload` no se valida jamas (D-8), y una clave con un byte NUL
+	// —que JSON admite como un escape unicode— es rechazada por bson.Marshal.
+	//
+	// Serializando aca, el documento venenoso queda aislado en su propio indice
+	// y el resto del lote viaja igual. bson.Raw se re-emite tal cual al armar el
+	// comando, asi que pre-serializar no cambia lo que termina en la coleccion.
+	raw := make([]any, 0, len(docs))
+	// sent[k] es la posicion en `docs` del documento que quedo en raw[k]: el
+	// driver reporta los WriteError por indice DENTRO del slice que recibio, y
+	// ese slice ya no es `docs` si se salteo alguno (mismo invariante I-3 que
+	// mantiene el service, un nivel mas abajo).
+	sent := make([]int, 0, len(docs))
 	for i := range docs {
-		raw[i] = docs[i]
+		encoded, err := bson.Marshal(docs[i])
+		if err != nil {
+			report.Invalid[i] = err.Error()
+			continue
+		}
+		raw = append(raw, bson.Raw(encoded))
+		sent = append(sent, i)
+	}
+	if len(raw) == 0 {
+		return report, nil
 	}
 
 	_, err := r.coll.InsertMany(ctx, raw, options.InsertMany().SetOrdered(false))
@@ -154,11 +184,18 @@ func (r *Repository) InsertMany(ctx context.Context, docs []ingest.Measurement) 
 	}
 
 	for _, we := range bwe.WriteErrors {
-		if we.Code == duplicateKeyCode {
-			report.Duplicated[we.Index] = struct{}{}
+		if we.Index < 0 || we.Index >= len(sent) {
+			// Un indice fuera de rango solo puede venir de un servidor que no
+			// respeta el protocolo. Atribuirselo al documento equivocado es peor
+			// que perder el detalle: marcaria DEAD una medicion sana.
 			continue
 		}
-		report.Failed[we.Index] = we.Message
+		i := sent[we.Index]
+		if we.Code == duplicateKeyCode {
+			report.Duplicated[i] = struct{}{}
+			continue
+		}
+		report.Failed[i] = we.Message
 	}
 
 	// Un write concern error afecta al lote entero, no a documentos puntuales:

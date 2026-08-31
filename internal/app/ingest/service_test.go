@@ -36,6 +36,9 @@ func (f *fakeRepo) InsertMany(ctx context.Context, docs []ingest.Measurement) (i
 	if r.Failed == nil {
 		r.Failed = map[int]string{}
 	}
+	if r.Invalid == nil {
+		r.Invalid = map[int]string{}
+	}
 	return r, nil
 }
 func (f *fakeRepo) Ping(context.Context) error { return nil }
@@ -191,4 +194,52 @@ func TestIngestBatchWithZeroMongoTimeoutDoesNotForceDeadline(t *testing.T) {
 	require.NotNil(t, repo.receivedCtx)
 	_, ok := repo.receivedCtx.Deadline()
 	assert.False(t, ok, "mongoTimeout=0 no debe agregar un deadline que no estaba en el ctx original")
+}
+
+// Un documento que el storage no puede persistir NUNCA —hoy, uno que ni
+// siquiera se serializa a BSON— tiene que salir como INVALID_SCHEMA y no como
+// STORAGE_UNAVAILABLE.
+//
+// La diferencia no es cosmetica: STORAGE_UNAVAILABLE le dice al Edge
+// "reintenta", y un evento que jamas va a poder guardarse lo haria reenviar el
+// mismo batch para siempre, con el outbox trabado detras. Los otros eventos del
+// lote, en cambio, tienen que entrar normalmente: el veneno se aisla en su
+// indice y no se lleva puesto al resto (invariante I-2).
+func TestIngestBatchReportsUnstorableEventAsTerminal(t *testing.T) {
+	repo := &fakeRepo{report: ingest.InsertReport{
+		Invalid: map[int]string{1: "BSON element key cannot contain null bytes"},
+	}}
+	svc := ingestapp.NewService(repo, zap.NewNop(), 0)
+
+	res, err := svc.IngestBatch(context.Background(), dev,
+		rawEvents(evt("a"), evt("veneno"), evt("c")))
+
+	require.NoError(t, err, "un evento imposible de guardar no es un fallo del batch")
+	assert.Equal(t, 2, res.Accepted, "los otros dos eventos entran igual")
+	assert.Equal(t, 1, res.Rejected)
+	require.Len(t, res.Errors, 1)
+	assert.Equal(t, 1, res.Errors[0].Index)
+	assert.Equal(t, ingest.CodeInvalidSchema, res.Errors[0].Code,
+		"reintentar esto para siempre trabaria el outbox del Edge")
+}
+
+// El indice que se reporta es el del array `events` ORIGINAL, no el del slice
+// filtrado que recibio el repo (invariante I-3). Con un evento invalido antes
+// del venenoso, los dos numeros dejan de coincidir y el bug se hace visible.
+func TestIngestBatchUnstorableEventKeepsOriginalIndex(t *testing.T) {
+	// valid[] = [a(orig 1), veneno(orig 2)]; el repo reporta la posicion 1.
+	repo := &fakeRepo{report: ingest.InsertReport{
+		Invalid: map[int]string{1: "no serializable"},
+	}}
+	svc := ingestapp.NewService(repo, zap.NewNop(), 0)
+
+	res, err := svc.IngestBatch(context.Background(), dev,
+		rawEvents(`{"eventId":"","machineId":"EMB-DEV-001"}`, evt("a"), evt("veneno")))
+
+	require.NoError(t, err)
+	require.Len(t, res.Errors, 2)
+	assert.Equal(t, 0, res.Errors[0].Index)
+	assert.Equal(t, ingest.CodeInvalidSchema, res.Errors[0].Code)
+	assert.Equal(t, 2, res.Errors[1].Index, "el indice es el del request, no el de valid[]")
+	assert.Equal(t, ingest.CodeInvalidSchema, res.Errors[1].Code)
 }
