@@ -25,6 +25,26 @@ Sin RBAC en GET /users, /users/:id, /users/:id/roles. Se revirtió el cambio int
 
 ---
 
+### Feature AAS Shells (gemelo digital) sin implementar — ADR de Mongo-para-AAS nunca formalizado
+**Severity**: MEDIA
+**Status**: PENDIENTE DECISIÓN
+**Detectado por**: revisión manual al cerrar PR #30
+**Fecha**: 2026-09-01
+
+#### Problema
+PR #30 (`006-mongo-infra`, abierto 2026-04-11) implementaba el modelo de Asset Administration Shell / Submodel (gemelo digital de cada máquina, estándar IEC 63278) sobre MongoDB, con CRUD administrativo (`/api/v1/aas/shells`) y un endpoint de consumo para el Edge (`/api/v1/consumers/shells/:id`). Se cerró sin mergear por ~5 meses de drift y conflictos con `develop`. La parte de infraestructura Mongo que traía quedó cubierta por PR #75 (endpoint de ingesta) con un diseño distinto; el CRUD de AAS/Submodel en sí **no se reimplementó en ningún otro lado**.
+
+El spec original (`specs/014-mongo-infra/spec.md` en la rama cerrada) menciona un `ADR-005 pendiente de formalizar` para justificar Mongo (vs. Postgres/JSONB) como storage de estos documentos — ese ADR nunca se creó, ni en esa rama ni en `develop`/`main` (los ADR existentes van 001-004 y 014-015 de otro tema).
+
+#### Opciones
+- **A) Retomar el feature**: rehacer el CRUD de AAS Shells contra el código actual (no la rama vieja, que tiene demasiado drift), formalizando primero el ADR de por qué Mongo. El endpoint de consumo debería rediseñarse para resolver tenant server-side vía API key, igual que `/api/v1/consumers/events` (PR #30 original esperaba `X-Tenant-Id` del device, inconsistente con ese patrón).
+- **B) Dejarlo pendiente indefinidamente**: el spec y el modelo de dominio quedan documentados en `specs/015-aas-shells/` (copia rescatada del PR cerrado) para cuando haga falta.
+
+#### Estado actual
+Spec y modelo de dominio rescatados en `specs/015-aas-shells/`. Código de referencia (no mergeable tal cual) en la rama `006-mongo-infra` / PR #30 cerrado. Sin ADR. Sin fecha de retomada.
+
+---
+
 ## 🔴 Críticos (Fix Soon)
 
 ### 1. JWT Middleware es un Stub sin Validación
