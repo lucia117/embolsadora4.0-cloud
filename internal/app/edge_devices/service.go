@@ -5,26 +5,34 @@ import (
 	"errors"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+
+	domainapikeys "github.com/tu-org/embolsadora-api/internal/domain/apikeys"
 	"github.com/tu-org/embolsadora-api/internal/domain/edge_devices"
 	"github.com/tu-org/embolsadora-api/internal/platform/edgeclient"
+	"github.com/tu-org/embolsadora-api/internal/security"
 )
 
 // Service implements application business logic for edge devices.
 type Service struct {
-	repo   edge_devices.Repository
-	client edgeclient.EdgeDeviceClient
-	logger *zap.Logger
+	repo    edge_devices.Repository
+	client  edgeclient.EdgeDeviceClient
+	logger  *zap.Logger
+	apiKeys domainapikeys.Repository
+	redis   *redis.Client
 }
 
 // NewService creates a new edge devices service.
-func NewService(repo edge_devices.Repository, client edgeclient.EdgeDeviceClient, logger *zap.Logger) *Service {
-	return &Service{
-		repo:   repo,
-		client: client,
-		logger: logger,
-	}
+func NewService(
+	repo edge_devices.Repository,
+	client edgeclient.EdgeDeviceClient,
+	logger *zap.Logger,
+	apiKeys domainapikeys.Repository,
+	redisClient *redis.Client,
+) *Service {
+	return &Service{repo: repo, client: client, logger: logger, apiKeys: apiKeys, redis: redisClient}
 }
 
 // ListDevices returns all devices for a tenant.
@@ -353,4 +361,90 @@ func (s *Service) ListEvents(ctx context.Context, tenantID, deviceID uuid.UUID) 
 
 	s.logger.Info("events listed", zap.String("device_id", deviceID.String()), zap.String("device_name", device.Name), zap.Int("count", len(events)))
 	return events, nil
+}
+
+// CreateAPIKey genera una credencial nueva para el device y devuelve el valor
+// en claro, que el llamador debe mostrar UNA sola vez, junto con el status
+// ACTUAL del device ("ACTIVE" | "DISABLED"): el llamador lo necesita para
+// completar dto.APIKeyResponse.DeviceStatus sin un segundo roundtrip -- ya se
+// pidio el device aca abajo para verificar que existiera.
+func (s *Service) CreateAPIKey(ctx context.Context, tenantID, deviceID uuid.UUID, name string, expiresAt *time.Time, createdBy *uuid.UUID) (*domainapikeys.APIKey, string, string, error) {
+	// Verificar que el device exista y sea del tenant antes de emitir nada.
+	device, err := s.repo.GetByID(ctx, tenantID, deviceID)
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	plaintext, keyID, hash, genErr := domainapikeys.Generate()
+	if genErr != nil {
+		return nil, "", "", genErr
+	}
+
+	key := &domainapikeys.APIKey{
+		ID:        uuid.New(),
+		TenantID:  tenantID,
+		DeviceID:  deviceID,
+		KeyID:     keyID,
+		KeyHash:   hash,
+		CreatedAt: time.Now().UTC(),
+		CreatedBy: createdBy,
+		ExpiresAt: expiresAt,
+	}
+	if name != "" {
+		key.Name = &name
+	}
+
+	if err := s.apiKeys.Create(ctx, key); err != nil {
+		return nil, "", "", err
+	}
+	s.logger.Info("api key creada",
+		zap.String("device_id", deviceID.String()), zap.String("key_id", keyID))
+	return key, plaintext, device.Status, nil
+}
+
+// ListAPIKeys devuelve las keys del device, incluidas las revocadas, junto
+// con el status ACTUAL del device -- ver el comentario de CreateAPIKey.
+func (s *Service) ListAPIKeys(ctx context.Context, tenantID, deviceID uuid.UUID) ([]*domainapikeys.APIKey, string, error) {
+	device, err := s.repo.GetByID(ctx, tenantID, deviceID)
+	if err != nil {
+		return nil, "", err
+	}
+	keys, err := s.apiKeys.ListByDevice(ctx, tenantID, deviceID)
+	if err != nil {
+		return nil, "", err
+	}
+	return keys, device.Status, nil
+}
+
+// RevokeAPIKey revoca una key e invalida su entrada de cache.
+//
+// El orden importa: primero Postgres —la fuente de verdad— y despues la cache.
+// Al reves, una escritura concurrente podria recachear la version vieja entre
+// medio y la key revocada seguiria autenticando hasta que venza el TTL.
+func (s *Service) RevokeAPIKey(ctx context.Context, tenantID, deviceID, keyPK uuid.UUID) error {
+	keys, err := s.apiKeys.ListByDevice(ctx, tenantID, deviceID)
+	if err != nil {
+		return err
+	}
+	var keyID string
+	for _, k := range keys {
+		if k.ID == keyPK {
+			keyID = k.KeyID
+			break
+		}
+	}
+	if keyID == "" {
+		return domainapikeys.ErrKeyNotFound
+	}
+
+	if err := s.apiKeys.Revoke(ctx, tenantID, keyPK); err != nil {
+		return err
+	}
+	if err := security.InvalidateAPIKeyCache(ctx, s.redis, keyID); err != nil {
+		// La revocacion ya es efectiva en Postgres; la cache expira sola por TTL.
+		s.logger.Warn("no se pudo invalidar la cache de la api key",
+			zap.String("key_id", keyID), zap.Error(err))
+	}
+	s.logger.Info("api key revocada", zap.String("key_id", keyID))
+	return nil
 }

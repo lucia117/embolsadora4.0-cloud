@@ -4,7 +4,9 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
+	"strconv"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -14,6 +16,43 @@ import (
 
 	"github.com/tu-org/embolsadora-api/internal/platform/dbmigrate"
 )
+
+// upMigrationVersionRe extrae el prefijo numerico de un archivo de migracion
+// "up" (p.ej. "000008_edge_device_api_keys.up.sql" -> "000008").
+var upMigrationVersionRe = regexp.MustCompile(`^(\d+)_.*\.up\.sql$`)
+
+// highestMigrationVersion inspecciona migrationsDir y devuelve el mayor
+// prefijo numerico entre los archivos *.up.sql, para no hardcodear la
+// version de schema esperada por el test (se desincroniza cada vez que se
+// agrega una migracion nueva).
+func highestMigrationVersion(t *testing.T, migrationsDir string) int {
+	t.Helper()
+	entries, err := os.ReadDir(migrationsDir)
+	if err != nil {
+		t.Fatalf("read migrations dir %s: %v", migrationsDir, err)
+	}
+	highest := -1
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		m := upMigrationVersionRe.FindStringSubmatch(entry.Name())
+		if m == nil {
+			continue
+		}
+		v, err := strconv.Atoi(m[1])
+		if err != nil {
+			t.Fatalf("parse migration version from %s: %v", entry.Name(), err)
+		}
+		if v > highest {
+			highest = v
+		}
+	}
+	if highest < 0 {
+		t.Fatalf("no *.up.sql migration files found in %s", migrationsDir)
+	}
+	return highest
+}
 
 // TestRun_AppliesAndIsIdempotent runs the real migrations from migrations/
 // against a Postgres pointed to by DBMIGRATE_TEST_DATABASE_URL (falls back to
@@ -49,14 +88,17 @@ func TestRun_AppliesAndIsIdempotent(t *testing.T) {
 	}
 	defer conn.Close(context.Background())
 
+	expectedVersion := highestMigrationVersion(t, migrationsAbs)
+
 	var version int
 	var dirty bool
 	if err := conn.QueryRow(context.Background(),
 		"SELECT version, dirty FROM schema_migrations").Scan(&version, &dirty); err != nil {
 		t.Fatalf("query schema_migrations: %v", err)
 	}
-	if version != 13 || dirty {
-		t.Fatalf("expected version=13 dirty=false, got version=%d dirty=%v", version, dirty)
+	if version != expectedVersion || dirty {
+		t.Fatalf("expected version=%d (highest *.up.sql found in %s) dirty=false, got version=%d dirty=%v",
+			expectedVersion, migrationsAbs, version, dirty)
 	}
 
 	// Second run should be a no-op (ErrNoChange handled internally).

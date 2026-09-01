@@ -35,9 +35,9 @@ func newTestRouterWithRole(t *testing.T, permissions []string) *gin.Engine {
 		c.Next()
 	})
 
-	service := appEdgeDevices.NewService(nil, nil, zap.NewNop())
+	service := appEdgeDevices.NewService(nil, nil, zap.NewNop(), nil, nil)
 	group := r.Group("")
-	edge_devices.RegisterRoutes(group, service)
+	edge_devices.RegisterRoutes(group, group, service)
 	return r
 }
 

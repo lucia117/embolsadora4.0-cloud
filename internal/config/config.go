@@ -62,6 +62,20 @@ type RedisConfig struct {
 	URL string
 }
 
+type MongoConfig struct {
+	URI      string
+	Database string
+	Timeout  time.Duration
+}
+
+type IngestConfig struct {
+	MaxBodyBytes   int64
+	MaxEvents      int
+	RateLimitRPS   int
+	RateLimitBurst int
+	APIKeyCacheTTL time.Duration
+}
+
 type SupabaseConfig struct {
 	JWKSUrl             string
 	JWTIssuer           string
@@ -83,6 +97,8 @@ type Config struct {
 	HTTP          HTTPConfig
 	DB            DBConfig
 	Redis         RedisConfig
+	Mongo         MongoConfig
+	Ingest        IngestConfig
 	Supabase      SupabaseConfig
 	Observability ObservabilityConfig
 }
@@ -114,6 +130,27 @@ func Load(env Environment) (*Config, error) {
 		},
 		Redis: RedisConfig{
 			URL: getEnv("REDIS_URL", ""),
+		},
+		Mongo: MongoConfig{
+			URI: getEnv("MONGO_URI", "mongodb://localhost:27017"),
+			// MONGO_DATABASE es el nombre que fija el diseno de la ingesta (§10)
+			// y el que usa la infra de despliegue. El fallback a MONGO_DB existe
+			// solo para no romper al PR #30, que uso ese nombre; cuando ese PR
+			// se reconcilie, el fallback se borra.
+			Database: getEnv("MONGO_DATABASE", getEnv("MONGO_DB", "embolsadora")),
+			Timeout:  getDurationEnv("MONGO_TIMEOUT", 10*time.Second),
+		},
+		Ingest: IngestConfig{
+			// 4 MiB de tope de lectura, no 2. El Edge corta sus batches en
+			// BATCH_MAX_BYTES=2097152 exactos; rechazar a partir de 2 MiB
+			// inclusive mandaria a DEAD hasta 1000 eventos por un byte de
+			// desajuste. El limite que se valida como regla de negocio es el de
+			// 1000 eventos; el de bytes existe solo contra abuso (§9.2).
+			MaxBodyBytes:   int64(getIntEnv("INGEST_MAX_BODY_BYTES", 4194304)),
+			MaxEvents:      getIntEnv("INGEST_MAX_EVENTS", 1000),
+			RateLimitRPS:   getIntEnv("INGEST_RATE_LIMIT_RPS", 200),
+			RateLimitBurst: getIntEnv("INGEST_RATE_LIMIT_BURST", 1000),
+			APIKeyCacheTTL: getDurationEnv("APIKEY_CACHE_TTL", 60*time.Second),
 		},
 		Supabase: SupabaseConfig{
 			JWKSUrl:             require("SUPABASE_JWKS_URL"),

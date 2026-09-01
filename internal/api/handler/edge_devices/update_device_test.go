@@ -70,8 +70,9 @@ func newUpdateDeviceTestRouter(repo domain.Repository) *gin.Engine {
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	})
-	svc := appEdgeDevices.NewService(repo, nil, zap.NewNop())
-	edge_devices.RegisterRoutes(r.Group(""), svc)
+	svc := appEdgeDevices.NewService(repo, nil, zap.NewNop(), nil, nil)
+	group := r.Group("")
+	edge_devices.RegisterRoutes(group, group, svc)
 	return r
 }
 

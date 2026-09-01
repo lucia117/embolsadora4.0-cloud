@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -75,8 +77,33 @@ func main() {
 
 	routes.RegisterURLMappings(r, db, cfg, redisClient)
 
+	// http.Server explicito, no r.Run(): r.Run() no fija ReadTimeout,
+	// WriteTimeout ni ReadHeaderTimeout, y el plan que borro el middleware
+	// Timeout (no-op) nunca lo reemplazo por esto. A 4 MiB por batch y 200 rps
+	// sobre enlaces industriales, un lector lento deja un goroutine colgado
+	// indefinidamente; sin ReadHeaderTimeout ni ReadTimeout, eso crece sin
+	// limite en vez de fallar rapido. El bound real contra un Mongo colgado
+	// esta en internal/app/ingest.Service (mongoTimeout, ver item 6 de la
+	// review): esto acota el lado HTTP, no el de Mongo.
+	//
+	// ReadTimeout/WriteTimeout usan cfg.HTTP.ReadTimeout/WriteTimeout
+	// (HTTP_READ_TIMEOUT/HTTP_WRITE_TIMEOUT, default 10s cada uno) en vez de
+	// los 30s que sugirio la review textualmente: ese config ya existia en
+	// config.go, con su propio default, y estaba muerto — nada lo leia
+	// porque r.Run() no lo acepta. Cablearlo aca en vez de hardcodear un
+	// numero distinto es preferible a dejar un config field sin uso; ver
+	// nota en el reporte final.
+	srv := &http.Server{
+		Addr:              ":" + cfg.HTTP.Port,
+		Handler:           r,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       cfg.HTTP.ReadTimeout,
+		WriteTimeout:      cfg.HTTP.WriteTimeout,
+		IdleTimeout:       120 * time.Second,
+	}
+
 	log.Printf("Starting server on :%s", cfg.HTTP.Port)
-	if err := r.Run(":" + cfg.HTTP.Port); err != nil {
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("Server error: %v", err)
 	}
 }
