@@ -260,8 +260,7 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 		apimw.JWTAuth(verifier, authUC, invUC),
 		apimw.ResolveTenantAndCheckMembership(db),
 	)
-	edgeDevicesWriteGroup := tenantsGroup.Group("", apimw.RBACCheck("machines:write"))
-	edgeDevicesHandler.RegisterRoutes(tenantsGroup, edgeDevicesWriteGroup, edgeDeviceService)
+	edgeDevicesHandler.RegisterRoutes(tenantsGroup, edgeDeviceService)
 
 	// Dashboard Layouts surface (/api/v1/dashboard-layouts)
 	// tenant_id comes from X-Tenant-ID header, user_id from JWT context
