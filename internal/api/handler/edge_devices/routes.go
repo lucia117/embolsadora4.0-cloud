@@ -14,10 +14,15 @@ import (
 // el seed (migración 000011), solo faltaba cablearlos. Ver
 // docs/superpowers/specs/2026-08-19-production-readiness-cleanup-design.md §C.
 //
-// writeGroup lleva RBACCheck("machines:write"): emitir/revocar credenciales
-// que dan acceso de escritura a la ingesta no puede ser una operacion de
-// solo-lectura.
-func RegisterRoutes(g *gin.RouterGroup, writeGroup *gin.RouterGroup, service *edge_devices.Service) {
+// Todos los gates de RBAC se aplican acá, por ruta, con ids del catálogo
+// `perm_edge_devices_*`. Antes emitir/revocar API keys se delegaba a un
+// `writeGroup` pre-gateado por el caller con `RBACCheck("machines:write")` —
+// pero `machines:write` es del vocabulario viejo `resource:action`, no está en
+// las `permissions` de ningún rol (lo reemplazó el catálogo `perm_*` en la
+// migración 000011) y `security.Can()` hace `slices.Contains` exacto: el gate
+// negaba a todos, dejando esos dos endpoints inalcanzables. Ahora pasan por
+// `manage`, como el resto de las escrituras sobre un device existente.
+func RegisterRoutes(g *gin.RouterGroup, service *edge_devices.Service) {
 	view := middleware.RBACCheck("perm_edge_devices_view")
 	create := middleware.RBACCheck("perm_edge_devices_create")
 	manage := middleware.RBACCheck("perm_edge_devices_manage")
@@ -56,9 +61,11 @@ func RegisterRoutes(g *gin.RouterGroup, writeGroup *gin.RouterGroup, service *ed
 	// US9 – Events
 	g.GET("/edge-devices/:deviceId/events", view, ListEvents(service))
 
-	// API keys del device: emitir/revocar pasan por writeGroup (machines:write);
-	// listar solo expone metadata (no el secreto), alcanza con _view.
-	writeGroup.POST("/edge-devices/:deviceId/api-keys", CreateAPIKey(service))
+	// API keys del device: emitir/revocar credenciales que dan acceso de
+	// escritura a la ingesta no puede ser una operación de solo-lectura →
+	// requieren _manage. Listar solo expone metadata (no el secreto), alcanza
+	// con _view.
+	g.POST("/edge-devices/:deviceId/api-keys", manage, CreateAPIKey(service))
 	g.GET("/edge-devices/:deviceId/api-keys", view, ListAPIKeys(service))
-	writeGroup.DELETE("/edge-devices/:deviceId/api-keys/:keyId", RevokeAPIKey(service))
+	g.DELETE("/edge-devices/:deviceId/api-keys/:keyId", manage, RevokeAPIKey(service))
 }
