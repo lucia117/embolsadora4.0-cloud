@@ -43,6 +43,17 @@ func (f *fakeRepo) InsertMany(ctx context.Context, docs []ingest.Measurement) (i
 }
 func (f *fakeRepo) Ping(context.Context) error { return nil }
 
+// fakeActivity registra las llamadas a TouchLastSeen y, opcionalmente, falla.
+type fakeActivity struct {
+	calls [][2]string // {tenantID, deviceID}
+	err   error
+}
+
+func (f *fakeActivity) TouchLastSeen(_ context.Context, tenantID, deviceID string) error {
+	f.calls = append(f.calls, [2]string{tenantID, deviceID})
+	return f.err
+}
+
 func rawEvents(docs ...string) []json.RawMessage {
 	out := make([]json.RawMessage, len(docs))
 	for i, d := range docs {
@@ -58,7 +69,7 @@ func evt(id string) string {
 
 func TestIngestBatchAllValid(t *testing.T) {
 	repo := &fakeRepo{}
-	svc := ingestapp.NewService(repo, zap.NewNop(), 0)
+	svc := ingestapp.NewService(repo, nil, zap.NewNop(), 0)
 
 	res, err := svc.IngestBatch(context.Background(), dev, rawEvents(evt("a"), evt("b"), evt("c")))
 	require.NoError(t, err)
@@ -79,7 +90,7 @@ func TestIngestBatchReportsOriginalIndices(t *testing.T) {
 	// El evento valido en la posicion 3 del array original es el indice 2 del
 	// slice filtrado, y ese es el que el repo marca como duplicado.
 	repo := &fakeRepo{report: ingest.InsertReport{Duplicated: map[int]struct{}{3: {}}}}
-	svc := ingestapp.NewService(repo, zap.NewNop(), 0)
+	svc := ingestapp.NewService(repo, nil, zap.NewNop(), 0)
 
 	sinTs := `{"eventId":"c","machineId":"EMB-DEV-001","kind":"metric","schemaVersion":1,"payload":{}}`
 	batch := rawEvents(evt("a"), evt("b"), sinTs, evt("d"), evt("e"))
@@ -114,7 +125,7 @@ func TestIngestBatchAccountingInvariant(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			svc := ingestapp.NewService(&fakeRepo{report: tc.report}, zap.NewNop(), 0)
+			svc := ingestapp.NewService(&fakeRepo{report: tc.report}, nil, zap.NewNop(), 0)
 			res, err := svc.IngestBatch(context.Background(), dev, tc.batch)
 			require.NoError(t, err)
 			assert.Equal(t, len(tc.batch), res.Accepted+res.Rejected,
@@ -128,7 +139,7 @@ func TestIngestBatchAccountingInvariant(t *testing.T) {
 // reintenta. Nunca como INVALID_SCHEMA ni VALIDATION_FAILED.
 func TestIngestBatchPartialStorageFailure(t *testing.T) {
 	repo := &fakeRepo{report: ingest.InsertReport{Failed: map[int]string{1: "write concern"}}}
-	svc := ingestapp.NewService(repo, zap.NewNop(), 0)
+	svc := ingestapp.NewService(repo, nil, zap.NewNop(), 0)
 
 	res, err := svc.IngestBatch(context.Background(), dev, rawEvents(evt("a"), evt("b")))
 	require.NoError(t, err)
@@ -144,7 +155,7 @@ func TestIngestBatchPartialStorageFailure(t *testing.T) {
 // eventos como invalidos.
 func TestIngestBatchTotalStorageFailurePropagates(t *testing.T) {
 	boom := errors.New("mongo inalcanzable")
-	svc := ingestapp.NewService(&fakeRepo{err: boom}, zap.NewNop(), 0)
+	svc := ingestapp.NewService(&fakeRepo{err: boom}, nil, zap.NewNop(), 0)
 
 	_, err := svc.IngestBatch(context.Background(), dev, rawEvents(evt("a")))
 	assert.ErrorIs(t, err, boom)
@@ -154,7 +165,7 @@ func TestIngestBatchTotalStorageFailurePropagates(t *testing.T) {
 // llamar al repo, y menos aun devolver 500 por un batch de basura.
 func TestIngestBatchAllInvalidSkipsRepo(t *testing.T) {
 	repo := &fakeRepo{err: errors.New("no deberia llamarse")}
-	svc := ingestapp.NewService(repo, zap.NewNop(), 0)
+	svc := ingestapp.NewService(repo, nil, zap.NewNop(), 0)
 
 	res, err := svc.IngestBatch(context.Background(), dev, rawEvents(`{}`, `{}`))
 	require.NoError(t, err)
@@ -170,7 +181,7 @@ func TestIngestBatchAllInvalidSkipsRepo(t *testing.T) {
 // CADA llamada a InsertMany a un context.WithTimeout derivado de ese valor.
 func TestIngestBatchBoundsInsertManyWithMongoTimeout(t *testing.T) {
 	repo := &fakeRepo{}
-	svc := ingestapp.NewService(repo, zap.NewNop(), 50*time.Millisecond)
+	svc := ingestapp.NewService(repo, nil, zap.NewNop(), 50*time.Millisecond)
 
 	_, err := svc.IngestBatch(context.Background(), dev, rawEvents(evt("a")))
 	require.NoError(t, err)
@@ -186,7 +197,7 @@ func TestIngestBatchBoundsInsertManyWithMongoTimeout(t *testing.T) {
 // caller tal cual.
 func TestIngestBatchWithZeroMongoTimeoutDoesNotForceDeadline(t *testing.T) {
 	repo := &fakeRepo{}
-	svc := ingestapp.NewService(repo, zap.NewNop(), 0)
+	svc := ingestapp.NewService(repo, nil, zap.NewNop(), 0)
 
 	_, err := svc.IngestBatch(context.Background(), dev, rawEvents(evt("a")))
 	require.NoError(t, err)
@@ -209,7 +220,7 @@ func TestIngestBatchReportsUnstorableEventAsTerminal(t *testing.T) {
 	repo := &fakeRepo{report: ingest.InsertReport{
 		Invalid: map[int]string{1: "BSON element key cannot contain null bytes"},
 	}}
-	svc := ingestapp.NewService(repo, zap.NewNop(), 0)
+	svc := ingestapp.NewService(repo, nil, zap.NewNop(), 0)
 
 	res, err := svc.IngestBatch(context.Background(), dev,
 		rawEvents(evt("a"), evt("veneno"), evt("c")))
@@ -231,7 +242,7 @@ func TestIngestBatchUnstorableEventKeepsOriginalIndex(t *testing.T) {
 	repo := &fakeRepo{report: ingest.InsertReport{
 		Invalid: map[int]string{1: "no serializable"},
 	}}
-	svc := ingestapp.NewService(repo, zap.NewNop(), 0)
+	svc := ingestapp.NewService(repo, nil, zap.NewNop(), 0)
 
 	res, err := svc.IngestBatch(context.Background(), dev,
 		rawEvents(`{"eventId":"","machineId":"EMB-DEV-001"}`, evt("a"), evt("veneno")))
@@ -242,4 +253,53 @@ func TestIngestBatchUnstorableEventKeepsOriginalIndex(t *testing.T) {
 	assert.Equal(t, ingest.CodeInvalidSchema, res.Errors[0].Code)
 	assert.Equal(t, 2, res.Errors[1].Index, "el indice es el del request, no el de valid[]")
 	assert.Equal(t, ingest.CodeInvalidSchema, res.Errors[1].Code)
+}
+
+// Tras persistir un batch, el service refresca last_seen_at del device (el
+// semáforo de conectividad de la UI) con el tenant/device del DeviceContext,
+// nunca con datos del body.
+func TestIngestBatchRefreshesLastSeenOnSuccess(t *testing.T) {
+	act := &fakeActivity{}
+	svc := ingestapp.NewService(&fakeRepo{}, act, zap.NewNop(), 0)
+
+	_, err := svc.IngestBatch(context.Background(), dev, rawEvents(evt("a"), evt("b")))
+	require.NoError(t, err)
+
+	require.Len(t, act.calls, 1)
+	assert.Equal(t, [2]string{dev.TenantID, dev.DeviceID}, act.calls[0])
+}
+
+// Un batch sin ningún evento válido no toca el repo (ver
+// TestIngestBatchAllInvalidSkipsRepo) y tampoco debe refrescar last_seen_at:
+// el device no entregó datos.
+func TestIngestBatchDoesNotRefreshLastSeenWhenNothingStored(t *testing.T) {
+	act := &fakeActivity{}
+	svc := ingestapp.NewService(&fakeRepo{}, act, zap.NewNop(), 0)
+
+	_, err := svc.IngestBatch(context.Background(), dev, rawEvents(`{}`, `{}`))
+	require.NoError(t, err)
+
+	assert.Empty(t, act.calls)
+}
+
+// El refresh de last_seen_at es best-effort: si falla, la ingesta responde
+// igual (el Edge ya entregó, no tiene nada que reintentar).
+func TestIngestBatchSucceedsWhenLastSeenRefreshFails(t *testing.T) {
+	act := &fakeActivity{err: errors.New("postgres caído")}
+	svc := ingestapp.NewService(&fakeRepo{}, act, zap.NewNop(), 0)
+
+	res, err := svc.IngestBatch(context.Background(), dev, rawEvents(evt("a")))
+	require.NoError(t, err)
+	assert.Equal(t, 1, res.Accepted)
+	require.Len(t, act.calls, 1)
+}
+
+// activity nil (wiring que todavía no lo provee, o un test que no lo necesita)
+// no debe romper la ingesta.
+func TestIngestBatchWithNilActivityRecorder(t *testing.T) {
+	svc := ingestapp.NewService(&fakeRepo{}, nil, zap.NewNop(), 0)
+
+	res, err := svc.IngestBatch(context.Background(), dev, rawEvents(evt("a")))
+	require.NoError(t, err)
+	assert.Equal(t, 1, res.Accepted)
 }

@@ -169,6 +169,30 @@ func (r *PostgresRepository) UpdateHealthState(ctx context.Context, tenantID, de
 	return nil
 }
 
+// TouchLastSeen marca last_seen_at = now() para el device. Lo llama la ingesta
+// tras persistir un batch, para alimentar el semáforo de conectividad de la UI.
+//
+// A propósito NO toca updated_at: ese campo es "última modificación de la
+// config" en la pantalla de detalle, y la ingesta escribe cada pocos segundos.
+func (r *PostgresRepository) TouchLastSeen(ctx context.Context, tenantID, deviceID uuid.UUID) error {
+	query := `
+		UPDATE edge_devices
+		SET last_seen_at = CURRENT_TIMESTAMP
+		WHERE tenant_id = $1 AND id = $2
+	`
+
+	result, err := r.pool.Exec(ctx, query, tenantID, deviceID)
+	if err != nil {
+		return err
+	}
+
+	if result.RowsAffected() == 0 {
+		return edge_devices.ErrDeviceNotFound
+	}
+
+	return nil
+}
+
 // SaveEvent persists an immutable device event.
 func (r *PostgresRepository) SaveEvent(ctx context.Context, event *edge_devices.DeviceEvent) error {
 	detailsJSON, err := json.Marshal(event.Details)
