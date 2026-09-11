@@ -18,7 +18,10 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/platform"
 )
 
-type fakeRepo struct{ result domain.MetricResult }
+type fakeRepo struct {
+	result  domain.MetricResult
+	catalog []string
+}
 
 func (f *fakeRepo) Scalar(_ context.Context, _, _ string, _, _ time.Time, spec domain.MetricSpec, _ *domain.ValueFilter) (domain.MetricResult, *time.Time, error) {
 	f.result.AasPath, f.result.Agg = spec.AasPath, spec.Agg
@@ -33,7 +36,7 @@ func (f *fakeRepo) Raw(context.Context, string, string, time.Time, time.Time, st
 func (f *fakeRepo) Grouped(context.Context, string, string, time.Time, time.Time, string, domain.MetricSpec, *domain.ValueFilter, int) ([]domain.GroupResult, *time.Time, error) {
 	return nil, nil, nil
 }
-func (f *fakeRepo) Catalog(context.Context, string, string) ([]string, error) { return nil, nil }
+func (f *fakeRepo) Catalog(context.Context, string, string) ([]string, error) { return f.catalog, nil }
 
 func TestQueryMetrics_ScalarHappyPath(t *testing.T) {
 	gin.SetMode(gin.TestMode)
