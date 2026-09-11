@@ -5,6 +5,7 @@ package dashboards
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"go.uber.org/zap"
@@ -122,21 +123,13 @@ func mergeSeries(specs []domain.MetricSpec, perMetric [][]domain.BucketPoint) []
 			}
 		}
 	}
-	sortTimes(order)
+	sort.Slice(order, func(i, j int) bool { return order[i].Before(order[j]) })
 
 	series := make([]domain.SeriesPoint, 0, len(order))
 	for _, ts := range order {
 		series = append(series, domain.SeriesPoint{Ts: ts, Results: byTs[ts]})
 	}
 	return series
-}
-
-func sortTimes(ts []time.Time) {
-	for i := 1; i < len(ts); i++ {
-		for j := i; j > 0 && ts[j].Before(ts[j-1]); j-- {
-			ts[j], ts[j-1] = ts[j-1], ts[j]
-		}
-	}
 }
 
 func (s *Service) queryRaw(ctx context.Context, tenantID string, q domain.MetricQuery, from, to time.Time, result domain.QueryResult) (domain.QueryResult, error) {
@@ -146,7 +139,12 @@ func (s *Service) queryRaw(ctx context.Context, tenantID string, q domain.Metric
 	if err != nil {
 		return domain.QueryResult{}, err
 	}
-	if q.MaxPoints <= 0 && len(points) >= limit {
+	// I5a: RANGE_TOO_WIDE dispara siempre que el fetch llego al cap (limit),
+	// sin importar si maxPoints fue pedido -- antes la exencion "q.MaxPoints
+	// <= 0 &&" dejaba pasar maxPoints como forma de silenciar el guardrail,
+	// cuando en realidad Raw ya decidio (repo/mongo/metrics.Raw, misma
+	// fix) no decimar una ventana truncada por el cap.
+	if len(points) >= limit {
 		return domain.QueryResult{}, &domain.ValidationError{Code: domain.CodeRangeTooWide, Message: "el rango produce mas puntos crudos que el maximo permitido"}
 	}
 
@@ -224,6 +222,15 @@ func (s *Service) Batch(ctx context.Context, tenantID string, items []BatchItem,
 
 	results := make([]BatchItemResult, len(items))
 	g, gctx := errgroup.WithContext(ctx)
+	// I6: acotar el fan-out externo del batch. Cada item corre su propio
+	// Service.Query, que ya fanea internamente hasta MaxSpecs (10 por
+	// default) goroutines para sus MetricSpec -- sin este limite, un batch
+	// de 50 items x 10 metricas cada uno dispara hasta 500 aggregate
+	// concurrentes contra Mongo desde un solo request HTTP (y
+	// reportNonNumericDiscards duplica buena parte de eso para aggs
+	// numericos). 10 acota el peor caso a 10x10=100, dejando igual varios
+	// items corriendo en paralelo.
+	g.SetLimit(10)
 	for i, item := range items {
 		i, item := i, item
 		g.Go(func() error {
