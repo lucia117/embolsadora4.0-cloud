@@ -27,6 +27,22 @@ func mustConnect(t *testing.T) *mongodriver.Database {
 	return cli.Database("embolsadora_test_metrics")
 }
 
+// cleanTenant borra todos los measurements de un tenant en la coleccion de
+// test. Se usa antes de sembrar (por si una corrida anterior quedo a mitad
+// de camino, sin llegar a su propio t.Cleanup) y se registra via t.Cleanup
+// para correr tambien despues — asi las corridas repetidas contra el mismo
+// Mongo local de larga vida (sin recrear el container) nunca acumulan
+// documentos, sin importar si la corrida anterior se interrumpio.
+func cleanTenant(t *testing.T, db *mongodriver.Database, tenantID string) {
+	t.Helper()
+	del := func() {
+		_, err := db.Collection("measurements").DeleteMany(context.Background(), bson.M{"tenantId": tenantID})
+		require.NoError(t, err)
+	}
+	del()
+	t.Cleanup(del)
+}
+
 func seedMeasurement(t *testing.T, db *mongodriver.Database, tenantID, machineID, aasPath string, ts time.Time, value any) {
 	_, err := db.Collection("measurements").InsertOne(context.Background(), bson.M{
 		"eventId":   ts.Format(time.RFC3339Nano) + aasPath,
@@ -46,6 +62,7 @@ func TestScalar_Avg(t *testing.T) {
 	tenantID := "tenant-scalar-avg"
 	now := time.Now().UTC()
 
+	cleanTenant(t, db, tenantID)
 	seedMeasurement(t, db, tenantID, "M1", "peso", now.Add(-1*time.Hour), 1.0)
 	seedMeasurement(t, db, tenantID, "M1", "peso", now.Add(-30*time.Minute), 3.0)
 	seedMeasurement(t, db, tenantID, "M1", "peso", now.Add(-10*time.Minute), "no-numerico")
@@ -69,6 +86,7 @@ func TestSeries_AvgBucketized(t *testing.T) {
 	tenantID := "tenant-series-avg"
 	base := time.Date(2026, 9, 11, 0, 0, 0, 0, time.UTC)
 
+	cleanTenant(t, db, tenantID)
 	seedMeasurement(t, db, tenantID, "M1", "peso", base.Add(10*time.Minute), 1.0)
 	seedMeasurement(t, db, tenantID, "M1", "peso", base.Add(50*time.Minute), 3.0)
 	seedMeasurement(t, db, tenantID, "M1", "peso", base.Add(90*time.Minute), 5.0)
