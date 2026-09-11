@@ -8,13 +8,12 @@ import (
 
 	"github.com/tu-org/embolsadora-api/internal/api/handler/dashboards/dto"
 	app "github.com/tu-org/embolsadora-api/internal/app/dashboards"
-	"github.com/tu-org/embolsadora-api/internal/platform"
 )
 
 func QueryMetrics(service *app.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tenantID := platform.TenantID(c.Request.Context())
-		if tenantID == "" {
+		tenantID, ok := normalizedTenantID(c.Request.Context())
+		if !ok {
 			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "X-Tenant-ID invalido o ausente", "code": "INVALID_PARAMS"})
 			return
 		}
@@ -25,7 +24,7 @@ func QueryMetrics(service *app.Service) gin.HandlerFunc {
 			return
 		}
 
-		result, err := service.Query(c.Request.Context(), tenantID, req.ToDomain(), time.Now())
+		result, err := service.Query(c.Request.Context(), tenantID, req.ToDomain(), time.Now().UTC())
 		if err != nil {
 			HandleError(c, err)
 			return

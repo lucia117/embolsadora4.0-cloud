@@ -23,7 +23,7 @@ func TestCatalogMetrics_HappyPath(t *testing.T) {
 
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
-		c.Request = c.Request.WithContext(platform.WithTenantID(c.Request.Context(), "tenant-1"))
+		c.Request = c.Request.WithContext(platform.WithTenantID(c.Request.Context(), "11111111-1111-1111-1111-111111111111"))
 		c.Next()
 	})
 	r.GET("/catalog", CatalogMetrics(svc))
@@ -45,7 +45,7 @@ func TestCatalogMetrics_MissingMachineID(t *testing.T) {
 
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
-		c.Request = c.Request.WithContext(platform.WithTenantID(c.Request.Context(), "tenant-1"))
+		c.Request = c.Request.WithContext(platform.WithTenantID(c.Request.Context(), "11111111-1111-1111-1111-111111111111"))
 		c.Next()
 	})
 	r.GET("/catalog", CatalogMetrics(svc))

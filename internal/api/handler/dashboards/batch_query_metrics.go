@@ -10,7 +10,6 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/api/handler/dashboards/dto"
 	app "github.com/tu-org/embolsadora-api/internal/app/dashboards"
 	domain "github.com/tu-org/embolsadora-api/internal/domain/metrics"
-	"github.com/tu-org/embolsadora-api/internal/platform"
 )
 
 type batchQueryItemRequest struct {
@@ -29,8 +28,8 @@ type batchQueryRequest struct {
 // elemento de "results", no abortan el resto (spec, "Endpoint batch").
 func BatchQueryMetrics(service *app.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tenantID := platform.TenantID(c.Request.Context())
-		if tenantID == "" {
+		tenantID, ok := normalizedTenantID(c.Request.Context())
+		if !ok {
 			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "X-Tenant-ID invalido o ausente", "code": "INVALID_PARAMS"})
 			return
 		}
@@ -46,7 +45,7 @@ func BatchQueryMetrics(service *app.Service) gin.HandlerFunc {
 			items[i] = app.BatchItem{ID: q.ID, Query: q.QueryRequest.ToDomain()}
 		}
 
-		results, err := service.Batch(c.Request.Context(), tenantID, items, time.Now())
+		results, err := service.Batch(c.Request.Context(), tenantID, items, time.Now().UTC())
 		if err != nil {
 			HandleError(c, err)
 			return
