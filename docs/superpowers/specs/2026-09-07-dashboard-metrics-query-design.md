@@ -579,3 +579,34 @@ inspeccionar la forma del payload en vez de leer un campo. El costo de
 agregarlo ahora es una línea por response; agregarlo después de que el
 frontend ya escribió lógica de detección estructural sería un cambio
 breaking de facto en la práctica, aunque el campo en sí sea aditivo.
+
+## TODOs para el plan de implementación (no bloquean)
+
+Del mismo review de PR: ítems de checklist, no decisiones de diseño — no
+necesitan brainstorming, pero tienen que quedar resueltos (código o
+justificación explícita de "no ahora") antes de cerrar la implementación.
+
+- **C1 — Timezone/turnos.** Buckets `1d`/`6h` alineados a UTC parten el
+  turno noche de la planta (UTC−3). Decidir: sumar parámetro `timezone`
+  (`$dateTrunc` lo soporta) o declarar explícitamente "v1 es UTC-only".
+  Además, el ejemplo de `groupBy` "promedio de temperatura por turno" en
+  este spec no se puede expresar hoy — `turno` no es un campo de `payload`.
+  Sacar el ejemplo o explicar cómo se derivaría.
+- **C3 — `raw`: downsampling en vez de hard-reject.** El tope de 5000 puntos
+  rechaza, por ejemplo, 20 minutos a >4Hz. Evaluar `maxPoints` con
+  decimación server-side (LTTB / min-max) en vez de 400 `RANGE_TOO_WIDE`
+  directo.
+- **C4 — `maxTimeMS` en la agregación.** `RANGE_TOO_WIDE` es una estimación
+  pre-flight (buckets/puntos esperados); no frena un `$match` que escanea
+  millones de documentos antes de llegar a agrupar. Sumar un techo duro de
+  tiempo de ejecución en el pipeline de Mongo.
+- **C7 — Fallo parcial en el `errgroup` del query single.** Si de 10
+  `MetricSpec` en un mismo `MetricQueryRequest` fallan 3, especificar: ¿500
+  total o respuesta parcial con los 7 que sí resolvieron? (Distinto del
+  fallo parcial del endpoint batch, que ya quedó definido arriba.)
+- **C8 — Guardrails como config, no constantes.** Los topes de 1000 buckets
+  / 5000 puntos / 200 grupos / 50 queries del batch están hardcodeados en el
+  spec sin un presupuesto de latencia que los justifique. Moverlos a config
+  (env o tabla) y separar `RANGE_TOO_WIDE` en dos códigos según la causa
+  (demasiados buckets vs. demasiados puntos crudos), en vez de un único code
+  mezclando ambas.
