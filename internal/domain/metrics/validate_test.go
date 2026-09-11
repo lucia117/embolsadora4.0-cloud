@@ -100,6 +100,41 @@ func TestValidate(t *testing.T) {
 			q:        MetricQuery{MachineID: "EMB-DEV-001", Metrics: oneMetric, Bucket: Bucket1m},
 			wantCode: CodeRangeTooWide,
 		},
+		{
+			name:     "bucket con agg last no soportado",
+			q:        MetricQuery{MachineID: "EMB-DEV-001", Metrics: []MetricSpec{{AasPath: "x", Agg: AggLast}}, Bucket: Bucket1h},
+			wantCode: CodeInvalidParams,
+		},
+		{
+			name:     "bucket con agg delta no soportado",
+			q:        MetricQuery{MachineID: "EMB-DEV-001", Metrics: []MetricSpec{{AasPath: "x", Agg: AggDelta}}, Bucket: Bucket1h},
+			wantCode: CodeInvalidParams,
+		},
+		{
+			name:     "groupBy con agg last no soportado",
+			q:        MetricQuery{MachineID: "EMB-DEV-001", Metrics: []MetricSpec{{AasPath: "x", Agg: AggLast}}, GroupBy: "payload.tipo"},
+			wantCode: CodeInvalidParams,
+		},
+		{
+			name:     "groupBy con agg delta no soportado",
+			q:        MetricQuery{MachineID: "EMB-DEV-001", Metrics: []MetricSpec{{AasPath: "x", Agg: AggDelta}}, GroupBy: "payload.tipo"},
+			wantCode: CodeInvalidParams,
+		},
+		{
+			name:     "filter.valueEquals objeto es invalido (inyeccion de operador)",
+			q:        MetricQuery{MachineID: "EMB-DEV-001", Metrics: oneMetric, Filter: &ValueFilter{ValueEquals: map[string]any{"$regex": "(a+)+$"}}},
+			wantCode: CodeInvalidParams,
+		},
+		{
+			name:     "maxPoints negativo es invalido",
+			q:        MetricQuery{MachineID: "EMB-DEV-001", Metrics: []MetricSpec{{AasPath: "x", Agg: AggRaw}}, MaxPoints: -1},
+			wantCode: CodeInvalidParams,
+		},
+		{
+			name:     "maxPoints excede el maximo de puntos crudos",
+			q:        MetricQuery{MachineID: "EMB-DEV-001", Metrics: []MetricSpec{{AasPath: "x", Agg: AggRaw}}, MaxPoints: 5001},
+			wantCode: CodeInvalidParams,
+		},
 	}
 
 	// MaxSpecs:2 alcanza para twoMetrics (2 elementos con aggs distintos,

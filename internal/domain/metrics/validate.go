@@ -42,6 +42,17 @@ func Validate(q MetricQuery, from, to time.Time, limits Limits) (Mode, error) {
 	if q.GroupBy != "" && !groupByFieldPattern.MatchString(q.GroupBy) {
 		return "", newValidationError(CodeInvalidParams, "groupBy no cumple el patron payload.<campo>")
 	}
+	if q.Filter != nil && q.Filter.ValueEquals != nil {
+		switch q.Filter.ValueEquals.(type) {
+		case bool, string, float64:
+			// ok — unicos tipos que encoding/json produce para un primitivo JSON.
+		default:
+			return "", newValidationError(CodeInvalidParams, "filter.valueEquals debe ser bool, string o number")
+		}
+	}
+	if q.MaxPoints < 0 || q.MaxPoints > limits.MaxRawPoints {
+		return "", newValidationError(CodeInvalidParams, "maxPoints debe estar entre 1 y el maximo de puntos crudos permitido")
+	}
 
 	isRaw := len(q.Metrics) == 1 && q.Metrics[0].Agg == AggRaw
 	isGrouped := q.GroupBy != ""
@@ -58,10 +69,18 @@ func Validate(q MetricQuery, from, to time.Time, limits Limits) (Mode, error) {
 		if q.Bucket != "" || len(q.Metrics) != 1 {
 			return "", newValidationError(CodeGroupByConflict, "groupBy requiere exactamente 1 metrica y no admite bucket")
 		}
+		if agg := q.Metrics[0].Agg; agg == AggLast || agg == AggDelta {
+			return "", newValidationError(CodeInvalidParams, "agg no soportado en modo agrupado: last/delta")
+		}
 		return ModeGrouped, nil
 	case q.Bucket != "":
 		if err := checkBucketCount(from, to, q.Bucket, limits.MaxBuckets); err != nil {
 			return "", err
+		}
+		for _, m := range q.Metrics {
+			if m.Agg == AggLast || m.Agg == AggDelta {
+				return "", newValidationError(CodeInvalidParams, "agg no soportado en modo serie: last/delta")
+			}
 		}
 		return ModeSeries, nil
 	default:
