@@ -2,6 +2,7 @@ package routes
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -16,6 +17,7 @@ import (
 	handlerChangePassword "github.com/tu-org/embolsadora-api/internal/api/handler/auth/change_password"
 	handlerLogin "github.com/tu-org/embolsadora-api/internal/api/handler/auth/login"
 	dashboardLayoutsHandler "github.com/tu-org/embolsadora-api/internal/api/handler/dashboard_layouts"
+	dashboardsHandler "github.com/tu-org/embolsadora-api/internal/api/handler/dashboards"
 	edgeDevicesHandler "github.com/tu-org/embolsadora-api/internal/api/handler/edge_devices"
 	handlerCreateInvitation "github.com/tu-org/embolsadora-api/internal/api/handler/invitations/create_invitation"
 	handlerListInvitations "github.com/tu-org/embolsadora-api/internal/api/handler/invitations/list_invitations"
@@ -33,6 +35,7 @@ import (
 	ucGetPublicTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/get_public_tenant"
 	alarmRulesApp "github.com/tu-org/embolsadora-api/internal/app/alarm_rules"
 	dashboardLayoutsApp "github.com/tu-org/embolsadora-api/internal/app/dashboard_layouts"
+	dashboardsApp "github.com/tu-org/embolsadora-api/internal/app/dashboards"
 	edgeDevicesApp "github.com/tu-org/embolsadora-api/internal/app/edge_devices"
 	ingestapp "github.com/tu-org/embolsadora-api/internal/app/ingest"
 	appLogs "github.com/tu-org/embolsadora-api/internal/app/logs"
@@ -43,11 +46,13 @@ import (
 	consumers "github.com/tu-org/embolsadora-api/internal/consumers"
 	consumermw "github.com/tu-org/embolsadora-api/internal/consumers/middleware"
 	domainingest "github.com/tu-org/embolsadora-api/internal/domain/ingest"
+	domainmetrics "github.com/tu-org/embolsadora-api/internal/domain/metrics"
 	"github.com/tu-org/embolsadora-api/internal/platform/apporigin"
 	"github.com/tu-org/embolsadora-api/internal/platform/edgeclient"
 	mongoplatform "github.com/tu-org/embolsadora-api/internal/platform/mongo"
 	"github.com/tu-org/embolsadora-api/internal/platform/supabase"
 	measurementsRepo "github.com/tu-org/embolsadora-api/internal/repo/mongo/measurements"
+	metricsmongo "github.com/tu-org/embolsadora-api/internal/repo/mongo/metrics"
 	alarmRulesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/alarm_rules"
 	apiKeysRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/apikeys"
 	dashboardLayoutsRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/dashboard_layouts"
@@ -187,7 +192,7 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	// que el propio diseno de la ingesta esta hecho para sobrevivir. Se deja
 	// constancia con logger.Error (no Fatalf) y measurementRepo queda en un
 	// stub que devuelve error en cada InsertMany/Ping (measurementsRepo.Unavailable).
-	measurementRepo, err := connectMeasurementsRepo(context.Background(), cfg.Mongo, logger)
+	measurementRepo, mongoClient, err := connectMeasurementsRepo(context.Background(), cfg.Mongo, logger)
 	if err != nil {
 		// connectMeasurementsRepo ya distingue "no se pudo crear los indices"
 		// (fatal: sin el indice unico no hay idempotencia y cada reintento del
@@ -307,35 +312,65 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	permissionsWriteGroup.POST("/permissions", pHandler.CreatePermission)
 	permissionsWriteGroup.PUT("/permissions/:id", pHandler.UpdatePermission)
 	permissionsWriteGroup.DELETE("/permissions/:id", pHandler.DeletePermission)
+
+	// Dashboard Metrics Query surface (/api/v1/dashboards/metrics)
+	// Igual que measurementRepo, un Mongo caido al arrancar deja este surface
+	// degradado (metricsmongo.Unavailable) en vez de tumbar el resto de la
+	// API — mismo patron de I-1.
+	var metricsRepo domainmetrics.Repository
+	if mongoClient != nil {
+		metricsRepo = metricsmongo.New(mongoClient.Database(), time.Duration(cfg.Dashboards.MetricsMaxTimeMS)*time.Millisecond)
+	} else {
+		metricsRepo = metricsmongo.Unavailable(fmt.Errorf("mongo no disponible desde el arranque"))
+	}
+
+	metricsLimits := domainmetrics.Limits{
+		MaxSpecs:        cfg.Dashboards.MetricsMaxSpecs,
+		MaxBuckets:      cfg.Dashboards.MetricsMaxBuckets,
+		MaxRawPoints:    cfg.Dashboards.MetricsMaxRawPoints,
+		MaxGroups:       cfg.Dashboards.MetricsMaxGroups,
+		MaxBatchQueries: cfg.Dashboards.MetricsMaxBatchQueries,
+	}
+	dashboardsService := dashboardsApp.NewService(metricsRepo, metricsLimits, logger)
+	dashboardRateLimiter := apimw.NewDashboardRateLimiter(redisClient, float64(cfg.Dashboards.MetricsRateLimitRPM)/60.0, cfg.Dashboards.MetricsRateLimitBurst)
+
+	dashboardsMetricsGroup := v1.Group("/dashboards/metrics",
+		apimw.RBACCheck("perm_metrics_view"),
+		apimw.DashboardRateLimit(dashboardRateLimiter),
+	)
+	dashboardsHandler.RegisterRoutes(dashboardsMetricsGroup, dashboardsService)
 }
 
-// connectMeasurementsRepo conecta a Mongo y crea sus indices.
+// connectMeasurementsRepo conecta a Mongo y crea sus indices. Tambien
+// devuelve el *mongoplatform.Client crudo (nil cuando la conexion fallo) para
+// que el llamador pueda construir otros repos sobre la misma Database() sin
+// conectar dos veces — hoy lo usa el repo de metrics de dashboards.
 //
 // Si la CONEXION falla, devuelve un repo degradado
-// (measurementsRepo.Unavailable) y nil error: el llamador debe seguir
-// arrancando. La ingesta ya esta disenada para sobrevivir a Mongo caido —
-// I-1: 500 en cada request, el Edge reintenta con backoff sin perder datos —
-// y aplicar esa misma garantia a una caida al arrancar es estrictamente
-// mejor que tumbar login, /me, dashboards y reglas de alarma con log.Fatalf
-// por un problema que no los afecta.
+// (measurementsRepo.Unavailable), client nil y error nil: el llamador debe
+// seguir arrancando. La ingesta ya esta disenada para sobrevivir a Mongo
+// caido — I-1: 500 en cada request, el Edge reintenta con backoff sin perder
+// datos — y aplicar esa misma garantia a una caida al arrancar es
+// estrictamente mejor que tumbar login, /me, dashboards y reglas de alarma
+// con log.Fatalf por un problema que no los afecta.
 //
 // Si la conexion tuvo exito pero EnsureIndexes falla, devuelve el error: ese
 // caso SI es fatal y el llamador debe terminar el proceso. Sin el indice
 // unico sobre (tenantId, eventId) no hay idempotencia, y cada reintento del
 // Pi duplicaria mediciones en silencio.
-func connectMeasurementsRepo(ctx context.Context, cfg config.MongoConfig, logger *zap.Logger) (domainingest.Repository, error) {
+func connectMeasurementsRepo(ctx context.Context, cfg config.MongoConfig, logger *zap.Logger) (domainingest.Repository, *mongoplatform.Client, error) {
 	mongoClient, err := mongoplatform.Connect(ctx, cfg)
 	if err != nil {
 		logger.Error("no se pudo conectar a MongoDB al arrancar; la ingesta respondera 500 y el Edge reintentara (I-1); el resto de la API sigue arriba",
 			zap.Error(err))
 		telemetry.SetMongoUp(false)
-		return measurementsRepo.Unavailable(err), nil
+		return measurementsRepo.Unavailable(err), nil, nil
 	}
 
 	repo := measurementsRepo.New(mongoClient.Database())
 	if err := repo.EnsureIndexes(ctx); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	telemetry.SetMongoUp(true)
-	return repo, nil
+	return repo, mongoClient, nil
 }
