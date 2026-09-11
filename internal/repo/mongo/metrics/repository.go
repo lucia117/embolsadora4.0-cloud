@@ -254,6 +254,105 @@ func (r *Repository) scalarCount(ctx context.Context, tenantID, machineID string
 	return domain.MetricResult{AasPath: spec.AasPath, Agg: spec.Agg, Value: float64(g.Value), SampleCount: g.Value}, &dataAsOf, nil
 }
 
+// dateTruncUnit mapea Bucket a la unidad que espera $dateTrunc. Bucket es un
+// tipo de domain/metrics; su duration() no esta exportada a proposito
+// (domain no conoce Mongo), asi que este mapeo vive aca, no ahi.
+func dateTruncUnit(b domain.Bucket) (unit string, binSize int, ok bool) {
+	switch b {
+	case domain.Bucket1m:
+		return "minute", 1, true
+	case domain.Bucket5m:
+		return "minute", 5, true
+	case domain.Bucket15m:
+		return "minute", 15, true
+	case domain.Bucket1h:
+		return "hour", 1, true
+	case domain.Bucket6h:
+		return "hour", 6, true
+	case domain.Bucket1d:
+		return "day", 1, true
+	}
+	return "", 0, false
+}
+
+// Series resuelve avg/sum/min/max/count bucketizados por Bucket via $dateTrunc.
+func (r *Repository) Series(ctx context.Context, tenantID, machineID string, from, to time.Time, bucket domain.Bucket, spec domain.MetricSpec, filter *domain.ValueFilter) ([]domain.BucketPoint, *time.Time, error) {
+	ctx, cancel := context.WithTimeout(ctx, r.maxTime)
+	defer cancel()
+
+	unit, binSize, ok := dateTruncUnit(bucket)
+	if !ok {
+		return nil, nil, fmt.Errorf("bucket no soportado: %s", bucket)
+	}
+
+	truncExpr := bson.D{{Key: "$dateTrunc", Value: bson.D{
+		{Key: "date", Value: "$ts"},
+		{Key: "unit", Value: unit},
+		{Key: "binSize", Value: binSize},
+	}}}
+
+	var groupStage bson.D
+	switch spec.Agg {
+	case domain.AggCount:
+		matchStage := baseMatch(tenantID, machineID, from, to, spec.AasPath)
+		if filter != nil && filter.ValueEquals != nil {
+			matchStage[0].Value = append(matchStage[0].Value.(bson.D), bson.E{Key: "payload.value", Value: filter.ValueEquals})
+		}
+		groupStage = bson.D{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: truncExpr},
+			{Key: "value", Value: bson.D{{Key: "$sum", Value: 1}}},
+			{Key: "sampleCount", Value: bson.D{{Key: "$sum", Value: 1}}},
+		}}}
+		return r.runSeriesPipeline(ctx, mongodriver.Pipeline{matchStage, groupStage}, tenantID, machineID, from, to, spec)
+	default:
+		accumulator, ok := numericAccumulator(spec.Agg)
+		if !ok {
+			return nil, nil, fmt.Errorf("agg no soportado en modo serie: %s", spec.Agg)
+		}
+		groupStage = bson.D{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: truncExpr},
+			{Key: "value", Value: bson.D{{Key: accumulator, Value: "$payload.value"}}},
+			{Key: "sampleCount", Value: bson.D{{Key: "$sum", Value: 1}}},
+		}}}
+		pipeline := mongodriver.Pipeline{
+			baseMatch(tenantID, machineID, from, to, spec.AasPath),
+			isNumberMatch(false),
+			groupStage,
+		}
+		r.reportNonNumericDiscards(ctx, tenantID, machineID, from, to, spec)
+		return r.runSeriesPipeline(ctx, pipeline, tenantID, machineID, from, to, spec)
+	}
+}
+
+func (r *Repository) runSeriesPipeline(ctx context.Context, pipeline mongodriver.Pipeline, tenantID, machineID string, from, to time.Time, spec domain.MetricSpec) ([]domain.BucketPoint, *time.Time, error) {
+	pipeline = append(pipeline, bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}})
+	cur, err := r.coll.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer cur.Close(ctx)
+
+	var rows []struct {
+		Ts          time.Time `bson:"_id"`
+		Value       float64   `bson:"value"`
+		SampleCount int64     `bson:"sampleCount"`
+	}
+	if err := cur.All(ctx, &rows); err != nil {
+		return nil, nil, err
+	}
+
+	points := make([]domain.BucketPoint, 0, len(rows))
+	var dataAsOf *time.Time
+	for _, row := range rows {
+		points = append(points, domain.BucketPoint{Ts: row.Ts, Value: row.Value, SampleCount: row.SampleCount})
+		if dataAsOf == nil || row.Ts.After(*dataAsOf) {
+			t := row.Ts
+			dataAsOf = &t
+		}
+	}
+	return points, dataAsOf, nil
+}
+
 // unavailable implementa domain/metrics.Repository sin Mongo real detras —
 // mismo patron que measurements.Unavailable, para que un Mongo caido al
 // arrancar deje /dashboards/metrics degradado (500) en vez de tumbar el
