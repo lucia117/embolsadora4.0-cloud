@@ -170,3 +170,35 @@ func TestRaw_MaxPointsOneReturnsMostRecentPoint(t *testing.T) {
 		t.Fatalf("ts = %v, esperaba %v", points[0].Ts, base.Add(3*time.Second))
 	}
 }
+
+func TestGrouped_CountByField(t *testing.T) {
+	db := mustConnect(t)
+	repo := New(db, 5*time.Second)
+	ctx := context.Background()
+	tenantID := "tenant-grouped"
+	base := time.Date(2026, 9, 11, 9, 0, 0, 0, time.UTC)
+
+	cleanTenant(t, db, tenantID)
+	seedAlarm := func(tipo string, at time.Time) {
+		_, err := db.Collection("measurements").InsertOne(ctx, bson.M{
+			"eventId":   tipo + at.Format(time.RFC3339Nano),
+			"tenantId":  tenantID,
+			"machineId": "M1",
+			"ts":        at,
+			"kind":      "alarm",
+			"payload":   bson.M{"aasPath": "Alarmas/tipo", "value": tipo, "tipo": tipo},
+		})
+		require.NoError(t, err)
+	}
+	seedAlarm("sellado_defectuoso", base)
+	seedAlarm("sellado_defectuoso", base.Add(time.Minute))
+	seedAlarm("temperatura_alta", base.Add(2*time.Minute))
+
+	groups, dataAsOf, err := repo.Grouped(ctx, tenantID, "M1", base.Add(-time.Hour), base.Add(time.Hour), "payload.tipo", domain.MetricSpec{AasPath: "Alarmas/tipo", Agg: domain.AggCount}, nil, 201)
+	require.NoError(t, err)
+	require.NotNil(t, dataAsOf)
+	require.Len(t, groups, 2)
+	if groups[0].Key != "sellado_defectuoso" || groups[0].Value != 2 {
+		t.Fatalf("primer grupo = %+v, esperaba sellado_defectuoso:2 (orden descendente por value)", groups[0])
+	}
+}

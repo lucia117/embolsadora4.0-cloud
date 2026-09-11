@@ -437,6 +437,79 @@ func decimateUniform(points []domain.RawPoint, maxPoints int) []domain.RawPoint 
 	return out
 }
 
+// Grouped agrupa por groupBy (una referencia de campo tipo "payload.xxx")
+// con el acumulador de spec.Agg, ordena descendente por value y trunca a
+// limit grupos (misma convencion que Raw: el llamador pasa maxGroups+1 para
+// poder distinguir "hay exactamente el maximo" de "hay mas" y rechazar con
+// TOO_MANY_GROUPS).
+//
+// groupBy ya fue validado contra groupByFieldPattern en domain/metrics
+// (Task 3) antes de llegar aca — este repositorio confia en esa validacion
+// previa para construir la referencia de campo "$"+groupBy sin volver a
+// validarla.
+func (r *Repository) Grouped(ctx context.Context, tenantID, machineID string, from, to time.Time, groupBy string, spec domain.MetricSpec, filter *domain.ValueFilter, limit int) ([]domain.GroupResult, *time.Time, error) {
+	ctx, cancel := context.WithTimeout(ctx, r.maxTime)
+	defer cancel()
+
+	fieldRef := "$" + groupBy
+
+	matchStage := baseMatch(tenantID, machineID, from, to, spec.AasPath)
+	if filter != nil && filter.ValueEquals != nil {
+		matchStage[0].Value = append(matchStage[0].Value.(bson.D), bson.E{Key: "payload.value", Value: filter.ValueEquals})
+	}
+
+	var groupStage bson.D
+	if spec.Agg == domain.AggCount {
+		groupStage = bson.D{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: fieldRef},
+			{Key: "value", Value: bson.D{{Key: "$sum", Value: 1}}},
+			{Key: "dataAsOf", Value: bson.D{{Key: "$max", Value: "$ts"}}},
+		}}}
+	} else {
+		accumulator, ok := numericAccumulator(spec.Agg)
+		if !ok {
+			return nil, nil, fmt.Errorf("agg no soportado en modo agrupado: %s", spec.Agg)
+		}
+		groupStage = bson.D{{Key: "$group", Value: bson.D{
+			{Key: "_id", Value: fieldRef},
+			{Key: "value", Value: bson.D{{Key: accumulator, Value: "$payload.value"}}},
+			{Key: "dataAsOf", Value: bson.D{{Key: "$max", Value: "$ts"}}},
+		}}}
+	}
+
+	pipeline := mongodriver.Pipeline{
+		matchStage,
+		groupStage,
+		bson.D{{Key: "$sort", Value: bson.D{{Key: "value", Value: -1}}}},
+		bson.D{{Key: "$limit", Value: limit}},
+	}
+	cur, err := r.coll.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer cur.Close(ctx)
+
+	var rows []struct {
+		Key      string    `bson:"_id"`
+		Value    float64   `bson:"value"`
+		DataAsOf time.Time `bson:"dataAsOf"`
+	}
+	if err := cur.All(ctx, &rows); err != nil {
+		return nil, nil, err
+	}
+
+	groups := make([]domain.GroupResult, 0, len(rows))
+	var dataAsOf *time.Time
+	for _, row := range rows {
+		groups = append(groups, domain.GroupResult{Key: row.Key, Value: row.Value})
+		if dataAsOf == nil || row.DataAsOf.After(*dataAsOf) {
+			t := row.DataAsOf
+			dataAsOf = &t
+		}
+	}
+	return groups, dataAsOf, nil
+}
+
 // unavailable implementa domain/metrics.Repository sin Mongo real detras —
 // mismo patron que measurements.Unavailable, para que un Mongo caido al
 // arrancar deje /dashboards/metrics degradado (500) en vez de tumbar el
