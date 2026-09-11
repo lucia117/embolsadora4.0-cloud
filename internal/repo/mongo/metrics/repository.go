@@ -353,6 +353,81 @@ func (r *Repository) runSeriesPipeline(ctx context.Context, pipeline mongodriver
 	return points, dataAsOf, nil
 }
 
+// Raw devuelve puntos crudos (sin agregar) ordenados por ts ascendente, hasta
+// limit documentos. El llamador (Task 12) pasa limit = maxRawPoints+1 para
+// poder distinguir "hay exactamente el maximo" (posible mas datos de los
+// permitidos, rechazar con RANGE_TOO_WIDE) de "menos que el limite"
+// (definitivamente se trajo todo) comparando len(points) == limit — esta
+// funcion no decide esa politica, solo devuelve lo que encuentra hasta
+// limit y, si maxPoints > 0, decima a maxPoints antes de devolver.
+func (r *Repository) Raw(ctx context.Context, tenantID, machineID string, from, to time.Time, aasPath string, limit, maxPoints int) ([]domain.RawPoint, *time.Time, error) {
+	ctx, cancel := context.WithTimeout(ctx, r.maxTime)
+	defer cancel()
+
+	pipeline := mongodriver.Pipeline{
+		baseMatch(tenantID, machineID, from, to, aasPath),
+		bson.D{{Key: "$sort", Value: bson.D{{Key: "ts", Value: 1}}}},
+		bson.D{{Key: "$limit", Value: limit}},
+	}
+	cur, err := r.coll.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer cur.Close(ctx)
+
+	var rows []struct {
+		Ts      time.Time `bson:"ts"`
+		Payload struct {
+			Value any `bson:"value"`
+		} `bson:"payload"`
+	}
+	if err := cur.All(ctx, &rows); err != nil {
+		return nil, nil, err
+	}
+
+	points := make([]domain.RawPoint, 0, len(rows))
+	var dataAsOf *time.Time
+	for _, row := range rows {
+		points = append(points, domain.RawPoint{Ts: row.Ts, Value: row.Payload.Value})
+		if dataAsOf == nil || row.Ts.After(*dataAsOf) {
+			t := row.Ts
+			dataAsOf = &t
+		}
+	}
+
+	// fork/C3: si maxPoints viene seteado, decimar en vez de dejar que el
+	// llamador (app/dashboards) rechace con RANGE_TOO_WIDE. len(points) ==
+	// limit sigue siendo la senal de "hay mas de los que se pidieron" — eso
+	// no cambia; lo que cambia es que aca mismo se recorta a maxPoints en
+	// vez de devolver el excedente sin recortar.
+	if maxPoints > 0 && len(points) > maxPoints {
+		points = decimateUniform(points, maxPoints)
+	}
+
+	return points, dataAsOf, nil
+}
+
+// decimateUniform reduce points a como maximo maxPoints elementos con
+// muestreo por stride uniforme, preservando siempre el primer y el ultimo
+// punto original. Decimacion simple (no LTTB): correcta y suficiente para
+// v1, mas facil de razonar; upgradeable despues sin cambiar el contrato
+// (fork/C3 de la spec).
+func decimateUniform(points []domain.RawPoint, maxPoints int) []domain.RawPoint {
+	if maxPoints < 2 || len(points) <= maxPoints {
+		return points
+	}
+	step := float64(len(points)-1) / float64(maxPoints-1)
+	out := make([]domain.RawPoint, 0, maxPoints)
+	for i := 0; i < maxPoints; i++ {
+		idx := int(float64(i) * step)
+		if idx >= len(points) {
+			idx = len(points) - 1
+		}
+		out = append(out, points[idx])
+	}
+	return out
+}
+
 // unavailable implementa domain/metrics.Repository sin Mongo real detras —
 // mismo patron que measurements.Unavailable, para que un Mongo caido al
 // arrancar deje /dashboards/metrics degradado (500) en vez de tumbar el

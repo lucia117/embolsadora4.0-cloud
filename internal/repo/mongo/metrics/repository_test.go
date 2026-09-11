@@ -103,3 +103,47 @@ func TestSeries_AvgBucketized(t *testing.T) {
 		t.Fatalf("bucket 1: value=%v sampleCount=%v, esperaba value=5.0 sampleCount=1", points[1].Value, points[1].SampleCount)
 	}
 }
+
+func TestRaw_ReturnsPointsOrderedByTs(t *testing.T) {
+	db := mustConnect(t)
+	repo := New(db, 5*time.Second)
+	ctx := context.Background()
+	tenantID := "tenant-raw"
+	base := time.Date(2026, 9, 11, 9, 0, 0, 0, time.UTC)
+
+	cleanTenant(t, db, tenantID)
+	seedMeasurement(t, db, tenantID, "M1", "temp", base.Add(2*time.Second), 80.0)
+	seedMeasurement(t, db, tenantID, "M1", "temp", base.Add(1*time.Second), 79.0)
+
+	points, dataAsOf, err := repo.Raw(ctx, tenantID, "M1", base, base.Add(time.Hour), "temp", 5001, 0)
+	require.NoError(t, err)
+	require.NotNil(t, dataAsOf)
+	require.Len(t, points, 2)
+	if !points[0].Ts.Before(points[1].Ts) {
+		t.Fatalf("puntos no ordenados por ts ascendente")
+	}
+}
+
+func TestRaw_DecimatesWhenMaxPointsSet(t *testing.T) {
+	db := mustConnect(t)
+	repo := New(db, 5*time.Second)
+	ctx := context.Background()
+	tenantID := "tenant-raw-decimate"
+	base := time.Date(2026, 9, 11, 9, 0, 0, 0, time.UTC)
+
+	cleanTenant(t, db, tenantID)
+	for i := 0; i < 10; i++ {
+		seedMeasurement(t, db, tenantID, "M1", "temp", base.Add(time.Duration(i)*time.Second), float64(i))
+	}
+
+	points, _, err := repo.Raw(ctx, tenantID, "M1", base, base.Add(time.Hour), "temp", 5001, 3)
+	require.NoError(t, err)
+	require.LessOrEqual(t, len(points), 3)
+	// El primer y ultimo punto original siempre se preservan.
+	if points[0].Value != 0.0 {
+		t.Fatalf("primer punto = %v, esperaba 0.0", points[0].Value)
+	}
+	if points[len(points)-1].Value != 9.0 {
+		t.Fatalf("ultimo punto = %v, esperaba 9.0", points[len(points)-1].Value)
+	}
+}
