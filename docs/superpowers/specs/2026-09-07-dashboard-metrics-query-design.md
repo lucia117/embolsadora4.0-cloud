@@ -11,6 +11,9 @@ de PR: v1 no hace polling automático por widget (refresh manual +
 on-focus), se agrega `dataAsOf` a las 4 formas de respuesta y un endpoint
 batch (`POST .../query/batch`) para que un dashboard completo resuelva en
 un solo request.
+**Actualizado (3)**: 2026-09-11 — cierre de C2 y C5 (ver "Ajustes de
+contrato cerrados"): `range` como alternativa a `from`/`to`, y discriminador
+`mode` explícito en las 4 formas de respuesta.
 
 ## Context
 
@@ -122,8 +125,9 @@ el cloud en cada ingest) — aditivo sobre este contrato, no breaking.
 ```go
 type MetricQueryRequest struct {
     MachineID string        `json:"machineId"`         // requerido
-    From      time.Time     `json:"from"`               // requerido, RFC3339
-    To        time.Time     `json:"to"`                 // requerido, > From
+    Range     string        `json:"range,omitempty"`    // "15m"|"30m"|"1h"|"8h"|"24h"|"7d"|"30d" — mutuamente excluyente con from/to
+    From      *time.Time    `json:"from,omitempty"`     // RFC3339 — requerido si no viene `range`
+    To        *time.Time    `json:"to,omitempty"`       // RFC3339, > From — requerido si no viene `range`
     Bucket    string        `json:"bucket,omitempty"`   // "1m"|"5m"|"15m"|"1h"|"6h"|"1d"
     Metrics   []MetricSpec  `json:"metrics"`             // requerido, 1..10
     GroupBy   string        `json:"groupBy,omitempty"`  // "payload.<campo>"
@@ -140,6 +144,20 @@ type ValueFilter struct {
 }
 ```
 
+**Selección de ventana temporal — `range` vs. `from`/`to`.** Exactamente uno
+de los dos debe venir: `range` (un enum de ventanas relativas comunes) o el
+par `from`+`to` (rango absoluto arbitrario, para selectores de fecha custom
+del frontend). Cuando viene `range`, el backend resuelve `to = now()` (reloj
+del servidor) y `from = to - range` **en el momento de ejecutar la
+consulta** — el cliente nunca calcula ni envía timestamps para sus casos más
+comunes ("últimas 8hs", "últimos 20 min"), lo que elimina el desajuste de
+reloj cliente/servidor y hace que la misma consulta lógica ("últimas 8hs de
+peso") tenga siempre la misma forma de request, sea cual sea el momento en
+que se dispare — precondición para que una cache futura (ver Fork 4) pueda
+tener cache keys estables sin que el equipo tenga que rediseñar el contrato
+en ese momento. `from`/`to` absolutos siguen existiendo para rangos que no
+encajan en el enum (ej. "el turno del martes pasado").
+
 **Reglas de exclusión mutua** (determinan cuál de los 4 modos de respuesta se
 usa):
 
@@ -154,7 +172,7 @@ formada):
 
 | Code | Motivo |
 |---|---|
-| `INVALID_PARAMS` | falta `machineId`/`from`/`to`/`metrics`, `from >= to`, `aasPath`/`agg`/`bucket` inválido |
+| `INVALID_PARAMS` | falta `machineId`/`metrics`; falta tanto `range` como `from`+`to`, o vienen los dos a la vez; `range` fuera del enum permitido; `from >= to`; `aasPath`/`agg`/`bucket` inválido |
 | `TOO_MANY_METRICS` | `len(metrics) > 10` |
 | `RAW_MODE_CONFLICT` | `agg:"raw"` combinado con `bucket`, `groupBy` o más de 1 métrica |
 | `GROUP_BY_CONFLICT` | `groupBy` combinado con `bucket` o más de 1 métrica |
@@ -166,16 +184,27 @@ propio.
 
 ### Response — 4 formas según el modo
 
-Las 4 formas incluyen `dataAsOf`: el `$max: "$ts"` del set de documentos que
-matchearon el filtro (no `time.Now()` del servidor). Es casi gratis — cada
-pipeline ya ordena u opera sobre `ts` — y es el gancho para que v2 pueda
-hacer refresh condicional ("¿avanzó `dataAsOf` desde la última carga? recién
-ahí reconsulto") sin cambiar el contrato. Si el rango no matcheó ningún
-documento, `dataAsOf` es `null`.
+Las 4 formas comparten dos campos: `mode` (discriminador explícito —
+`"scalar"|"series"|"raw"|"grouped"`, uno por cada modo detectado en las
+reglas de exclusión mutua de arriba) y `dataAsOf` (el `$max: "$ts"` del set
+de documentos que matchearon el filtro, no `time.Now()` del servidor). El
+frontend no necesita inferir el modo mirando qué claves están presentes
+(`results` vs. `series` vs. `points` vs. `groups`) — arma un discriminated
+union sobre `mode` directamente, y el tipo generado desde `docs/openapi.yaml`
+queda limpio en vez de "4 shapes que se solapan". `dataAsOf` es casi gratis
+— cada pipeline ya ordena u opera sobre `ts` — y es el gancho para que v2
+pueda hacer refresh condicional ("¿avanzó `dataAsOf` desde la última carga?
+recién ahí reconsulto") sin cambiar el contrato. Si el rango no matcheó
+ningún documento, `dataAsOf` es `null`. `from`/`to` en la respuesta son
+siempre el rango absoluto efectivamente resuelto por el servidor —si el
+request vino con `range`, acá están los timestamps concretos a los que se
+resolvió, no el string original— para que el cliente nunca tenga que
+recalcular `range` por su cuenta.
 
 **Escalar** (multi-métrica, sin `bucket`):
 ```json
 {"success": true, "data": {
+  "mode": "scalar",
   "machineId": "EMB-DEV-001", "from": "...", "to": "...", "dataAsOf": "2026-09-07T09:59:47Z",
   "results": [
     {"aasPath": "Operativos/Pesada/peso", "agg": "avg", "value": 1.023, "sampleCount": 1450}
@@ -186,6 +215,7 @@ documento, `dataAsOf` es `null`.
 **Serie bucketizada** (multi-métrica, con `bucket`):
 ```json
 {"success": true, "data": {
+  "mode": "series",
   "machineId": "EMB-DEV-001", "from": "...", "to": "...", "bucket": "1h",
   "dataAsOf": "2026-09-07T09:59:47Z",
   "series": [
@@ -203,6 +233,7 @@ Un bucket sin datos para una métrica simplemente no la incluye en su
 **Cruda** (`agg:"raw"`):
 ```json
 {"success": true, "data": {
+  "mode": "raw",
   "machineId": "EMB-DEV-001", "from": "...", "to": "...", "dataAsOf": "2026-09-07T09:59:47Z",
   "aasPath": "Operativos/Sellado/temperatura",
   "points": [{"ts": "2026-09-07T09:40:03Z", "value": 82.5}]
@@ -212,6 +243,7 @@ Un bucket sin datos para una métrica simplemente no la incluye en su
 **Agrupada** (`groupBy`):
 ```json
 {"success": true, "data": {
+  "mode": "grouped",
   "machineId": "EMB-DEV-001", "from": "...", "to": "...", "dataAsOf": "2026-09-07T09:59:47Z",
   "aasPath": "Alarmas/tipo", "agg": "count", "groupBy": "payload.tipo",
   "groups": [{"key": "sellado_defectuoso", "value": 12}]
@@ -281,6 +313,7 @@ el resultado por item lleva su propio flag:
 {"success": true, "data": {
   "results": [
     {"id": "widget-bag-counter", "success": true, "data": {
+      "mode": "scalar",
       "machineId": "EMB-DEV-001", "from": "...", "to": "...", "dataAsOf": "2026-09-07T09:59:47Z",
       "results": [{"aasPath": "Operativos/Pesada/peso", "agg": "count", "value": 812, "sampleCount": 812}]
     }},
@@ -305,15 +338,21 @@ tope de 10 métricas acota el query single.
 ### Ejemplos de uso (del frontend)
 
 - **Cantidad de bolsas procesadas en 8hs** (asumiendo un evento
-  `Operativos/Pesada/peso` por bolsa): `metrics:[{aasPath:"Operativos/Pesada/peso", agg:"count"}]`,
-  `from`/`to` cubriendo las 8hs, sin `bucket` → modo escalar, `results[0].value`.
+  `Operativos/Pesada/peso` por bolsa): `range:"8h"`,
+  `metrics:[{aasPath:"Operativos/Pesada/peso", agg:"count"}]`, sin `bucket`
+  → modo escalar, `results[0].value`.
 - **Promedio de kg por bolsa en la última producción**: mismo `aasPath`,
-  `agg:"avg"`.
-- **Temperatura de cierre por cada bolsa, últimos 20 min**: `metrics:[{aasPath:"Operativos/Sellado/temperatura", agg:"raw"}]`
-  → modo crudo, un punto por evento.
+  `agg:"avg"`, mismo `range`.
+- **Temperatura de cierre por cada bolsa, últimos 20 min**: `range:"15m"` (o
+  el valor del enum más cercano a lo que pida el widget),
+  `metrics:[{aasPath:"Operativos/Sellado/temperatura", agg:"raw"}]` → modo
+  crudo, un punto por evento.
 - **Peso promedio y cantidad de bolsas por hora, mismo gráfico**:
-  `bucket:"1h"`, `metrics:[{aasPath:"...peso", agg:"avg"}, {aasPath:"...peso", agg:"count"}]`
+  `range:"24h"`, `bucket:"1h"`,
+  `metrics:[{aasPath:"...peso", agg:"avg"}, {aasPath:"...peso", agg:"count"}]`
   → modo serie, dos series alineadas por `ts`.
+- **Rango custom elegido a mano en un selector de fecha** (ej. "el turno del
+  martes pasado"): `from`/`to` absolutos en vez de `range`.
 
 ## Arquitectura interna
 
@@ -506,3 +545,37 @@ cortas (horas/días) hacen que sea complejidad sin beneficio medible hoy.
 Revisar cuando: el volumen por máquina o el horizonte de consulta pedido por
 el frontend crezcan lo suficiente como para que un `$group` directo empiece
 a ser lento.
+
+## Ajustes de contrato cerrados (C2, C5) — 2026-09-11
+
+El review de PR marcó varios ajustes de contrato como "van directo al
+plan" (C1, C3, C4, C7, C8 — checklist de implementación, no decisiones de
+diseño), pero dos los marcó como **forma de contrato**: caros de cambiar
+después de v1 porque no son aditivos limpios una vez que el frontend ya
+integró. Se cierran acá, junto con los forks.
+
+**C2 — Rangos relativos (`range`) además de `from`/`to` absolutos.**
+Elegido: sumar `range` (enum `"15m"|"30m"|"1h"|"8h"|"24h"|"7d"|"30d"`) como
+alternativa a `from`/`to`, resuelto a timestamps absolutos con el reloj del
+servidor en el momento de ejecutar la consulta (ver "Selección de ventana
+temporal" en Contrato). Descartado: dejar `from`/`to` como única forma de
+pedir ventana temporal — con eso el cliente recalcula timestamps en cada
+carga/refresh, lo que ata el desajuste de reloj cliente/servidor al
+resultado y hace que la misma consulta lógica ("últimas 8hs") nunca tenga
+la misma forma de request dos veces — precisamente lo que impediría que una
+cache futura (Fork 4) dedupe por cache key. Descartado también: reemplazar
+`from`/`to` por completo — un selector de fecha custom en el frontend
+necesita rango absoluto arbitrario, que no entra en un enum finito.
+Revisar cuando: el frontend necesite una ventana relativa que no está en el
+enum — sumar valores es aditivo, no requiere este brainstorming de nuevo.
+
+**C5 — Discriminador `mode` explícito en la respuesta.**
+Elegido: agregar `mode: "scalar"|"series"|"raw"|"grouped"` a las 4 formas de
+respuesta (ver Response). Descartado: dejar que el frontend infiera el modo
+mirando qué claves están presentes (`results` vs. `series` vs. `points` vs.
+`groups`) — funciona, pero da un tipo generado desde OpenAPI sucio (4 shapes
+que se solapan en vez de un discriminated union limpio) y ata al frontend a
+inspeccionar la forma del payload en vez de leer un campo. El costo de
+agregarlo ahora es una línea por response; agregarlo después de que el
+frontend ya escribió lógica de detección estructural sería un cambio
+breaking de facto en la práctica, aunque el campo en sí sea aditivo.
