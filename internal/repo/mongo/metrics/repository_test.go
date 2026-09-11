@@ -202,3 +202,20 @@ func TestGrouped_CountByField(t *testing.T) {
 		t.Fatalf("primer grupo = %+v, esperaba sellado_defectuoso:2 (orden descendente por value)", groups[0])
 	}
 }
+
+func TestCatalog_ReturnsObservedAasPaths(t *testing.T) {
+	db := mustConnect(t)
+	repo := New(db, 5*time.Second)
+	ctx := context.Background()
+	tenantID := "tenant-catalog"
+	now := time.Now().UTC()
+
+	cleanTenant(t, db, tenantID)
+	seedMeasurement(t, db, tenantID, "M1", "peso", now, 1.0)
+	seedMeasurement(t, db, tenantID, "M1", "temperatura", now, 80.0)
+	seedMeasurement(t, db, tenantID, "M2", "otra_maquina", now, 1.0) // otro machineId, no debe aparecer
+
+	paths, err := repo.Catalog(ctx, tenantID, "M1")
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{"peso", "temperatura"}, paths)
+}

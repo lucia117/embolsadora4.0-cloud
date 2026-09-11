@@ -3,6 +3,7 @@ package metrics
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -509,6 +510,35 @@ func (r *Repository) Grouped(ctx context.Context, tenantID, machineID string, fr
 	}
 	return groups, dataAsOf, nil
 }
+
+// Catalog devuelve los aasPath observados para (tenant, machine), via
+// Distinct nativo (no aggregation pipeline).
+func (r *Repository) Catalog(ctx context.Context, tenantID, machineID string) ([]string, error) {
+	ctx, cancel := context.WithTimeout(ctx, r.maxTime)
+	defer cancel()
+
+	filter := bson.D{{Key: "tenantId", Value: tenantID}, {Key: "machineId", Value: machineID}}
+	// mongo-driver v2: Distinct devuelve *DistinctResult (no ([]any, error)
+	// como en v1) — se decodifica al tipo esperado con Decode.
+	var raw []any
+	if err := r.coll.Distinct(ctx, "payload.aasPath", filter).Decode(&raw); err != nil {
+		if errors.Is(err, mongodriver.ErrNoDocuments) {
+			return []string{}, nil
+		}
+		return nil, err
+	}
+	paths := make([]string, 0, len(raw))
+	for _, v := range raw {
+		if s, ok := v.(string); ok {
+			paths = append(paths, s)
+		}
+	}
+	return paths, nil
+}
+
+// Compile-time check: *Repository debe satisfacer domain.Repository ahora
+// que las 5 operaciones estan implementadas.
+var _ domain.Repository = (*Repository)(nil)
 
 // unavailable implementa domain/metrics.Repository sin Mongo real detras —
 // mismo patron que measurements.Unavailable, para que un Mongo caido al
