@@ -2,6 +2,10 @@
 
 **Date**: 2026-09-07
 **Status**: Approved, pending implementation plan
+**Actualizado**: 2026-09-10 — cierre de 6 forks abiertos (ver sección
+"Forks cerrados" al final): catálogo de aasPath sumado a v1, rate limit
+por usuario, y notas de riesgo/observabilidad para `payload.value` no
+escalar y `delta` sobre contadores.
 
 ## Context
 
@@ -179,6 +183,34 @@ Un bucket sin datos para una métrica simplemente no la incluye en su
 }}
 ```
 
+### Endpoint de catálogo (`aasPath` observados)
+
+```
+GET /api/v1/dashboards/metrics/catalog?machineId=EMB-DEV-001
+```
+
+Mismo middleware chain y permiso que el endpoint de query
+(`perm_metrics_view`). El Edge todavía no cierra ni versiona los nombres de
+`aasPath` (ver Contexto), así que el frontend no puede hardcodearlos: este
+endpoint devuelve los `aasPath` que **efectivamente aparecieron** para ese
+`machineId` dentro del tenant — un `distinct`/`$group` sobre
+`payload.aasPath` en `measurements`, no un registro declarado a mano. Si el
+Edge nunca emitió un path, no aparece en el catálogo, sin importar si "va a"
+emitirlo en el futuro.
+
+```json
+{"success": true, "data": {
+  "machineId": "EMB-DEV-001",
+  "aasPaths": ["Operativos/Pesada/peso", "Operativos/Sellado/temperatura"]
+}}
+```
+
+Sin filtro de rango temporal en v1 — devuelve todo lo histórico observado
+para esa máquina. Si el volumen de `aasPath` distintos crece lo suficiente
+como para que la respuesta sea pesada, se puede sumar `from`/`to` opcionales
+sin romper el contrato (son parámetros aditivos). `machineId` ausente o vacío
+→ 400 `INVALID_PARAMS`, mismo código que usa el endpoint de query.
+
 ### Ejemplos de uso (del frontend)
 
 - **Cantidad de bolsas procesadas en 8hs** (asumiendo un evento
@@ -204,21 +236,29 @@ Sigue el layout hexagonal existente (`domain → app → transport`, `repo` apar
       Query(ctx context.Context, tenantID string, q MetricQuery) (QueryResult, error)
   }
   ```
-- **`internal/repo/mongo/metrics/`** — única pieza que arma pipelines de
-  agregación contra la colección `measurements` (la misma que usa
+- **`internal/repo/mongo/metrics/`** — arma pipelines de agregación contra la
+  colección `measurements` (la misma que usa
   `internal/repo/mongo/measurements`). Corre **un pipeline por `MetricSpec`**,
   no uno combinado: cada `aasPath` es un stream de datos independiente, así
   que separarlos mantiene cada pipeline simple y testeable en aislamiento, al
   costo de N round-trips en vez de 1 — aceptable con el tope de 10 métricas y
   sin requisito de latencia sub-ms. Se corren concurrentes (`errgroup`) cuando
-  hay más de una métrica.
+  hay más de una métrica. También expone el `distinct` de `payload.aasPath`
+  que usa el endpoint de catálogo.
 - **`internal/app/dashboards/`** — usecase que valida vía `domain/metrics`,
   dispara las sub-consultas, arma la forma de respuesta (una de las 4) según
-  el modo detectado.
-- **`internal/api/handler/dashboards/query_metrics.go`** — handler Gin: bind
-  del JSON, mapea errores de dominio a `{success:false, error, code}`.
-- **`internal/routes/url_mappings.go`** — registra la ruta dentro del grupo
-  `/api/v1` ya existente, con `RBACCheck(perm_metrics_view)`.
+  el modo detectado; incluye el usecase (más simple) del catálogo.
+- **`internal/api/handler/dashboards/query_metrics.go`** y
+  **`.../catalog_metrics.go`** — handlers Gin: bind del JSON/query params,
+  mapean errores de dominio a `{success:false, error, code}`.
+- **`internal/api/middleware/`** — nuevo middleware de rate limit Redis-backed
+  para el grupo de rutas `dashboards/metrics`, mismo patrón que
+  `internal/consumers/ratelimit.go` pero con clave `supabase_user_id` (sale
+  del contexto que deja `JWTAuth`) en vez de API key. Ver "Forks cerrados" al
+  final para el porqué y el umbral.
+- **`internal/routes/url_mappings.go`** — registra ambas rutas dentro del
+  grupo `/api/v1` ya existente, con `RBACCheck(perm_metrics_view)` y el nuevo
+  rate limit.
 - **Migración nueva** — permiso `perm_metrics_view`, siguiendo el patrón
   `_view`/`_manage` de `perm_edge_devices_view` (migración `000011`), seedeado
   a los roles que hoy tienen `perm_dashboard`/`perm_analytics`.
@@ -232,10 +272,14 @@ ts: {$gte: from, $lte: to}}` — el mismo shape que ya cubre el índice
 - `avg`/`sum`/`min`/`max`: `$match` adicional con `$isNumber` sobre
   `payload.value` (payload no se valida en la ingesta, D-8, así que un valor
   no numérico se descarta en vez de romper la consulta) → `$group` con el
-  acumulador correspondiente + `sampleCount: {$sum: 1}`.
+  acumulador correspondiente + `sampleCount: {$sum: 1}`. El descarte nunca
+  falla la consulta ni se reporta al cliente — ver "Forks cerrados" (fork 2)
+  para cómo se observa esto internamente.
 - `last`: `$sort ts:1` → `$group` con `$last`.
 - `delta`: `$sort ts:1` → `$group` con `$first` y `$last`; la resta
-  (`last - first`) se hace en el usecase, no en el pipeline.
+  (`last - first`) se hace en el usecase, no en el pipeline. Solo tiene
+  sentido para métricas monotónicas — ver "Forks cerrados" (fork 5) para la
+  advertencia sobre contadores que resetean.
 - `count`: `$match` (+ igualdad sobre `payload.value` si viene
   `filter.valueEquals`) → `$count`, o `$group` por bucket con `$sum: 1`.
 - `raw`: `$sort ts:1` → `$limit(5001)` para poder distinguir "hay exactamente
@@ -267,3 +311,85 @@ vez de un nombre de campo.
   respuesta y la orquestación concurrente multi-métrica.
 - **`handler/dashboards`**: unit tests de bind/validación y mapeo de errores a
   código HTTP, mismo patrón que `internal/consumers/events_handler_test.go`.
+  Incluye el handler de catálogo.
+- **rate limit**: unit test del middleware nuevo (umbral, clave por
+  `supabase_user_id`, fail-open sin Redis) más un integration test que
+  verifica el 429 al superar 15 req/min, mismo patrón que
+  `internal/consumers/middleware/middleware_test.go`.
+
+## Forks cerrados (2026-09-10)
+
+Seis decisiones abiertas al momento de escribir el spec original, cerradas
+en sesión de brainstorming con datos de dominio aportados por el equipo.
+
+**1. Endpoint de catálogo de `aasPath`: entra en v1.**
+Elegido: `GET /api/v1/dashboards/metrics/catalog` (ver Contrato), devolviendo
+`aasPath` observados vía `distinct` sobre `measurements`, no un registro
+declarado a mano. Descartado: posponerlo a después de v1 — se descarta porque
+el Edge todavía no cerró los nombres de `aasPath` (no es solo variación entre
+máquinas), así que el frontend no puede hardcodearlos sin quedar
+desincronizado. Revisar cuando: el Edge publique un esquema/registro
+declarativo de métricas — ahí el catálogo podría enriquecerse con metadata
+(unidad, tipo) sin romper el contrato de descubrimiento en sí.
+
+**2. Dependencia de `payload.value` escalar: se declara y se instrumenta, no
+se fuerza.**
+Elegido: documentar la asunción como riesgo conocido (payload no se valida en
+ingesta, D-8) e instrumentar con métrica Prometheus
+`dashboard_metrics_non_numeric_discarded_total{tenant,aasPath,agg}`
+incrementada cuando `$isNumber` descarta un valor en avg/sum/min/max/delta.
+Descartado: validar/normalizar `payload.value` en la ingesta — fuera de
+alcance de este spec (tocaría el contrato frozen de
+`docs/superpowers/plans/2026-08-05-cloud-ingest-endpoint.md`) y no hay
+evidencia hoy de que el Edge mande valores no escalares. Revisar cuando: la
+métrica muestre volumen sostenido no-cero.
+
+**3. Modelo de consistencia: append-only, sin necesidad de modelo especial.**
+Elegido: consistencia eventual simple — no hace falta versionado ni
+invalidación de cache por mutación, porque los measurements son insert-only
+en la práctica (dedup por `eventId`, sin updates posteriores). Un evento
+tardío por reintento de red es orden de llegada, no mutación, y ya lo
+resuelve el `$sort ts:1` de cada pipeline. Descartado: diseñar contra
+snapshot reads o versionado de documentos — no hay mutación real que
+justifique esa complejidad. Revisar cuando: exista un flujo real de
+corrección/reproceso retroactivo sobre measurements ya insertados.
+
+**4. Cache + rate limit + pipelines.**
+Elegido (cache): ninguno dedicado en v1 — consulta on-demand (no polling) y
+volumen bajo hacen que Mongo con `ix_tenant_machine_path_ts` responda directo
+sin necesidad de otra capa de estado que mantener consistente.
+Elegido (rate limit): sí se suma — middleware Redis-backed, mismo patrón que
+`internal/consumers/ratelimit.go`, con clave `supabase_user_id` (no por
+tenant, para que un usuario individual con un bug de polling no consuma el
+balde de todo el tenant) y umbral de **15 req/min por usuario**, fail-open
+sin Redis (mismo nil-safety que el resto de la app). Descartado: rate limit
+por tenant — un usuario individual podría agotarlo y afectar a sus
+compañeros de tenant sin haber hecho nada mal. Elegido (pipelines): se
+confirma "N pipelines" (uno por `MetricSpec`, concurrentes vía `errgroup`)
+tal como estaba en el spec original — el volumen bajo no justifica combinar
+en un único pipeline con `$facet`. Revisar cuando: el patrón de uso cambie a
+polling agresivo o aparezca concurrencia alta multi-tenant — ahí sí evaluar
+cache y/o subir el umbral de rate limit.
+
+**5. Fragilidad semántica de `count`/`delta` para contadores: riesgo
+documentado, sin mitigación activa.**
+Elegido: dejar `delta` documentado como válido solo para métricas
+monotónicas conocidas (ver nota en "Traducción a pipeline de Mongo"), sin
+implementar detección de reset. Descartado: agregar lógica de detección de
+reset (valores decrecientes) o exigir un id de "epoch" del contador — no hay
+ningún `aasPath` contador acumulativo hoy, así que sería resolver un
+problema que no existe todavía. Revisar cuando: el Edge emita un `aasPath`
+tipo contador que pueda resetear (reinicio de máquina, cambio de turno,
+etc.) dentro de una ventana consultable.
+
+**6. Request-time vs. rollup vs. time-series collection + retención.**
+Elegido: 100% request-time sobre la colección `measurements` existente, sin
+rollups ni colección de series de tiempo separada, y sin TTL index en v1.
+Retención de measurements crudos: semanas/meses según necesidad operativa,
+sin política de borrado automático todavía. Descartado: introducir rollups
+pre-agregados o una colección de series de tiempo desde v1 — volumen bajo
+(decenas/cientos de eventos por hora por `aasPath`) y ventanas de consulta
+cortas (horas/días) hacen que sea complejidad sin beneficio medible hoy.
+Revisar cuando: el volumen por máquina o el horizonte de consulta pedido por
+el frontend crezcan lo suficiente como para que un `$group` directo empiece
+a ser lento.
