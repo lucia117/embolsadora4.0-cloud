@@ -58,3 +58,22 @@ var assertAnError = errTest{}
 type errTest struct{}
 
 func (errTest) Error() string { return "mongo down" }
+
+func TestService_Catalog(t *testing.T) {
+	repo := &fakeRepository{catalogPaths: []string{"peso", "temperatura"}}
+	svc := NewService(repo, domain.DefaultLimits(), zap.NewNop())
+
+	paths, err := svc.Catalog(t.Context(), "tenant-1", "EMB-DEV-001")
+	require.NoError(t, err)
+	require.Equal(t, []string{"peso", "temperatura"}, paths)
+}
+
+func TestService_Catalog_RequiresMachineID(t *testing.T) {
+	svc := NewService(&fakeRepository{}, domain.DefaultLimits(), zap.NewNop())
+
+	_, err := svc.Catalog(t.Context(), "tenant-1", "")
+	require.Error(t, err)
+	var ve *domain.ValidationError
+	require.ErrorAs(t, err, &ve)
+	require.Equal(t, domain.CodeInvalidParams, ve.Code)
+}

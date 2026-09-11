@@ -187,3 +187,12 @@ func maxDataAsOf(ts []*time.Time) *time.Time {
 	}
 	return max
 }
+
+// Catalog devuelve los aasPath observados para (tenant, machine). Sin
+// filtro de rango temporal en v1 (spec).
+func (s *Service) Catalog(ctx context.Context, tenantID, machineID string) ([]string, error) {
+	if machineID == "" {
+		return nil, &domain.ValidationError{Code: domain.CodeInvalidParams, Message: "machineId es requerido"}
+	}
+	return s.repo.Catalog(ctx, tenantID, machineID)
+}
