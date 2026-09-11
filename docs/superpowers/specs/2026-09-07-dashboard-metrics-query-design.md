@@ -6,6 +6,11 @@
 "Forks cerrados" al final): catálogo de aasPath sumado a v1, rate limit
 por usuario, y notas de riesgo/observabilidad para `payload.value` no
 escalar y `delta` sobre contadores.
+**Actualizado (2)**: 2026-09-11 — replanteo del Fork 4 a partir de review
+de PR: v1 no hace polling automático por widget (refresh manual +
+on-focus), se agrega `dataAsOf` a las 4 formas de respuesta y un endpoint
+batch (`POST .../query/batch`) para que un dashboard completo resuelva en
+un solo request.
 
 ## Context
 
@@ -29,9 +34,12 @@ quedaría obsoleto en cuanto el Edge cambie de idea.
 
 Se evaluó GraphQL explícitamente. Se descarta porque:
 
-- El frontend pide **una llamada por widget**, nunca batching de múltiples
-  entidades heterogéneas en un solo round-trip — la ventaja central de GraphQL
-  no aplica.
+- El frontend pide **una consulta por widget**, nunca un grafo de entidades
+  heterogéneas relacionadas en un solo round-trip — la ventaja central de
+  GraphQL no aplica. (El endpoint batch agregado más abajo agrupa N veces la
+  misma forma de query homogénea para resolver un dashboard completo; no es
+  el batching heterogéneo que GraphQL resuelve, así que no reabre este
+  argumento.)
 - La respuesta es siempre "un valor, una serie o una lista de puntos", nunca un
   grafo de entidades relacionadas donde el cliente elige qué campos anidados
   traer.
@@ -73,8 +81,15 @@ tener que tocar esta API".
   Cada uno resuelve un tipo de gráfico distinto (torta vs. barra/línea);
   combinarlos es una extensión aditiva para cuando haga falta, no un requisito
   de v1.
-- Batching de múltiples widgets en un solo request — descartado explícitamente
-  en las conversaciones previas a este spec.
+- **Batching heterogéneo estilo GraphQL** (el cliente arma un grafo arbitrario
+  de entidades distintas en un solo round-trip) — descartado explícitamente
+  en las conversaciones previas a este spec, y es la razón central para no
+  usar GraphQL (ver más arriba). *Actualizado 2026-09-11*: esto no incluye el
+  endpoint batch agregado en Contrato — ese agrupa N veces la misma forma de
+  `MetricQueryRequest` para resolver un dashboard completo en un request, no
+  un grafo heterogéneo; se agregó para que el modelo "sin polling en v1" no
+  dependa de que el frontend dispare un burst de hasta 50 requests al cargar
+  la pantalla.
 
 ## Contrato
 
@@ -89,6 +104,18 @@ del header `X-Tenant-ID` (nunca del body) y se inyecta server-side en el
 tenant pase lo que pase en su contenido. Es un endpoint de solo lectura sin
 efectos secundarios; usa POST porque el cuerpo es una estructura anidada
 (lista de métricas, filtro) que no entra prolijo en una query string.
+
+**v1 — sin polling automático por widget.** El dashboard resuelve sus
+widgets al montar la pantalla, más un botón "Actualizar" manual y refresh
+on-focus — mismo criterio que ya usa `specs/007` para el layout ("sin
+auto-guardado, solo guardado manual explícito"). No hay `setInterval` por
+widget refetcheando cada 10-60s. Esto es lo que hace que el rate limit de
+15 req/min por usuario (ver "Forks cerrados", fork 4) y la ausencia de cache
+alcancen: la carga por usuario es un puñado de requests al abrir el
+dashboard o al pedir refresh, no un flujo continuo. **Revisar en v2**: con
+datos reales de producción (cadencia real del Edge por `aasPath`), decidir
+un modelo de refresh vivo (poll a nivel dashboard cada 60-120s, o SSE desde
+el cloud en cada ingest) — aditivo sobre este contrato, no breaking.
 
 ### Request
 
@@ -139,10 +166,17 @@ propio.
 
 ### Response — 4 formas según el modo
 
+Las 4 formas incluyen `dataAsOf`: el `$max: "$ts"` del set de documentos que
+matchearon el filtro (no `time.Now()` del servidor). Es casi gratis — cada
+pipeline ya ordena u opera sobre `ts` — y es el gancho para que v2 pueda
+hacer refresh condicional ("¿avanzó `dataAsOf` desde la última carga? recién
+ahí reconsulto") sin cambiar el contrato. Si el rango no matcheó ningún
+documento, `dataAsOf` es `null`.
+
 **Escalar** (multi-métrica, sin `bucket`):
 ```json
 {"success": true, "data": {
-  "machineId": "EMB-DEV-001", "from": "...", "to": "...",
+  "machineId": "EMB-DEV-001", "from": "...", "to": "...", "dataAsOf": "2026-09-07T09:59:47Z",
   "results": [
     {"aasPath": "Operativos/Pesada/peso", "agg": "avg", "value": 1.023, "sampleCount": 1450}
   ]
@@ -153,6 +187,7 @@ propio.
 ```json
 {"success": true, "data": {
   "machineId": "EMB-DEV-001", "from": "...", "to": "...", "bucket": "1h",
+  "dataAsOf": "2026-09-07T09:59:47Z",
   "series": [
     {"ts": "2026-09-07T02:00:00Z", "results": [
       {"aasPath": "Operativos/Pesada/peso", "agg": "avg", "value": 1.02, "sampleCount": 34},
@@ -168,7 +203,7 @@ Un bucket sin datos para una métrica simplemente no la incluye en su
 **Cruda** (`agg:"raw"`):
 ```json
 {"success": true, "data": {
-  "machineId": "EMB-DEV-001", "from": "...", "to": "...",
+  "machineId": "EMB-DEV-001", "from": "...", "to": "...", "dataAsOf": "2026-09-07T09:59:47Z",
   "aasPath": "Operativos/Sellado/temperatura",
   "points": [{"ts": "2026-09-07T09:40:03Z", "value": 82.5}]
 }}
@@ -177,7 +212,7 @@ Un bucket sin datos para una métrica simplemente no la incluye en su
 **Agrupada** (`groupBy`):
 ```json
 {"success": true, "data": {
-  "machineId": "EMB-DEV-001", "from": "...", "to": "...",
+  "machineId": "EMB-DEV-001", "from": "...", "to": "...", "dataAsOf": "2026-09-07T09:59:47Z",
   "aasPath": "Alarmas/tipo", "agg": "count", "groupBy": "payload.tipo",
   "groups": [{"key": "sellado_defectuoso", "value": 12}]
 }}
@@ -210,6 +245,62 @@ para esa máquina. Si el volumen de `aasPath` distintos crece lo suficiente
 como para que la respuesta sea pesada, se puede sumar `from`/`to` opcionales
 sin romper el contrato (son parámetros aditivos). `machineId` ausente o vacío
 → 400 `INVALID_PARAMS`, mismo código que usa el endpoint de query.
+
+### Endpoint batch (un dashboard = un request)
+
+```
+POST /api/v1/dashboards/metrics/query/batch
+```
+
+Mismo middleware chain, permiso y rate limit que el endpoint single. Un
+dashboard puede tener hasta 50 widgets (`dashboard-layout.ts` en el
+frontend), cada uno con su propio `MetricQueryRequest` — sin batch, cargar
+la pantalla es un burst de hasta 50 requests HTTP simultáneos que reventaría
+cualquier rate limit razonable. El batch agrupa **N veces la misma forma de
+query** (no un grafo de entidades heterogéneas, ver nota en la sección
+GraphQL más arriba), así que no reabre ese argumento.
+
+```go
+type BatchMetricQueryRequest struct {
+    Queries []BatchMetricQueryItem `json:"queries"` // requerido, 1..50
+}
+
+type BatchMetricQueryItem struct {
+    ID string `json:"id"` // requerido, opaco para el backend — el frontend lo usa para
+                           // correlacionar la respuesta con el widget que la pidió
+    MetricQueryRequest      // mismo shape que el endpoint single (inline)
+}
+```
+
+Cada item se valida y ejecuta **independientemente** — un `aasPath` mal
+armado en el widget 7 no tira abajo los otros 49. La respuesta del batch
+siempre es `success:true` a nivel envelope (el batch en sí se procesó);
+el resultado por item lleva su propio flag:
+
+```json
+{"success": true, "data": {
+  "results": [
+    {"id": "widget-bag-counter", "success": true, "data": {
+      "machineId": "EMB-DEV-001", "from": "...", "to": "...", "dataAsOf": "2026-09-07T09:59:47Z",
+      "results": [{"aasPath": "Operativos/Pesada/peso", "agg": "count", "value": 812, "sampleCount": 812}]
+    }},
+    {"id": "widget-temp-raw", "success": false, "error": "rango produce más de 5000 puntos", "code": "RANGE_TOO_WIDE"}
+  ]
+}}
+```
+El `data` de cada item exitoso es exactamente una de las 4 formas de
+respuesta del endpoint single (según el modo que ese item detectó), `dataAsOf`
+incluido.
+
+**Guardrail nuevo**: `TOO_MANY_QUERIES` (400) si `len(queries) > 50` — mismo
+tope que el máximo de widgets por layout, para no aceptar un batch que ya
+sabemos que ningún dashboard real puede generar. `id` duplicado entre items
+→ `INVALID_PARAMS`.
+
+Los items se resuelven concurrentes (`errgroup`, mismo patrón que las
+sub-consultas multi-métrica de un query single) — el tope de 50 acota el
+fan-out total de pipelines de Mongo por request de la misma forma que el
+tope de 10 métricas acota el query single.
 
 ### Ejemplos de uso (del frontend)
 
@@ -247,10 +338,14 @@ Sigue el layout hexagonal existente (`domain → app → transport`, `repo` apar
   que usa el endpoint de catálogo.
 - **`internal/app/dashboards/`** — usecase que valida vía `domain/metrics`,
   dispara las sub-consultas, arma la forma de respuesta (una de las 4) según
-  el modo detectado; incluye el usecase (más simple) del catálogo.
-- **`internal/api/handler/dashboards/query_metrics.go`** y
-  **`.../catalog_metrics.go`** — handlers Gin: bind del JSON/query params,
-  mapean errores de dominio a `{success:false, error, code}`.
+  el modo detectado; incluye el usecase (más simple) del catálogo, y el
+  usecase de batch, que reusa el usecase de query single por cada item
+  (`errgroup`) y agrega el resultado con su `id`.
+- **`internal/api/handler/dashboards/query_metrics.go`**,
+  **`.../catalog_metrics.go`** y **`.../batch_query_metrics.go`** —
+  handlers Gin: bind del JSON/query params, mapean errores de dominio a
+  `{success:false, error, code}` (o al item correspondiente, en el caso del
+  batch).
 - **`internal/api/middleware/`** — nuevo middleware de rate limit Redis-backed
   para el grupo de rutas `dashboards/metrics`, mismo patrón que
   `internal/consumers/ratelimit.go` pero con clave `supabase_user_id` (sale
@@ -311,7 +406,11 @@ vez de un nombre de campo.
   respuesta y la orquestación concurrente multi-métrica.
 - **`handler/dashboards`**: unit tests de bind/validación y mapeo de errores a
   código HTTP, mismo patrón que `internal/consumers/events_handler_test.go`.
-  Incluye el handler de catálogo.
+  Incluye los handlers de catálogo y batch.
+- **batch**: unit tests de `app/dashboards` cubriendo fallo parcial (un item
+  falla, los demás no), `TOO_MANY_QUERIES`, `id` duplicado, y que el orden de
+  `results` no depende del orden de finalización de los goroutines
+  (correlacionar por `id`, no por índice).
 - **rate limit**: unit test del middleware nuevo (umbral, clave por
   `supabase_user_id`, fail-open sin Redis) más un integration test que
   verifica el 429 al superar 15 req/min, mismo patrón que
@@ -355,21 +454,35 @@ justifique esa complejidad. Revisar cuando: exista un flujo real de
 corrección/reproceso retroactivo sobre measurements ya insertados.
 
 **4. Cache + rate limit + pipelines.**
-Elegido (cache): ninguno dedicado en v1 — consulta on-demand (no polling) y
-volumen bajo hacen que Mongo con `ix_tenant_machine_path_ts` responda directo
-sin necesidad de otra capa de estado que mantener consistente.
+Elegido (cache): ninguno dedicado en v1 — Mongo con `ix_tenant_machine_path_ts`
+responde directo sin necesidad de otra capa de estado que mantener
+consistente.
 Elegido (rate limit): sí se suma — middleware Redis-backed, mismo patrón que
 `internal/consumers/ratelimit.go`, con clave `supabase_user_id` (no por
-tenant, para que un usuario individual con un bug de polling no consuma el
-balde de todo el tenant) y umbral de **15 req/min por usuario**, fail-open
-sin Redis (mismo nil-safety que el resto de la app). Descartado: rate limit
-por tenant — un usuario individual podría agotarlo y afectar a sus
-compañeros de tenant sin haber hecho nada mal. Elegido (pipelines): se
-confirma "N pipelines" (uno por `MetricSpec`, concurrentes vía `errgroup`)
-tal como estaba en el spec original — el volumen bajo no justifica combinar
-en un único pipeline con `$facet`. Revisar cuando: el patrón de uso cambie a
-polling agresivo o aparezca concurrencia alta multi-tenant — ahí sí evaluar
-cache y/o subir el umbral de rate limit.
+tenant, para que un usuario individual no consuma el balde de todo el
+tenant) y umbral de **15 req/min por usuario**, fail-open sin Redis (mismo
+nil-safety que el resto de la app). Descartado: rate limit por tenant — un
+usuario individual podría agotarlo y afectar a sus compañeros de tenant sin
+haber hecho nada mal. Elegido (pipelines): se confirma "N pipelines" (uno
+por `MetricSpec`, concurrentes vía `errgroup`) tal como estaba en el spec
+original — el volumen bajo no justifica combinar en un único pipeline con
+`$facet`.
+
+*Replanteo (2026-09-11, tras review de PR)*: el cierre original justificaba
+"sin cache" con "consulta on-demand (no polling)", pero el frontend real
+**sí** pollea por widget (10-60s, hasta 50 widgets/dashboard) — con eso, "1
+request por widget" + "15 req/min" + "sin cache" no cerraban entre sí (un
+dashboard de 20 widgets a 60s ya supera el umbral, y el first-paint de un
+dashboard grande dispara un burst que lo revienta de entrada). La resolución
+no fue subir el umbral ni agregar cache, sino sacar el polling automático de
+v1 (ver "v1 — sin polling automático" en Contrato): con carga manual + un
+endpoint batch por dashboard (ver Contrato), la carga real por usuario vuelve
+a ser un puñado de requests, y **15 req/min sigue siendo el número correcto**
+— solo cambió el motivo por el que alcanza. `dataAsOf` queda como el gancho
+para que v2 decida un modelo de refresh vivo con datos reales de producción.
+Revisar cuando: se mida en prod la cadencia real del Edge por `aasPath` y se
+decida el modelo de refresh de v2 (poll a nivel dashboard o SSE) — ahí sí
+recalcular el umbral contra el nuevo patrón de tráfico.
 
 **5. Fragilidad semántica de `count`/`delta` para contadores: riesgo
 documentado, sin mitigación activa.**
