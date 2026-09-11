@@ -38,6 +38,35 @@ func baseMatch(tenantID, machineID string, from, to time.Time, aasPath string) b
 	}}}
 }
 
+// applyValueFilter agrega filter.ValueEquals (si esta seteado) como una
+// condicion literal sobre "payload.value" al $match ya armado por baseMatch.
+// Compartido por Scalar/Series/Grouped (I4b) para que filter.valueEquals se
+// aplique consistentemente en todos los modos que reciben un
+// *domain.ValueFilter -- antes solo lo honraban scalarCount, el branch count
+// de Series y (para cualquier agg) Grouped.
+func applyValueFilter(matchStage bson.D, filter *domain.ValueFilter) bson.D {
+	if filter == nil || filter.ValueEquals == nil {
+		return matchStage
+	}
+	matchStage[0].Value = append(matchStage[0].Value.(bson.D), bson.E{Key: "payload.value", Value: filter.ValueEquals})
+	return matchStage
+}
+
+// wrapTimeoutErr traduce un context.DeadlineExceeded (disparado por el
+// context.WithTimeout(ctx, r.maxTime) de cada metodo) a un
+// *domain.ValidationError con CodeQueryTimeout, que HandleError ya sabia
+// mapear a HTTP 504 pero que nada construia (I3/C4). Cualquier otro error
+// pasa sin tocar.
+func wrapTimeoutErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return &domain.ValidationError{Code: domain.CodeQueryTimeout, Message: "la consulta excedio el tiempo maximo permitido"}
+	}
+	return err
+}
+
 func isNumberMatch(negate bool) bson.D {
 	expr := bson.D{{Key: "$isNumber", Value: "$payload.value"}}
 	if negate {
@@ -67,11 +96,11 @@ func (r *Repository) Scalar(ctx context.Context, tenantID, machineID string, fro
 
 	switch spec.Agg {
 	case domain.AggAvg, domain.AggSum, domain.AggMin, domain.AggMax:
-		return r.scalarNumeric(ctx, tenantID, machineID, from, to, spec)
+		return r.scalarNumeric(ctx, tenantID, machineID, from, to, spec, filter)
 	case domain.AggLast:
-		return r.scalarLast(ctx, tenantID, machineID, from, to, spec)
+		return r.scalarLast(ctx, tenantID, machineID, from, to, spec, filter)
 	case domain.AggDelta:
-		return r.scalarDelta(ctx, tenantID, machineID, from, to, spec)
+		return r.scalarDelta(ctx, tenantID, machineID, from, to, spec, filter)
 	case domain.AggCount:
 		return r.scalarCount(ctx, tenantID, machineID, from, to, spec, filter)
 	}
@@ -84,14 +113,14 @@ type numericGroupResult struct {
 	DataAsOf    time.Time `bson:"dataAsOf"`
 }
 
-func (r *Repository) scalarNumeric(ctx context.Context, tenantID, machineID string, from, to time.Time, spec domain.MetricSpec) (domain.MetricResult, *time.Time, error) {
+func (r *Repository) scalarNumeric(ctx context.Context, tenantID, machineID string, from, to time.Time, spec domain.MetricSpec, filter *domain.ValueFilter) (domain.MetricResult, *time.Time, error) {
 	accumulator, ok := numericAccumulator(spec.Agg)
 	if !ok {
 		return domain.MetricResult{}, nil, fmt.Errorf("agg no numerico: %s", spec.Agg)
 	}
 
 	pipeline := mongodriver.Pipeline{
-		baseMatch(tenantID, machineID, from, to, spec.AasPath),
+		applyValueFilter(baseMatch(tenantID, machineID, from, to, spec.AasPath), filter),
 		isNumberMatch(false),
 		bson.D{{Key: "$group", Value: bson.D{
 			{Key: "_id", Value: nil},
@@ -103,13 +132,13 @@ func (r *Repository) scalarNumeric(ctx context.Context, tenantID, machineID stri
 
 	cur, err := r.coll.Aggregate(ctx, pipeline)
 	if err != nil {
-		return domain.MetricResult{}, nil, err
+		return domain.MetricResult{}, nil, wrapTimeoutErr(err)
 	}
 	defer cur.Close(ctx)
 
 	var results []numericGroupResult
 	if err := cur.All(ctx, &results); err != nil {
-		return domain.MetricResult{}, nil, err
+		return domain.MetricResult{}, nil, wrapTimeoutErr(err)
 	}
 
 	// Discard count: consulta liviana separada (mismo $match, $count) para no
@@ -147,16 +176,9 @@ func (r *Repository) reportNonNumericDiscards(ctx context.Context, tenantID, mac
 		Add(float64(results[0].Count))
 }
 
-type lastOrFirstLastResult struct {
-	Value    float64   `bson:"value"`
-	First    float64   `bson:"first"`
-	Last     float64   `bson:"last"`
-	DataAsOf time.Time `bson:"dataAsOf"`
-}
-
-func (r *Repository) scalarLast(ctx context.Context, tenantID, machineID string, from, to time.Time, spec domain.MetricSpec) (domain.MetricResult, *time.Time, error) {
+func (r *Repository) scalarLast(ctx context.Context, tenantID, machineID string, from, to time.Time, spec domain.MetricSpec, filter *domain.ValueFilter) (domain.MetricResult, *time.Time, error) {
 	pipeline := mongodriver.Pipeline{
-		baseMatch(tenantID, machineID, from, to, spec.AasPath),
+		applyValueFilter(baseMatch(tenantID, machineID, from, to, spec.AasPath), filter),
 		isNumberMatch(false),
 		bson.D{{Key: "$sort", Value: bson.D{{Key: "ts", Value: 1}}}},
 		bson.D{{Key: "$group", Value: bson.D{
@@ -168,12 +190,12 @@ func (r *Repository) scalarLast(ctx context.Context, tenantID, machineID string,
 	}
 	cur, err := r.coll.Aggregate(ctx, pipeline)
 	if err != nil {
-		return domain.MetricResult{}, nil, err
+		return domain.MetricResult{}, nil, wrapTimeoutErr(err)
 	}
 	defer cur.Close(ctx)
 	var results []numericGroupResult
 	if err := cur.All(ctx, &results); err != nil {
-		return domain.MetricResult{}, nil, err
+		return domain.MetricResult{}, nil, wrapTimeoutErr(err)
 	}
 	r.reportNonNumericDiscards(ctx, tenantID, machineID, from, to, spec)
 	if len(results) == 0 {
@@ -184,9 +206,9 @@ func (r *Repository) scalarLast(ctx context.Context, tenantID, machineID string,
 	return domain.MetricResult{AasPath: spec.AasPath, Agg: spec.Agg, Value: g.Value, SampleCount: g.SampleCount}, &dataAsOf, nil
 }
 
-func (r *Repository) scalarDelta(ctx context.Context, tenantID, machineID string, from, to time.Time, spec domain.MetricSpec) (domain.MetricResult, *time.Time, error) {
+func (r *Repository) scalarDelta(ctx context.Context, tenantID, machineID string, from, to time.Time, spec domain.MetricSpec, filter *domain.ValueFilter) (domain.MetricResult, *time.Time, error) {
 	pipeline := mongodriver.Pipeline{
-		baseMatch(tenantID, machineID, from, to, spec.AasPath),
+		applyValueFilter(baseMatch(tenantID, machineID, from, to, spec.AasPath), filter),
 		isNumberMatch(false),
 		bson.D{{Key: "$sort", Value: bson.D{{Key: "ts", Value: 1}}}},
 		bson.D{{Key: "$group", Value: bson.D{
@@ -199,7 +221,7 @@ func (r *Repository) scalarDelta(ctx context.Context, tenantID, machineID string
 	}
 	cur, err := r.coll.Aggregate(ctx, pipeline)
 	if err != nil {
-		return domain.MetricResult{}, nil, err
+		return domain.MetricResult{}, nil, wrapTimeoutErr(err)
 	}
 	defer cur.Close(ctx)
 	var results []struct {
@@ -209,7 +231,7 @@ func (r *Repository) scalarDelta(ctx context.Context, tenantID, machineID string
 		DataAsOf    time.Time `bson:"dataAsOf"`
 	}
 	if err := cur.All(ctx, &results); err != nil {
-		return domain.MetricResult{}, nil, err
+		return domain.MetricResult{}, nil, wrapTimeoutErr(err)
 	}
 	r.reportNonNumericDiscards(ctx, tenantID, machineID, from, to, spec)
 	if len(results) == 0 {
@@ -223,12 +245,8 @@ func (r *Repository) scalarDelta(ctx context.Context, tenantID, machineID string
 }
 
 func (r *Repository) scalarCount(ctx context.Context, tenantID, machineID string, from, to time.Time, spec domain.MetricSpec, filter *domain.ValueFilter) (domain.MetricResult, *time.Time, error) {
-	matchStage := baseMatch(tenantID, machineID, from, to, spec.AasPath)
-	if filter != nil && filter.ValueEquals != nil {
-		matchStage[0].Value = append(matchStage[0].Value.(bson.D), bson.E{Key: "payload.value", Value: filter.ValueEquals})
-	}
 	pipeline := mongodriver.Pipeline{
-		matchStage,
+		applyValueFilter(baseMatch(tenantID, machineID, from, to, spec.AasPath), filter),
 		bson.D{{Key: "$group", Value: bson.D{
 			{Key: "_id", Value: nil},
 			{Key: "value", Value: bson.D{{Key: "$sum", Value: 1}}},
@@ -237,7 +255,7 @@ func (r *Repository) scalarCount(ctx context.Context, tenantID, machineID string
 	}
 	cur, err := r.coll.Aggregate(ctx, pipeline)
 	if err != nil {
-		return domain.MetricResult{}, nil, err
+		return domain.MetricResult{}, nil, wrapTimeoutErr(err)
 	}
 	defer cur.Close(ctx)
 	var results []struct {
@@ -245,7 +263,7 @@ func (r *Repository) scalarCount(ctx context.Context, tenantID, machineID string
 		DataAsOf time.Time `bson:"dataAsOf"`
 	}
 	if err := cur.All(ctx, &results); err != nil {
-		return domain.MetricResult{}, nil, err
+		return domain.MetricResult{}, nil, wrapTimeoutErr(err)
 	}
 	if len(results) == 0 {
 		return domain.MetricResult{AasPath: spec.AasPath, Agg: spec.Agg}, nil, nil
@@ -295,16 +313,13 @@ func (r *Repository) Series(ctx context.Context, tenantID, machineID string, fro
 	var groupStage bson.D
 	switch spec.Agg {
 	case domain.AggCount:
-		matchStage := baseMatch(tenantID, machineID, from, to, spec.AasPath)
-		if filter != nil && filter.ValueEquals != nil {
-			matchStage[0].Value = append(matchStage[0].Value.(bson.D), bson.E{Key: "payload.value", Value: filter.ValueEquals})
-		}
+		matchStage := applyValueFilter(baseMatch(tenantID, machineID, from, to, spec.AasPath), filter)
 		groupStage = bson.D{{Key: "$group", Value: bson.D{
 			{Key: "_id", Value: truncExpr},
 			{Key: "value", Value: bson.D{{Key: "$sum", Value: 1}}},
 			{Key: "sampleCount", Value: bson.D{{Key: "$sum", Value: 1}}},
 		}}}
-		return r.runSeriesPipeline(ctx, mongodriver.Pipeline{matchStage, groupStage}, tenantID, machineID, from, to, spec)
+		return r.runSeriesPipeline(ctx, mongodriver.Pipeline{matchStage, groupStage})
 	default:
 		accumulator, ok := numericAccumulator(spec.Agg)
 		if !ok {
@@ -316,20 +331,20 @@ func (r *Repository) Series(ctx context.Context, tenantID, machineID string, fro
 			{Key: "sampleCount", Value: bson.D{{Key: "$sum", Value: 1}}},
 		}}}
 		pipeline := mongodriver.Pipeline{
-			baseMatch(tenantID, machineID, from, to, spec.AasPath),
+			applyValueFilter(baseMatch(tenantID, machineID, from, to, spec.AasPath), filter),
 			isNumberMatch(false),
 			groupStage,
 		}
 		r.reportNonNumericDiscards(ctx, tenantID, machineID, from, to, spec)
-		return r.runSeriesPipeline(ctx, pipeline, tenantID, machineID, from, to, spec)
+		return r.runSeriesPipeline(ctx, pipeline)
 	}
 }
 
-func (r *Repository) runSeriesPipeline(ctx context.Context, pipeline mongodriver.Pipeline, tenantID, machineID string, from, to time.Time, spec domain.MetricSpec) ([]domain.BucketPoint, *time.Time, error) {
+func (r *Repository) runSeriesPipeline(ctx context.Context, pipeline mongodriver.Pipeline) ([]domain.BucketPoint, *time.Time, error) {
 	pipeline = append(pipeline, bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}})
 	cur, err := r.coll.Aggregate(ctx, pipeline)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, wrapTimeoutErr(err)
 	}
 	defer cur.Close(ctx)
 
@@ -339,7 +354,7 @@ func (r *Repository) runSeriesPipeline(ctx context.Context, pipeline mongodriver
 		SampleCount int64     `bson:"sampleCount"`
 	}
 	if err := cur.All(ctx, &rows); err != nil {
-		return nil, nil, err
+		return nil, nil, wrapTimeoutErr(err)
 	}
 
 	points := make([]domain.BucketPoint, 0, len(rows))
@@ -372,7 +387,7 @@ func (r *Repository) Raw(ctx context.Context, tenantID, machineID string, from, 
 	}
 	cur, err := r.coll.Aggregate(ctx, pipeline)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, wrapTimeoutErr(err)
 	}
 	defer cur.Close(ctx)
 
@@ -383,7 +398,7 @@ func (r *Repository) Raw(ctx context.Context, tenantID, machineID string, from, 
 		} `bson:"payload"`
 	}
 	if err := cur.All(ctx, &rows); err != nil {
-		return nil, nil, err
+		return nil, nil, wrapTimeoutErr(err)
 	}
 
 	points := make([]domain.RawPoint, 0, len(rows))
@@ -399,9 +414,13 @@ func (r *Repository) Raw(ctx context.Context, tenantID, machineID string, from, 
 	// fork/C3: si maxPoints viene seteado, decimar en vez de dejar que el
 	// llamador (app/dashboards) rechace con RANGE_TOO_WIDE. len(points) ==
 	// limit sigue siendo la senal de "hay mas de los que se pidieron" — eso
-	// no cambia; lo que cambia es que aca mismo se recorta a maxPoints en
-	// vez de devolver el excedente sin recortar.
-	if maxPoints > 0 && len(points) > maxPoints {
+	// no cambia. I5a: decimar SOLO si el fetch no llego al cap (len(points) <
+	// limit) -- si llego al cap, no sabemos si la ventana real tiene mas
+	// puntos que los primeros `limit` (los mas viejos), asi que decimar aca
+	// devolveria una vista silenciosamente truncada. En ese caso el llamador
+	// (app/dashboards.queryRaw) debe rechazar con RANGE_TOO_WIDE en vez de
+	// aceptar una respuesta parcial.
+	if maxPoints > 0 && len(points) > maxPoints && len(points) < limit {
 		points = decimateUniform(points, maxPoints)
 	}
 
@@ -454,10 +473,7 @@ func (r *Repository) Grouped(ctx context.Context, tenantID, machineID string, fr
 
 	fieldRef := "$" + groupBy
 
-	matchStage := baseMatch(tenantID, machineID, from, to, spec.AasPath)
-	if filter != nil && filter.ValueEquals != nil {
-		matchStage[0].Value = append(matchStage[0].Value.(bson.D), bson.E{Key: "payload.value", Value: filter.ValueEquals})
-	}
+	matchStage := applyValueFilter(baseMatch(tenantID, machineID, from, to, spec.AasPath), filter)
 
 	var groupStage bson.D
 	if spec.Agg == domain.AggCount {
@@ -486,7 +502,7 @@ func (r *Repository) Grouped(ctx context.Context, tenantID, machineID string, fr
 	}
 	cur, err := r.coll.Aggregate(ctx, pipeline)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, wrapTimeoutErr(err)
 	}
 	defer cur.Close(ctx)
 
@@ -496,7 +512,7 @@ func (r *Repository) Grouped(ctx context.Context, tenantID, machineID string, fr
 		DataAsOf time.Time `bson:"dataAsOf"`
 	}
 	if err := cur.All(ctx, &rows); err != nil {
-		return nil, nil, err
+		return nil, nil, wrapTimeoutErr(err)
 	}
 
 	groups := make([]domain.GroupResult, 0, len(rows))
@@ -527,7 +543,7 @@ func (r *Repository) Catalog(ctx context.Context, tenantID, machineID string) ([
 		if errors.Is(err, mongodriver.ErrNoDocuments) {
 			return []string{}, nil
 		}
-		return nil, err
+		return nil, wrapTimeoutErr(err)
 	}
 	paths := make([]string, 0, len(raw))
 	for _, v := range raw {

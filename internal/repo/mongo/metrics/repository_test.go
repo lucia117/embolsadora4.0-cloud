@@ -220,6 +220,77 @@ func TestCatalog_ReturnsObservedAasPaths(t *testing.T) {
 	require.ElementsMatch(t, []string{"peso", "temperatura"}, paths)
 }
 
+// TestScalar_QueryTimeout cubre I3: un maxTime artificialmente chico debe
+// hacer que Aggregate falle con context.DeadlineExceeded, y ese error debe
+// llegar envuelto en un *domain.ValidationError con CodeQueryTimeout (no un
+// error generico) -- HandleError ya sabia mapear ese codigo a 504, pero
+// nada lo construia antes de esta fix.
+func TestScalar_QueryTimeout(t *testing.T) {
+	db := mustConnect(t)
+	repo := New(db, 1*time.Nanosecond)
+	ctx := context.Background()
+	tenantID := "tenant-query-timeout"
+	now := time.Now().UTC()
+
+	cleanTenant(t, db, tenantID)
+	seedMeasurement(t, db, tenantID, "M1", "peso", now.Add(-1*time.Hour), 1.0)
+
+	_, _, err := repo.Scalar(ctx, tenantID, "M1", now.Add(-2*time.Hour), now, domain.MetricSpec{AasPath: "peso", Agg: domain.AggAvg}, nil)
+	require.Error(t, err)
+	var ve *domain.ValidationError
+	require.ErrorAs(t, err, &ve, "esperaba *domain.ValidationError, obtuvo %T: %v", err, err)
+	require.Equal(t, domain.CodeQueryTimeout, ve.Code)
+}
+
+// TestScalar_ValueEqualsFilter_AppliedInNumericAgg cubre I4b: filter.ValueEquals
+// debe honrarse tambien en el camino numerico de Scalar (avg/sum/min/max),
+// no solo en scalarCount -- antes se ignoraba silenciosamente aca.
+func TestScalar_ValueEqualsFilter_AppliedInNumericAgg(t *testing.T) {
+	db := mustConnect(t)
+	repo := New(db, 5*time.Second)
+	ctx := context.Background()
+	tenantID := "tenant-scalar-valueequals-filter"
+	now := time.Now().UTC()
+
+	cleanTenant(t, db, tenantID)
+	seedMeasurement(t, db, tenantID, "M1", "peso", now.Add(-3*time.Hour), 5.0)
+	seedMeasurement(t, db, tenantID, "M1", "peso", now.Add(-2*time.Hour), 5.0)
+	seedMeasurement(t, db, tenantID, "M1", "peso", now.Add(-1*time.Hour), 7.0)
+
+	result, _, err := repo.Scalar(ctx, tenantID, "M1", now.Add(-4*time.Hour), now, domain.MetricSpec{AasPath: "peso", Agg: domain.AggAvg}, &domain.ValueFilter{ValueEquals: 5.0})
+	require.NoError(t, err)
+	if result.Value != 5.0 {
+		t.Fatalf("avg = %v, esperaba 5.0 (filter.valueEquals debe excluir el 7.0)", result.Value)
+	}
+	if result.SampleCount != 2 {
+		t.Fatalf("sampleCount = %v, esperaba 2", result.SampleCount)
+	}
+}
+
+// TestRaw_DoesNotDecimateWhenFetchHitCap cubre I5a: si el fetch llega al
+// cap (limit), Raw NO debe decimar aunque maxPoints este seteado -- eso
+// dejaria una vista silenciosamente truncada del rango pedido. El llamador
+// (app/dashboards.queryRaw) es quien debe rechazar con RANGE_TOO_WIDE en
+// ese caso.
+func TestRaw_DoesNotDecimateWhenFetchHitCap(t *testing.T) {
+	db := mustConnect(t)
+	repo := New(db, 5*time.Second)
+	ctx := context.Background()
+	tenantID := "tenant-raw-no-decimate-at-cap"
+	base := time.Date(2026, 9, 11, 9, 0, 0, 0, time.UTC)
+
+	cleanTenant(t, db, tenantID)
+	const seeded = 6
+	const limit = 5
+	for i := 0; i < seeded; i++ {
+		seedMeasurement(t, db, tenantID, "M1", "temp", base.Add(time.Duration(i)*time.Second), float64(i))
+	}
+
+	points, _, err := repo.Raw(ctx, tenantID, "M1", base, base.Add(time.Hour), "temp", limit, 3)
+	require.NoError(t, err)
+	require.Len(t, points, limit, "el fetch llego al cap; no debia decimarse a maxPoints")
+}
+
 // TestCrossTenantIsolation es el caso mas importante de la spec (seccion
 // Testing): el $match de tenantId nunca debe dejar leer datos de otro
 // tenant, ni siquiera con un groupBy o aasPath que coincida por casualidad.
