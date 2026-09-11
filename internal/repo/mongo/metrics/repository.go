@@ -413,8 +413,17 @@ func (r *Repository) Raw(ctx context.Context, tenantID, machineID string, from, 
 // v1, mas facil de razonar; upgradeable despues sin cambiar el contrato
 // (fork/C3 de la spec).
 func decimateUniform(points []domain.RawPoint, maxPoints int) []domain.RawPoint {
-	if maxPoints < 2 || len(points) <= maxPoints {
+	if len(points) <= maxPoints {
 		return points
+	}
+	if maxPoints < 1 {
+		return points
+	}
+	if maxPoints == 1 {
+		// Un solo punto permitido: el mas reciente, no el mas viejo ni el
+		// slice entero (bug de la v1 del brief: `maxPoints < 2` devolvia
+		// todo sin recortar, violando el contrato documentado).
+		return points[len(points)-1:]
 	}
 	step := float64(len(points)-1) / float64(maxPoints-1)
 	out := make([]domain.RawPoint, 0, maxPoints)

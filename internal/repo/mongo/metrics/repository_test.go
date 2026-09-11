@@ -147,3 +147,26 @@ func TestRaw_DecimatesWhenMaxPointsSet(t *testing.T) {
 		t.Fatalf("ultimo punto = %v, esperaba 9.0", points[len(points)-1].Value)
 	}
 }
+
+func TestRaw_MaxPointsOneReturnsMostRecentPoint(t *testing.T) {
+	db := mustConnect(t)
+	repo := New(db, 5*time.Second)
+	ctx := context.Background()
+	tenantID := "tenant-raw-maxpoints-one"
+	base := time.Date(2026, 9, 11, 9, 0, 0, 0, time.UTC)
+
+	cleanTenant(t, db, tenantID)
+	for i := 0; i < 4; i++ {
+		seedMeasurement(t, db, tenantID, "M1", "temp", base.Add(time.Duration(i)*time.Second), float64(i))
+	}
+
+	points, _, err := repo.Raw(ctx, tenantID, "M1", base, base.Add(time.Hour), "temp", 5001, 1)
+	require.NoError(t, err)
+	require.Len(t, points, 1)
+	if points[0].Value != 3.0 {
+		t.Fatalf("punto = %v, esperaba 3.0 (el mas reciente)", points[0].Value)
+	}
+	if !points[0].Ts.Equal(base.Add(3 * time.Second)) {
+		t.Fatalf("ts = %v, esperaba %v", points[0].Ts, base.Add(3*time.Second))
+	}
+}
