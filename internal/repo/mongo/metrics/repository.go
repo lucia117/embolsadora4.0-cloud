@@ -491,7 +491,7 @@ func (r *Repository) Grouped(ctx context.Context, tenantID, machineID string, fr
 	defer cur.Close(ctx)
 
 	var rows []struct {
-		Key      string    `bson:"_id"`
+		Key      any       `bson:"_id"`
 		Value    float64   `bson:"value"`
 		DataAsOf time.Time `bson:"dataAsOf"`
 	}
@@ -502,7 +502,9 @@ func (r *Repository) Grouped(ctx context.Context, tenantID, machineID string, fr
 	groups := make([]domain.GroupResult, 0, len(rows))
 	var dataAsOf *time.Time
 	for _, row := range rows {
-		groups = append(groups, domain.GroupResult{Key: row.Key, Value: row.Value})
+		// Convertir Key a string — puede ser string directamente o numeric si se agrupó por campo numérico.
+		keyStr := fmt.Sprintf("%v", row.Key)
+		groups = append(groups, domain.GroupResult{Key: keyStr, Value: row.Value})
 		if dataAsOf == nil || row.DataAsOf.After(*dataAsOf) {
 			t := row.DataAsOf
 			dataAsOf = &t

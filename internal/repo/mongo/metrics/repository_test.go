@@ -219,3 +219,38 @@ func TestCatalog_ReturnsObservedAasPaths(t *testing.T) {
 	require.NoError(t, err)
 	require.ElementsMatch(t, []string{"peso", "temperatura"}, paths)
 }
+
+// TestCrossTenantIsolation es el caso mas importante de la spec (seccion
+// Testing): el $match de tenantId nunca debe dejar leer datos de otro
+// tenant, ni siquiera con un groupBy o aasPath que coincida por casualidad.
+func TestCrossTenantIsolation(t *testing.T) {
+	db := mustConnect(t)
+	repo := New(db, 5*time.Second)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	// Mismo machineId y aasPath en dos tenants distintos -- exactamente el
+	// caso "coincide por casualidad" que la spec pide cubrir.
+	cleanTenant(t, db, "tenant-a")
+	cleanTenant(t, db, "tenant-b")
+	seedMeasurement(t, db, "tenant-a", "SHARED-ID", "peso", now, 100.0)
+	seedMeasurement(t, db, "tenant-b", "SHARED-ID", "peso", now, 999.0)
+
+	result, _, err := repo.Scalar(ctx, "tenant-a", "SHARED-ID", now.Add(-time.Hour), now.Add(time.Hour), domain.MetricSpec{AasPath: "peso", Agg: domain.AggAvg}, nil)
+	require.NoError(t, err)
+	if result.Value != 100.0 {
+		t.Fatalf("Scalar devolvio %v, esperaba 100.0 (leyo de otro tenant)", result.Value)
+	}
+
+	paths, err := repo.Catalog(ctx, "tenant-a", "SHARED-ID")
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{"peso"}, paths)
+
+	groups, _, err := repo.Grouped(ctx, "tenant-a", "SHARED-ID", now.Add(-time.Hour), now.Add(time.Hour), "payload.value", domain.MetricSpec{AasPath: "peso", Agg: domain.AggCount}, nil, 201)
+	require.NoError(t, err)
+	for _, g := range groups {
+		if g.Key == "999" {
+			t.Fatalf("Grouped devolvio un valor del tenant-b")
+		}
+	}
+}
