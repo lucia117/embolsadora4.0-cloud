@@ -77,3 +77,39 @@ func TestService_Catalog_RequiresMachineID(t *testing.T) {
 	require.ErrorAs(t, err, &ve)
 	require.Equal(t, domain.CodeInvalidParams, ve.Code)
 }
+
+func TestService_Batch_PartialFailureDoesNotAbortOthers(t *testing.T) {
+	repo := &fakeRepository{scalarResult: domain.MetricResult{Value: 42}}
+	svc := NewService(repo, domain.DefaultLimits(), zap.NewNop())
+
+	okQuery := domain.MetricQuery{MachineID: "EMB-DEV-001", Range: domain.Range8h, Metrics: []domain.MetricSpec{{AasPath: "peso", Agg: domain.AggAvg}}}
+	badQuery := domain.MetricQuery{} // falla Validate: INVALID_PARAMS
+
+	results, err := svc.Batch(t.Context(), "tenant-1", []BatchItem{
+		{ID: "widget-a", Query: okQuery},
+		{ID: "widget-b", Query: badQuery},
+	}, time.Now())
+	require.NoError(t, err) // el batch en si se procesa
+
+	require.Len(t, results, 2)
+	byID := map[string]BatchItemResult{}
+	for _, r := range results {
+		byID[r.ID] = r
+	}
+	require.NoError(t, byID["widget-a"].Err)
+	require.Equal(t, 42.0, byID["widget-a"].Result.Results[0].Value)
+	require.Error(t, byID["widget-b"].Err)
+}
+
+func TestService_Batch_RejectsTooManyQueries(t *testing.T) {
+	svc := NewService(&fakeRepository{}, domain.Limits{MaxBatchQueries: 1, MaxSpecs: 10}, zap.NewNop())
+
+	_, err := svc.Batch(t.Context(), "tenant-1", []BatchItem{
+		{ID: "a", Query: domain.MetricQuery{}},
+		{ID: "b", Query: domain.MetricQuery{}},
+	}, time.Now())
+	require.Error(t, err)
+	var ve *domain.ValidationError
+	require.ErrorAs(t, err, &ve)
+	require.Equal(t, domain.CodeTooManyQueries, ve.Code)
+}

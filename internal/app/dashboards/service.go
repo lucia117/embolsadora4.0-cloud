@@ -196,3 +196,43 @@ func (s *Service) Catalog(ctx context.Context, tenantID, machineID string) ([]st
 	}
 	return s.repo.Catalog(ctx, tenantID, machineID)
 }
+
+type BatchItem struct {
+	ID    string
+	Query domain.MetricQuery
+}
+
+type BatchItemResult struct {
+	ID     string
+	Result domain.QueryResult
+	Err    error
+}
+
+// Batch ejecuta cada item independientemente (errgroup) y correlaciona por
+// ID -- un item roto no tira abajo los demas (spec, "Endpoint batch").
+// El error de retorno es SOLO para guardrails a nivel batch (cantidad de
+// items, ids duplicados); errores de un item individual van en su
+// BatchItemResult.Err.
+func (s *Service) Batch(ctx context.Context, tenantID string, items []BatchItem, now time.Time) ([]BatchItemResult, error) {
+	ids := make([]string, len(items))
+	for i, it := range items {
+		ids[i] = it.ID
+	}
+	if err := domain.ValidateBatchIDs(ids, s.limits); err != nil {
+		return nil, err
+	}
+
+	results := make([]BatchItemResult, len(items))
+	g, gctx := errgroup.WithContext(ctx)
+	for i, item := range items {
+		i, item := i, item
+		g.Go(func() error {
+			result, err := s.Query(gctx, tenantID, item.Query, now)
+			results[i] = BatchItemResult{ID: item.ID, Result: result, Err: err}
+			return nil // nunca propagar: el fallo queda en el item, no aborta el grupo
+		})
+	}
+	_ = g.Wait() // no puede fallar: los Go() de arriba siempre devuelven nil
+
+	return results, nil
+}
