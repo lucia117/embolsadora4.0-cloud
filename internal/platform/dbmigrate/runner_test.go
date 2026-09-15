@@ -118,10 +118,17 @@ func TestRun_AppliesAndIsIdempotent(t *testing.T) {
 		t.Fatalf("expected translated perm_dashboard, got name=%q description=%q", permName, permDescription)
 	}
 
-	// Conjuntos leídos de la DB migrada a version 13 (000011 fine-grained users +
-	// 000013 reseed edge). La comparación de abajo es order-independent (ordena
-	// copias de ambos lados), así que el orden en que 000013 hace
-	// `permissions - k || [...]` no importa — solo el conjunto de claves.
+	// Conjuntos leídos de la DB migrada a version 15 (000011 fine-grained users +
+	// 000013 reseed edge + 000015 perm_metrics_view). La comparación de abajo es
+	// order-independent (ordena copias de ambos lados), así que el orden en que
+	// las migraciones hacen `permissions - k || [...]` no importa — solo el
+	// conjunto de claves.
+	//
+	// 000015 agrega "perm_metrics_view" a todo rol que tenga perm_dashboard O
+	// perm_analytics (containment JSONB, ver migrations/000015_metrics_view_permission.up.sql).
+	// Los 6 roles de abajo tienen perm_dashboard, asi que los 6 lo reciben — si
+	// una migracion futura cambia ese criterio, actualizar este mapa junto con
+	// ella para que este test no quede desincronizado en silencio.
 	expectedRolePermissions := map[string][]string{
 		"super_admin": {
 			"perm_dashboard", "perm_alerts", "perm_reports", "perm_settings", "perm_maintenance",
@@ -129,30 +136,36 @@ func TestRun_AppliesAndIsIdempotent(t *testing.T) {
 			"perm_reports_view", "perm_reports_manage", "perm_users_view", "perm_users_manage",
 			"perm_tenants_view", "perm_tenants_manage",
 			"perm_edge_devices_view", "perm_edge_devices_check", "perm_edge_devices_manage", "perm_edge_devices_create",
+			"perm_metrics_view",
 		},
 		"tenant_manager": {
 			"perm_dashboard", "perm_alerts", "perm_reports", "perm_reports_view",
 			"perm_users_view", "perm_users_manage", "perm_tenants_view",
 			"perm_edge_devices_view", "perm_edge_devices_check", "perm_edge_devices_manage", "perm_edge_devices_create",
+			"perm_metrics_view",
 		},
 		"admin": {
 			"perm_dashboard", "perm_alerts", "perm_reports", "perm_reports_view", "perm_reports_manage",
 			"perm_settings", "perm_maintenance", "perm_analytics", "perm_logs_view",
 			"perm_users_view", "perm_users_manage", "perm_tenants_view",
 			"perm_edge_devices_view", "perm_edge_devices_check", "perm_edge_devices_manage",
+			"perm_metrics_view",
 		},
 		"operario": {
 			"perm_dashboard", "perm_alerts", "perm_reports_view", "perm_edge_devices_view", "perm_edge_devices_check",
+			"perm_metrics_view",
 		},
 		// cliente_admin: conjunto limpio que dejan 000011 (users fine-grained) +
-		// 000013 (reseed edge): base sin claves edge + view/check/manage.
+		// 000013 (reseed edge) + 000015 (perm_metrics_view, tiene perm_dashboard).
 		"cliente_admin": {
 			"perm_dashboard", "perm_alerts", "perm_reports_view",
 			"perm_users_view", "perm_users_manage",
 			"perm_edge_devices_view", "perm_edge_devices_check", "perm_edge_devices_manage",
+			"perm_metrics_view",
 		},
 		"cliente_operario": {
 			"perm_dashboard", "perm_edge_devices_view", "perm_edge_devices_check",
+			"perm_metrics_view",
 		},
 	}
 
