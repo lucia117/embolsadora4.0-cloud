@@ -1,5 +1,3 @@
-//go:build integration
-
 package metrics
 
 import (
@@ -115,7 +113,7 @@ func TestRaw_ReturnsPointsOrderedByTs(t *testing.T) {
 	seedMeasurement(t, db, tenantID, "M1", "temp", base.Add(2*time.Second), 80.0)
 	seedMeasurement(t, db, tenantID, "M1", "temp", base.Add(1*time.Second), 79.0)
 
-	points, dataAsOf, err := repo.Raw(ctx, tenantID, "M1", base, base.Add(time.Hour), "temp", 5001, 0)
+	points, dataAsOf, err := repo.Raw(ctx, tenantID, "M1", base, base.Add(time.Hour), "temp", nil, 5001, 0)
 	require.NoError(t, err)
 	require.NotNil(t, dataAsOf)
 	require.Len(t, points, 2)
@@ -136,7 +134,7 @@ func TestRaw_DecimatesWhenMaxPointsSet(t *testing.T) {
 		seedMeasurement(t, db, tenantID, "M1", "temp", base.Add(time.Duration(i)*time.Second), float64(i))
 	}
 
-	points, _, err := repo.Raw(ctx, tenantID, "M1", base, base.Add(time.Hour), "temp", 5001, 3)
+	points, _, err := repo.Raw(ctx, tenantID, "M1", base, base.Add(time.Hour), "temp", nil, 5001, 3)
 	require.NoError(t, err)
 	require.LessOrEqual(t, len(points), 3)
 	// El primer y ultimo punto original siempre se preservan.
@@ -160,7 +158,7 @@ func TestRaw_MaxPointsOneReturnsMostRecentPoint(t *testing.T) {
 		seedMeasurement(t, db, tenantID, "M1", "temp", base.Add(time.Duration(i)*time.Second), float64(i))
 	}
 
-	points, _, err := repo.Raw(ctx, tenantID, "M1", base, base.Add(time.Hour), "temp", 5001, 1)
+	points, _, err := repo.Raw(ctx, tenantID, "M1", base, base.Add(time.Hour), "temp", nil, 5001, 1)
 	require.NoError(t, err)
 	require.Len(t, points, 1)
 	if points[0].Value != 3.0 {
@@ -286,7 +284,7 @@ func TestRaw_DoesNotDecimateWhenFetchHitCap(t *testing.T) {
 		seedMeasurement(t, db, tenantID, "M1", "temp", base.Add(time.Duration(i)*time.Second), float64(i))
 	}
 
-	points, _, err := repo.Raw(ctx, tenantID, "M1", base, base.Add(time.Hour), "temp", limit, 3)
+	points, _, err := repo.Raw(ctx, tenantID, "M1", base, base.Add(time.Hour), "temp", nil, limit, 3)
 	require.NoError(t, err)
 	require.Len(t, points, limit, "el fetch llego al cap; no debia decimarse a maxPoints")
 }
@@ -322,6 +320,92 @@ func TestCrossTenantIsolation(t *testing.T) {
 	for _, g := range groups {
 		if g.Key == "999" {
 			t.Fatalf("Grouped devolvio un valor del tenant-b")
+		}
+	}
+}
+
+// TestGrouped_ExcludesNonNumericValueFromNumericAgg cubre la falta del
+// isNumberMatch en Grouped: sin el, un payload.value no numerico entra al
+// acumulador de max/avg/sum/min -- BSON ordena string por encima de
+// cualquier numero, asi que $max elegia el string y el decode a
+// GroupResult.Value float64 fallaba (o, en avg/sum, contaminaba el
+// resultado).
+func TestGrouped_ExcludesNonNumericValueFromNumericAgg(t *testing.T) {
+	db := mustConnect(t)
+	repo := New(db, 5*time.Second)
+	ctx := context.Background()
+	tenantID := "tenant-grouped-nonnumeric"
+	base := time.Date(2026, 9, 14, 9, 0, 0, 0, time.UTC)
+
+	cleanTenant(t, db, tenantID)
+	seed := func(tipo string, value any, at time.Time) {
+		_, err := db.Collection("measurements").InsertOne(ctx, bson.M{
+			"eventId":   tipo + at.Format(time.RFC3339Nano),
+			"tenantId":  tenantID,
+			"machineId": "M1",
+			"ts":        at,
+			"kind":      "measurement",
+			"payload":   bson.M{"aasPath": "peso", "value": value, "tipo": tipo},
+		})
+		require.NoError(t, err)
+	}
+	seed("linea1", 5.0, base)
+	seed("linea1", 7.0, base.Add(time.Minute))
+	seed("linea1", "error_sensor", base.Add(2*time.Minute))
+
+	groups, _, err := repo.Grouped(ctx, tenantID, "M1", base.Add(-time.Hour), base.Add(time.Hour), "payload.tipo", domain.MetricSpec{AasPath: "peso", Agg: domain.AggMax}, nil, 201)
+	require.NoError(t, err)
+	require.Len(t, groups, 1)
+	if groups[0].Value != 7.0 {
+		t.Fatalf("max = %v, esperaba 7.0 (el valor no numerico debia excluirse del acumulador)", groups[0].Value)
+	}
+}
+
+// TestSeries_DataAsOfReflectsLatestSampleWithinBucket cubre que dataAsOf se
+// calcule sobre el "$max":"$ts" real de cada bucket, no sobre el limite
+// inferior que produce $dateTrunc -- un sample nuevo dentro del bucket mas
+// reciente no debe dejar dataAsOf pegado al inicio del bucket.
+func TestSeries_DataAsOfReflectsLatestSampleWithinBucket(t *testing.T) {
+	db := mustConnect(t)
+	repo := New(db, 5*time.Second)
+	ctx := context.Background()
+	tenantID := "tenant-series-dataasof"
+	bucketStart := time.Date(2026, 9, 14, 9, 0, 0, 0, time.UTC)
+
+	cleanTenant(t, db, tenantID)
+	seedMeasurement(t, db, tenantID, "M1", "temp", bucketStart.Add(2*time.Second), 10.0)
+	latest := bucketStart.Add(58 * time.Minute)
+	seedMeasurement(t, db, tenantID, "M1", "temp", latest, 12.0)
+
+	_, dataAsOf, err := repo.Series(ctx, tenantID, "M1", bucketStart, bucketStart.Add(time.Hour), domain.Bucket1h, domain.MetricSpec{AasPath: "temp", Agg: domain.AggAvg}, nil)
+	require.NoError(t, err)
+	require.NotNil(t, dataAsOf)
+	if !dataAsOf.Equal(latest) {
+		t.Fatalf("dataAsOf = %v, esperaba %v (el ultimo sample real dentro del bucket, no su limite inferior)", dataAsOf, latest)
+	}
+}
+
+// TestRaw_AppliesValueEqualsFilter cubre que Raw honre filter.ValueEquals
+// igual que Scalar/Series/Grouped -- antes se ignoraba silenciosamente y el
+// modo raw devolvia todos los puntos sin filtrar.
+func TestRaw_AppliesValueEqualsFilter(t *testing.T) {
+	db := mustConnect(t)
+	repo := New(db, 5*time.Second)
+	ctx := context.Background()
+	tenantID := "tenant-raw-filter"
+	base := time.Date(2026, 9, 14, 9, 0, 0, 0, time.UTC)
+
+	cleanTenant(t, db, tenantID)
+	seedMeasurement(t, db, tenantID, "M1", "estado", base, 1.0)
+	seedMeasurement(t, db, tenantID, "M1", "estado", base.Add(time.Second), 2.0)
+	seedMeasurement(t, db, tenantID, "M1", "estado", base.Add(2*time.Second), 1.0)
+
+	points, _, err := repo.Raw(ctx, tenantID, "M1", base, base.Add(time.Hour), "estado", &domain.ValueFilter{ValueEquals: 1.0}, 5001, 0)
+	require.NoError(t, err)
+	require.Len(t, points, 2)
+	for _, p := range points {
+		if p.Value != 1.0 {
+			t.Fatalf("point value = %v, esperaba solo 1.0 (filter.valueEquals)", p.Value)
 		}
 	}
 }

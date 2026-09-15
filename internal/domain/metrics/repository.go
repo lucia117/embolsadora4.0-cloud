@@ -66,10 +66,11 @@ type Repository interface {
 	// Series resuelve la misma familia de aggs que Scalar, bucketizada.
 	Series(ctx context.Context, tenantID, machineID string, from, to time.Time, bucket Bucket, spec MetricSpec, filter *ValueFilter) ([]BucketPoint, *time.Time, error)
 
-	// Raw devuelve puntos crudos ordenados por ts. limit es
-	// maxRawPoints+1 (para poder distinguir "hay exactamente el maximo" de
-	// "hay mas"); si maxPoints > 0, decima a maxPoints en vez de fallar.
-	Raw(ctx context.Context, tenantID, machineID string, from, to time.Time, aasPath string, limit, maxPoints int) ([]RawPoint, *time.Time, error)
+	// Raw devuelve puntos crudos ordenados por ts, honrando filter.ValueEquals
+	// igual que Scalar/Series/Grouped. limit es maxRawPoints+1 (para poder
+	// distinguir "hay exactamente el maximo" de "hay mas"); si maxPoints > 0,
+	// decima a maxPoints en vez de fallar.
+	Raw(ctx context.Context, tenantID, machineID string, from, to time.Time, aasPath string, filter *ValueFilter, limit, maxPoints int) ([]RawPoint, *time.Time, error)
 
 	// Grouped agrupa por groupBy con el acumulador de spec.Agg. limit es
 	// maxGroups+1, misma logica de deteccion de exceso que Raw.

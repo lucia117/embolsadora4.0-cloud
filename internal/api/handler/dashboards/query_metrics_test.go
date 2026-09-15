@@ -30,7 +30,7 @@ func (f *fakeRepo) Scalar(_ context.Context, _, _ string, _, _ time.Time, spec d
 func (f *fakeRepo) Series(context.Context, string, string, time.Time, time.Time, domain.Bucket, domain.MetricSpec, *domain.ValueFilter) ([]domain.BucketPoint, *time.Time, error) {
 	return nil, nil, nil
 }
-func (f *fakeRepo) Raw(context.Context, string, string, time.Time, time.Time, string, int, int) ([]domain.RawPoint, *time.Time, error) {
+func (f *fakeRepo) Raw(context.Context, string, string, time.Time, time.Time, string, *domain.ValueFilter, int, int) ([]domain.RawPoint, *time.Time, error) {
 	return nil, nil, nil
 }
 func (f *fakeRepo) Grouped(context.Context, string, string, time.Time, time.Time, string, domain.MetricSpec, *domain.ValueFilter, int) ([]domain.GroupResult, *time.Time, error) {

@@ -28,13 +28,13 @@ func HandleError(c *gin.Context, err error) {
 	c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "error interno", "code": "INTERNAL_ERROR"})
 }
 
-// normalizedTenantID reparsea el X-Tenant-ID del contexto (platform.TenantID,
-// el valor crudo del header) como un UUID canonico en minusculas. I1: el
-// header pasa JWTAuth/membership/RBAC case-insensitive (columna uuid de
-// Postgres), pero el $match de Mongo en repo/mongo/metrics es byte-exacto
-// sobre un tenantId guardado siempre en minusculas -- sin esta normalizacion,
-// un X-Tenant-ID en mayusculas pasa todos los checks y despues devuelve 200
-// con resultados vacios en los 3 endpoints de dashboards.
+// normalizedTenantID reparsea platform.TenantID(ctx) como un UUID canonico en
+// minusculas. I1: middleware.TenantFromHeader ya normaliza el X-Tenant-ID
+// antes de guardarlo en contexto (ver comentario ahi), asi que esto es
+// revalidacion defensiva, no la fix primaria -- pero repo/mongo/metrics hace
+// un $match byte-exacto contra un tenantId guardado siempre en minusculas, y
+// esta funcion tambien sirve para rechazar (ok=false) un contexto sin tenant
+// valido, algo que los 3 handlers de dashboards necesitan de todos modos.
 func normalizedTenantID(ctx context.Context) (string, bool) {
 	raw := platform.TenantID(ctx)
 	id, err := uuid.Parse(raw)

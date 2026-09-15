@@ -154,6 +154,15 @@ func (r *Repository) scalarNumeric(ctx context.Context, tenantID, machineID stri
 	return domain.MetricResult{AasPath: spec.AasPath, Agg: spec.Agg, Value: g.Value, SampleCount: g.SampleCount}, &dataAsOf, nil
 }
 
+// reportNonNumericDiscards issues a second, synchronous Mongo aggregate per
+// numeric Scalar/Series call -- a deliberate trade-off (best-effort
+// telemetry, simplest pipeline shape), not an oversight, but it does mean
+// every numeric query pays a second round-trip and Batch's real Mongo call
+// volume is ~2x its documented worst case (see the comment on Batch in
+// app/dashboards/service.go). Making this async would cut response latency
+// but let these best-effort aggregates run outside Batch's g.SetLimit(10),
+// which could raise peak concurrent Mongo connections instead of lowering
+// load -- not a clear win, so left synchronous pending real usage data.
 func (r *Repository) reportNonNumericDiscards(ctx context.Context, tenantID, machineID string, from, to time.Time, spec domain.MetricSpec) {
 	pipeline := mongodriver.Pipeline{
 		baseMatch(tenantID, machineID, from, to, spec.AasPath),
@@ -318,6 +327,7 @@ func (r *Repository) Series(ctx context.Context, tenantID, machineID string, fro
 			{Key: "_id", Value: truncExpr},
 			{Key: "value", Value: bson.D{{Key: "$sum", Value: 1}}},
 			{Key: "sampleCount", Value: bson.D{{Key: "$sum", Value: 1}}},
+			{Key: "dataAsOf", Value: bson.D{{Key: "$max", Value: "$ts"}}},
 		}}}
 		return r.runSeriesPipeline(ctx, mongodriver.Pipeline{matchStage, groupStage})
 	default:
@@ -329,6 +339,7 @@ func (r *Repository) Series(ctx context.Context, tenantID, machineID string, fro
 			{Key: "_id", Value: truncExpr},
 			{Key: "value", Value: bson.D{{Key: accumulator, Value: "$payload.value"}}},
 			{Key: "sampleCount", Value: bson.D{{Key: "$sum", Value: 1}}},
+			{Key: "dataAsOf", Value: bson.D{{Key: "$max", Value: "$ts"}}},
 		}}}
 		pipeline := mongodriver.Pipeline{
 			applyValueFilter(baseMatch(tenantID, machineID, from, to, spec.AasPath), filter),
@@ -352,17 +363,23 @@ func (r *Repository) runSeriesPipeline(ctx context.Context, pipeline mongodriver
 		Ts          time.Time `bson:"_id"`
 		Value       float64   `bson:"value"`
 		SampleCount int64     `bson:"sampleCount"`
+		DataAsOf    time.Time `bson:"dataAsOf"`
 	}
 	if err := cur.All(ctx, &rows); err != nil {
 		return nil, nil, wrapTimeoutErr(err)
 	}
 
+	// dataAsOf se calcula sobre row.DataAsOf (el "$max":"$ts" real de cada
+	// bucket), no sobre row.Ts (el limite inferior del bucket que da
+	// $dateTrunc) -- un sample nuevo dentro del bucket mas reciente no mueve
+	// row.Ts, asi que usarlo dejaba dataAsOf pegado al inicio del bucket en
+	// vez de reflejar la medicion mas reciente.
 	points := make([]domain.BucketPoint, 0, len(rows))
 	var dataAsOf *time.Time
 	for _, row := range rows {
 		points = append(points, domain.BucketPoint{Ts: row.Ts, Value: row.Value, SampleCount: row.SampleCount})
-		if dataAsOf == nil || row.Ts.After(*dataAsOf) {
-			t := row.Ts
+		if dataAsOf == nil || row.DataAsOf.After(*dataAsOf) {
+			t := row.DataAsOf
 			dataAsOf = &t
 		}
 	}
@@ -376,12 +393,12 @@ func (r *Repository) runSeriesPipeline(ctx context.Context, pipeline mongodriver
 // (definitivamente se trajo todo) comparando len(points) == limit — esta
 // funcion no decide esa politica, solo devuelve lo que encuentra hasta
 // limit y, si maxPoints > 0, decima a maxPoints antes de devolver.
-func (r *Repository) Raw(ctx context.Context, tenantID, machineID string, from, to time.Time, aasPath string, limit, maxPoints int) ([]domain.RawPoint, *time.Time, error) {
+func (r *Repository) Raw(ctx context.Context, tenantID, machineID string, from, to time.Time, aasPath string, filter *domain.ValueFilter, limit, maxPoints int) ([]domain.RawPoint, *time.Time, error) {
 	ctx, cancel := context.WithTimeout(ctx, r.maxTime)
 	defer cancel()
 
 	pipeline := mongodriver.Pipeline{
-		baseMatch(tenantID, machineID, from, to, aasPath),
+		applyValueFilter(baseMatch(tenantID, machineID, from, to, aasPath), filter),
 		bson.D{{Key: "$sort", Value: bson.D{{Key: "ts", Value: 1}}}},
 		bson.D{{Key: "$limit", Value: limit}},
 	}
@@ -448,6 +465,15 @@ func decimateUniform(points []domain.RawPoint, maxPoints int) []domain.RawPoint 
 	step := float64(len(points)-1) / float64(maxPoints-1)
 	out := make([]domain.RawPoint, 0, maxPoints)
 	for i := 0; i < maxPoints; i++ {
+		// El ultimo indice se fuerza a len(points)-1 en vez de confiar en
+		// int(float64(i)*step): para algunos n/maxPoints el redondeo de
+		// punto flotante deja i==maxPoints-1 en len(points)-2 (p.ej.
+		// n=16,maxPoints=12 -> 11*15/11 evalua a 14.999... en vez de 15),
+		// violando la garantia documentada de preservar el ultimo punto.
+		if i == maxPoints-1 {
+			out = append(out, points[len(points)-1])
+			continue
+		}
 		idx := int(float64(i) * step)
 		if idx >= len(points) {
 			idx = len(points) - 1
@@ -475,6 +501,8 @@ func (r *Repository) Grouped(ctx context.Context, tenantID, machineID string, fr
 
 	matchStage := applyValueFilter(baseMatch(tenantID, machineID, from, to, spec.AasPath), filter)
 
+	pipeline := mongodriver.Pipeline{matchStage}
+
 	var groupStage bson.D
 	if spec.Agg == domain.AggCount {
 		groupStage = bson.D{{Key: "$group", Value: bson.D{
@@ -487,6 +515,12 @@ func (r *Repository) Grouped(ctx context.Context, tenantID, machineID string, fr
 		if !ok {
 			return nil, nil, fmt.Errorf("agg no soportado en modo agrupado: %s", spec.Agg)
 		}
+		// A diferencia de Scalar/Series, este isNumberMatch faltaba: sin el,
+		// un payload.value no numerico entra al acumulador de avg/sum/min/max
+		// -- BSON ordena string > cualquier numero, asi que $max/$min puede
+		// devolver un string y romper el decode a float64, o inflar
+		// sampleCount en avg/sum.
+		pipeline = append(pipeline, isNumberMatch(false))
 		groupStage = bson.D{{Key: "$group", Value: bson.D{
 			{Key: "_id", Value: fieldRef},
 			{Key: "value", Value: bson.D{{Key: accumulator, Value: "$payload.value"}}},
@@ -494,12 +528,11 @@ func (r *Repository) Grouped(ctx context.Context, tenantID, machineID string, fr
 		}}}
 	}
 
-	pipeline := mongodriver.Pipeline{
-		matchStage,
+	pipeline = append(pipeline,
 		groupStage,
 		bson.D{{Key: "$sort", Value: bson.D{{Key: "value", Value: -1}}}},
 		bson.D{{Key: "$limit", Value: limit}},
-	}
+	)
 	cur, err := r.coll.Aggregate(ctx, pipeline)
 	if err != nil {
 		return nil, nil, wrapTimeoutErr(err)
@@ -572,7 +605,7 @@ func (u *unavailable) Scalar(context.Context, string, string, time.Time, time.Ti
 func (u *unavailable) Series(context.Context, string, string, time.Time, time.Time, domain.Bucket, domain.MetricSpec, *domain.ValueFilter) ([]domain.BucketPoint, *time.Time, error) {
 	return nil, nil, fmt.Errorf("mongo no disponible desde el arranque: %w", u.err)
 }
-func (u *unavailable) Raw(context.Context, string, string, time.Time, time.Time, string, int, int) ([]domain.RawPoint, *time.Time, error) {
+func (u *unavailable) Raw(context.Context, string, string, time.Time, time.Time, string, *domain.ValueFilter, int, int) ([]domain.RawPoint, *time.Time, error) {
 	return nil, nil, fmt.Errorf("mongo no disponible desde el arranque: %w", u.err)
 }
 func (u *unavailable) Grouped(context.Context, string, string, time.Time, time.Time, string, domain.MetricSpec, *domain.ValueFilter, int) ([]domain.GroupResult, *time.Time, error) {

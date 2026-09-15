@@ -35,7 +35,7 @@ func (f *fakeRepository) Series(context.Context, string, string, time.Time, time
 	}
 	return f.seriesResult, nil, nil
 }
-func (f *fakeRepository) Raw(context.Context, string, string, time.Time, time.Time, string, int, int) ([]domain.RawPoint, *time.Time, error) {
+func (f *fakeRepository) Raw(context.Context, string, string, time.Time, time.Time, string, *domain.ValueFilter, int, int) ([]domain.RawPoint, *time.Time, error) {
 	if f.rawErr != nil {
 		return nil, nil, f.rawErr
 	}

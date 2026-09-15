@@ -135,7 +135,7 @@ func mergeSeries(specs []domain.MetricSpec, perMetric [][]domain.BucketPoint) []
 func (s *Service) queryRaw(ctx context.Context, tenantID string, q domain.MetricQuery, from, to time.Time, result domain.QueryResult) (domain.QueryResult, error) {
 	spec := q.Metrics[0]
 	limit := s.limits.MaxRawPoints + 1
-	points, dataAsOf, err := s.repo.Raw(ctx, tenantID, q.MachineID, from, to, spec.AasPath, limit, q.MaxPoints)
+	points, dataAsOf, err := s.repo.Raw(ctx, tenantID, q.MachineID, from, to, spec.AasPath, q.Filter, limit, q.MaxPoints)
 	if err != nil {
 		return domain.QueryResult{}, err
 	}
@@ -226,10 +226,12 @@ func (s *Service) Batch(ctx context.Context, tenantID string, items []BatchItem,
 	// Service.Query, que ya fanea internamente hasta MaxSpecs (10 por
 	// default) goroutines para sus MetricSpec -- sin este limite, un batch
 	// de 50 items x 10 metricas cada uno dispara hasta 500 aggregate
-	// concurrentes contra Mongo desde un solo request HTTP (y
-	// reportNonNumericDiscards duplica buena parte de eso para aggs
-	// numericos). 10 acota el peor caso a 10x10=100, dejando igual varios
-	// items corriendo en paralelo.
+	// concurrentes contra Mongo desde un solo request HTTP. 10 acota el
+	// numero de goroutines concurrentes a 10x10=100, dejando igual varios
+	// items corriendo en paralelo -- aunque el volumen real de llamadas a
+	// Mongo es ~2x eso para aggs numericos, porque cada una dispara ademas
+	// reportNonNumericDiscards (repo/mongo/metrics) como segundo aggregate
+	// secuencial dentro de la misma goroutine.
 	g.SetLimit(10)
 	for i, item := range items {
 		i, item := i, item

@@ -149,10 +149,18 @@ func TenantFromHeader(db *pgxpool.Pool) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"success": false, "error": "missing X-Tenant-ID header"})
 			return
 		}
-		if _, err := uuid.Parse(tenantID); err != nil {
+		parsedTenantID, err := uuid.Parse(tenantID)
+		if err != nil {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"success": false, "error": "X-Tenant-ID must be a valid UUID"})
 			return
 		}
+		// Canonicalizar a minusculas aca, no dejar el header crudo del cliente
+		// (I1): Postgres compara uuid sin importar el case, pero los $match de
+		// Mongo en repo/mongo/metrics son byte-exactos contra un tenantId
+		// siempre en minusculas -- sin esto, cualquier consumidor que use
+		// platform.TenantID(ctx) para un match exacto (no solo dashboards)
+		// pisa el mismo bug con un X-Tenant-ID en mayusculas.
+		tenantID = parsedTenantID.String()
 
 		// Validate user has an active role in this tenant
 		user, ok := platform.DomainUser(c.Request.Context()).(*domain.User)
@@ -166,7 +174,7 @@ func TenantFromHeader(db *pgxpool.Pool) gin.HandlerFunc {
 		// role `platform_admin` (adds tenants:write — see security/rbac.go).
 		var roleID string
 		var isPlatformTenant bool
-		err := db.QueryRow(c.Request.Context(),
+		err = db.QueryRow(c.Request.Context(),
 			`SELECT utr.role_id, t.is_platform_tenant
 			 FROM user_tenant_roles utr
 			 JOIN tenants t ON t.id = utr.tenant_id
