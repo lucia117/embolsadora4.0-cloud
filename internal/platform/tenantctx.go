@@ -37,11 +37,13 @@ func TenantID(ctx context.Context) string {
 }
 
 // TenantMatches reports whether tenantID equals the tenant established for this request
-// by TenantFromHeader (the X-Tenant-ID header, already membership-checked). Compares
-// parsed uuid.UUID values rather than raw strings, since the header value stored in
-// context is not case-normalized. Use this instead of hand-rolling the comparison in
-// every tenant-scoped write handler — a missing/incorrect copy of this check is exactly
-// the class of bug it exists to prevent.
+// by TenantFromHeader (the X-Tenant-ID header, already membership-checked and
+// canonicalized to a lowercase UUID string before being stored via WithTenantID).
+// Compares parsed uuid.UUID values rather than raw strings, since ResolveTenantAndCheckMembership
+// (the subdomain-based path) also feeds this context key and callers should not assume any
+// particular string casing. Use this instead of hand-rolling the comparison in every
+// tenant-scoped write handler — a missing/incorrect copy of this check is exactly the
+// class of bug it exists to prevent.
 func TenantMatches(ctx context.Context, tenantID uuid.UUID) bool {
 	ctxTenantID, err := uuid.Parse(TenantID(ctx))
 	return err == nil && ctxTenantID == tenantID

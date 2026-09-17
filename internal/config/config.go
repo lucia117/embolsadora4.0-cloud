@@ -76,6 +76,17 @@ type IngestConfig struct {
 	APIKeyCacheTTL time.Duration
 }
 
+type DashboardsConfig struct {
+	MetricsRateLimitRPM    int
+	MetricsRateLimitBurst  int
+	MetricsMaxSpecs        int
+	MetricsMaxBuckets      int
+	MetricsMaxRawPoints    int
+	MetricsMaxGroups       int
+	MetricsMaxBatchQueries int
+	MetricsMaxTimeMS       int
+}
+
 type SupabaseConfig struct {
 	JWKSUrl             string
 	JWTIssuer           string
@@ -101,6 +112,7 @@ type Config struct {
 	Ingest        IngestConfig
 	Supabase      SupabaseConfig
 	Observability ObservabilityConfig
+	Dashboards    DashboardsConfig
 }
 
 func Load(env Environment) (*Config, error) {
@@ -165,6 +177,16 @@ func Load(env Environment) (*Config, error) {
 		},
 		Observability: ObservabilityConfig{
 			LogLevel: getEnv("LOG_LEVEL", "info"),
+		},
+		Dashboards: DashboardsConfig{
+			MetricsRateLimitRPM:    getIntEnv("DASHBOARDS_METRICS_RATE_LIMIT_RPM", 15),
+			MetricsRateLimitBurst:  getIntEnv("DASHBOARDS_METRICS_RATE_LIMIT_BURST", 5),
+			MetricsMaxSpecs:        getIntEnv("DASHBOARDS_METRICS_MAX_SPECS", 10),
+			MetricsMaxBuckets:      getIntEnv("DASHBOARDS_METRICS_MAX_BUCKETS", 1000),
+			MetricsMaxRawPoints:    getIntEnv("DASHBOARDS_METRICS_MAX_RAW_POINTS", 5000),
+			MetricsMaxGroups:       getIntEnv("DASHBOARDS_METRICS_MAX_GROUPS", 200),
+			MetricsMaxBatchQueries: getIntEnv("DASHBOARDS_METRICS_MAX_BATCH_QUERIES", 50),
+			MetricsMaxTimeMS:       getIntEnv("DASHBOARDS_METRICS_MAX_TIME_MS", 5000),
 		},
 	}
 	if len(missing) > 0 {
