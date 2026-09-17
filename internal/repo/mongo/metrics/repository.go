@@ -144,7 +144,10 @@ func (r *Repository) scalarNumeric(ctx context.Context, tenantID, machineID stri
 	// Discard count: consulta liviana separada (mismo $match, $count) para no
 	// complicar el pipeline principal con un $facet. Best-effort: si esta
 	// falla, no se pierde el resultado principal, solo la instrumentacion.
-	r.reportNonNumericDiscards(ctx, tenantID, machineID, from, to, spec)
+	// Se dispara DESPUES del aggregate principal (no antes) para que, si come
+	// el resto del presupuesto de ctx/maxTime, no pueda convertir un query
+	// valido en QUERY_TIMEOUT -- ver comentario de Copilot en Series().
+	r.reportNonNumericDiscards(ctx, tenantID, machineID, from, to, spec, filter)
 
 	if len(results) == 0 {
 		return domain.MetricResult{AasPath: spec.AasPath, Agg: spec.Agg}, nil, nil
@@ -163,9 +166,13 @@ func (r *Repository) scalarNumeric(ctx context.Context, tenantID, machineID stri
 // but let these best-effort aggregates run outside Batch's g.SetLimit(10),
 // which could raise peak concurrent Mongo connections instead of lowering
 // load -- not a clear win, so left synchronous pending real usage data.
-func (r *Repository) reportNonNumericDiscards(ctx context.Context, tenantID, machineID string, from, to time.Time, spec domain.MetricSpec) {
+// Must always be called after the primary aggregate on a shared ctx (never
+// before), and must apply the same filter, so it can't (a) steal maxTime
+// budget from the query that actually answers the request, or (b) count
+// non-numeric documents that filter.ValueEquals would have excluded anyway.
+func (r *Repository) reportNonNumericDiscards(ctx context.Context, tenantID, machineID string, from, to time.Time, spec domain.MetricSpec, filter *domain.ValueFilter) {
 	pipeline := mongodriver.Pipeline{
-		baseMatch(tenantID, machineID, from, to, spec.AasPath),
+		applyValueFilter(baseMatch(tenantID, machineID, from, to, spec.AasPath), filter),
 		isNumberMatch(true),
 		bson.D{{Key: "$count", Value: "count"}},
 	}
@@ -206,7 +213,7 @@ func (r *Repository) scalarLast(ctx context.Context, tenantID, machineID string,
 	if err := cur.All(ctx, &results); err != nil {
 		return domain.MetricResult{}, nil, wrapTimeoutErr(err)
 	}
-	r.reportNonNumericDiscards(ctx, tenantID, machineID, from, to, spec)
+	r.reportNonNumericDiscards(ctx, tenantID, machineID, from, to, spec, filter)
 	if len(results) == 0 {
 		return domain.MetricResult{AasPath: spec.AasPath, Agg: spec.Agg}, nil, nil
 	}
@@ -242,7 +249,7 @@ func (r *Repository) scalarDelta(ctx context.Context, tenantID, machineID string
 	if err := cur.All(ctx, &results); err != nil {
 		return domain.MetricResult{}, nil, wrapTimeoutErr(err)
 	}
-	r.reportNonNumericDiscards(ctx, tenantID, machineID, from, to, spec)
+	r.reportNonNumericDiscards(ctx, tenantID, machineID, from, to, spec, filter)
 	if len(results) == 0 {
 		return domain.MetricResult{AasPath: spec.AasPath, Agg: spec.Agg}, nil, nil
 	}
@@ -346,8 +353,13 @@ func (r *Repository) Series(ctx context.Context, tenantID, machineID string, fro
 			isNumberMatch(false),
 			groupStage,
 		}
-		r.reportNonNumericDiscards(ctx, tenantID, machineID, from, to, spec)
-		return r.runSeriesPipeline(ctx, pipeline)
+		// La telemetria corre DESPUES del pipeline principal, no antes: ambos
+		// comparten ctx/maxTime, y si corriera primero podria agotar el
+		// presupuesto de tiempo del query real y devolver QUERY_TIMEOUT para
+		// un request que hubiera andado bien (hallazgo de Copilot en PR #78).
+		points, dataAsOf, err := r.runSeriesPipeline(ctx, pipeline)
+		r.reportNonNumericDiscards(ctx, tenantID, machineID, from, to, spec, filter)
+		return points, dataAsOf, err
 	}
 }
 
