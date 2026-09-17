@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 
@@ -233,7 +234,8 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 
 	apiKeyRepository := apiKeysRepo.NewRepository(db)
 	apiKeyAuth := security.NewAPIKeyAuthenticator(apiKeyRepository, redisClient, cfg.Ingest.APIKeyCacheTTL, logger)
-	ingestService := ingestapp.NewService(measurementRepo, logger, cfg.Mongo.Timeout)
+	edgeDeviceRepository := edgeDevicesRepo.NewPostgresRepository(db)
+	ingestService := ingestapp.NewService(measurementRepo, ingestDeviceActivity{edgeDeviceRepository}, logger, cfg.Mongo.Timeout)
 	rateLimiter := consumers.NewRateLimiter(redisClient, cfg.Ingest.RateLimitRPS, cfg.Ingest.RateLimitBurst)
 
 	c1 := r.Group(
@@ -254,7 +256,6 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	// Superficie de edge devices (/api/v1/tenants/{tenantId}/edge-devices)
 	edgeDeviceTimeout := time.Duration(0) // usar timeout por defecto (10s)
 	edgeDeviceClient := edgeclient.NewHTTPClient(edgeDeviceTimeout)
-	edgeDeviceRepository := edgeDevicesRepo.NewPostgresRepository(db)
 	edgeDeviceService := edgeDevicesApp.NewService(edgeDeviceRepository, edgeDeviceClient, logger, apiKeyRepository, redisClient)
 
 	tenantsGroup := r.Group(
@@ -265,8 +266,7 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 		apimw.JWTAuth(verifier, authUC, invUC),
 		apimw.ResolveTenantAndCheckMembership(db),
 	)
-	edgeDevicesWriteGroup := tenantsGroup.Group("", apimw.RBACCheck("machines:write"))
-	edgeDevicesHandler.RegisterRoutes(tenantsGroup, edgeDevicesWriteGroup, edgeDeviceService)
+	edgeDevicesHandler.RegisterRoutes(tenantsGroup, edgeDeviceService)
 
 	// Dashboard Layouts surface (/api/v1/dashboard-layouts)
 	// tenant_id comes from X-Tenant-ID header, user_id from JWT context
@@ -373,4 +373,23 @@ func connectMeasurementsRepo(ctx context.Context, cfg config.MongoConfig, logger
 	}
 	telemetry.SetMongoUp(true)
 	return repo, mongoClient, nil
+}
+
+// ingestDeviceActivity adapta el repo de edge devices (IDs uuid.UUID) a la
+// interfaz que la ingesta consume (IDs string, ya validados por la capa de
+// auth de API keys). Best-effort: la ingesta loguea y sigue si esto falla.
+type ingestDeviceActivity struct {
+	repo *edgeDevicesRepo.PostgresRepository
+}
+
+func (a ingestDeviceActivity) TouchLastSeen(ctx context.Context, tenantID, deviceID string) error {
+	tid, err := uuid.Parse(tenantID)
+	if err != nil {
+		return err
+	}
+	did, err := uuid.Parse(deviceID)
+	if err != nil {
+		return err
+	}
+	return a.repo.TouchLastSeen(ctx, tid, did)
 }

@@ -12,9 +12,25 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/telemetry"
 )
 
+// DeviceActivityRecorder registra que un device entregó datos recién. El
+// Service lo llama best-effort después de una ingesta exitosa para mantener
+// fresco el `last_seen_at` que la UI usa como semáforo de conectividad. Es
+// opcional: si es nil, el Service simplemente no lo llama.
+type DeviceActivityRecorder interface {
+	// TouchLastSeen marca last_seen_at = now() para el device. Un error acá no
+	// afecta la respuesta de la ingesta: el batch ya se persistió.
+	TouchLastSeen(ctx context.Context, tenantID, deviceID string) error
+}
+
+// touchLastSeenTimeout acota la escritura best-effort de last_seen_at: sin un
+// límite propio, un Postgres degradado le sumaría su statement timeout a la
+// latencia de CADA respuesta de ingesta.
+const touchLastSeenTimeout = 2 * time.Second
+
 // Service orquesta la ingesta de un batch.
 type Service struct {
 	repo         domain.Repository
+	activity     DeviceActivityRecorder
 	log          *zap.Logger
 	now          func() time.Time
 	mongoTimeout time.Duration
@@ -28,8 +44,10 @@ type Service struct {
 // que el Edge sabe reintentar (I-1). "Colgado" no es lo mismo que "caido":
 // un primario caido falla rapido (conexion rechazada); uno colgado no falla
 // nunca por si solo, y es ese caso el que necesita un limite explicito.
-func NewService(repo domain.Repository, log *zap.Logger, mongoTimeout time.Duration) *Service {
-	return &Service{repo: repo, log: log, now: func() time.Time { return time.Now().UTC() }, mongoTimeout: mongoTimeout}
+// activity puede ser nil: la ingesta funciona igual, solo no refresca
+// last_seen_at (útil en tests y si el wiring todavía no lo provee).
+func NewService(repo domain.Repository, activity DeviceActivityRecorder, log *zap.Logger, mongoTimeout time.Duration) *Service {
+	return &Service{repo: repo, activity: activity, log: log, now: func() time.Time { return time.Now().UTC() }, mongoTimeout: mongoTimeout}
 }
 
 // IngestBatch valida el sobre de cada evento y persiste los validos.
@@ -96,6 +114,11 @@ func (s *Service) IngestBatch(ctx context.Context, dev domain.DeviceContext, raw
 			return domain.Result{}, err
 		}
 
+		// El batch llegó y se persistió: el device está entregando datos ahora
+		// mismo. Refrescar last_seen_at es best-effort — un fallo acá no cambia
+		// la respuesta (el Edge no tiene nada que reintentar).
+		s.recordActivity(ctx, dev)
+
 		for j := range valid {
 			if _, dup := report.Duplicated[j]; dup {
 				errs = append(errs, domain.EventError{
@@ -150,4 +173,24 @@ func (s *Service) IngestBatch(ctx context.Context, dev domain.DeviceContext, raw
 		res.Errors = errs
 	}
 	return res, nil
+}
+
+// recordActivity refresca last_seen_at del device, best-effort y acotado. Se
+// llama con ctx del request; si el cliente ya se desconectó no importa que la
+// escritura se corte, la respuesta tampoco va a llegar.
+func (s *Service) recordActivity(ctx context.Context, dev domain.DeviceContext) {
+	if s.activity == nil {
+		return
+	}
+
+	touchCtx, cancel := context.WithTimeout(ctx, touchLastSeenTimeout)
+	defer cancel()
+
+	if err := s.activity.TouchLastSeen(touchCtx, dev.TenantID, dev.DeviceID); err != nil {
+		s.log.Warn("no se pudo refrescar last_seen_at del device",
+			zap.Error(err),
+			zap.String("tenant_id", dev.TenantID),
+			zap.String("device_id", dev.DeviceID),
+		)
+	}
 }

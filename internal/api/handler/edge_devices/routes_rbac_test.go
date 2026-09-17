@@ -37,7 +37,7 @@ func newTestRouterWithRole(t *testing.T, permissions []string) *gin.Engine {
 
 	service := appEdgeDevices.NewService(nil, nil, zap.NewNop(), nil, nil)
 	group := r.Group("")
-	edge_devices.RegisterRoutes(group, group, service)
+	edge_devices.RegisterRoutes(group, service)
 	return r
 }
 
@@ -102,6 +102,48 @@ func TestEdgeDevicesCreateNoAbreManage(t *testing.T) {
 		require.Equal(t, http.StatusForbidden, w.Code,
 			"%s %s requiere perm_edge_devices_manage; _create solo no debe pasar el gate", tc.method, tc.path)
 	}
+}
+
+// TestEdgeDevicesAPIKeysWriteRequiereManage cubre la regresión del permiso
+// fantasma: emitir/revocar API keys dependía de RBACCheck("machines:write"),
+// un id que no vive en ningún rol, así que el gate negaba a todos y los dos
+// endpoints quedaban muertos. Ahora pasan por _manage.
+func TestEdgeDevicesAPIKeysWriteRequiereManage(t *testing.T) {
+	const deviceID = "11111111-1111-1111-1111-111111111111"
+	cases := []struct {
+		method string
+		path   string
+	}{
+		{http.MethodPost, "/edge-devices/" + deviceID + "/api-keys"},
+		{http.MethodDelete, "/edge-devices/" + deviceID + "/api-keys/22222222-2222-2222-2222-222222222222"},
+	}
+	for _, tc := range cases {
+		// Solo view: 403
+		rView := newTestRouterWithRole(t, []string{"perm_edge_devices_view"})
+		req := httptest.NewRequest(tc.method, tc.path, nil)
+		w := httptest.NewRecorder()
+		rView.ServeHTTP(w, req)
+		require.Equal(t, http.StatusForbidden, w.Code,
+			"%s %s con solo _view debe dar 403", tc.method, tc.path)
+
+		// Con manage: pasa el gate
+		rManage := newTestRouterWithRole(t, []string{"perm_edge_devices_manage"})
+		req2 := httptest.NewRequest(tc.method, tc.path, nil)
+		w2 := httptest.NewRecorder()
+		rManage.ServeHTTP(w2, req2)
+		require.NotEqual(t, http.StatusForbidden, w2.Code,
+			"%s %s con _manage debe pasar el gate de RBAC", tc.method, tc.path)
+	}
+}
+
+// TestEdgeDevicesListAPIKeysAlcanzaConView: listar solo expone metadata, no el
+// secreto, así que _view alcanza.
+func TestEdgeDevicesListAPIKeysAlcanzaConView(t *testing.T) {
+	r := newTestRouterWithRole(t, []string{"perm_edge_devices_view"})
+	req := httptest.NewRequest(http.MethodGet, "/edge-devices/11111111-1111-1111-1111-111111111111/api-keys", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	require.NotEqual(t, http.StatusForbidden, w.Code, "GET api-keys con _view debe pasar el gate")
 }
 
 func TestEdgeDevicesStatusCheckRequiereCheckNoViewNiManage(t *testing.T) {
