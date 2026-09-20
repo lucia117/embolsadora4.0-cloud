@@ -133,6 +133,45 @@
       ]
     },
     {
+      "name": "Public",
+      "item": [
+        {
+          "name": "GET Public Tenant (sin auth, por id o subdominio)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/tenants/{{tenantSubdomain}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "public",
+                "tenants",
+                "{{tenantSubdomain}}"
+              ]
+            },
+            "description": "Lookup PUBLICO (sin Authorization, sin X-Tenant-ID) por UUID o subdominio del tenant. Backea el link de invitacion/reset de password (corre antes de que exista sesion) y la landing page publica del tenant.\n\nRespuesta 200: {id, subdomain, name, companyName, isActive, theme: {...}, settings: {locale, timezone, dateFormat, timeFormat, currency}} -- subconjunto seguro para exponer sin auth (sin address, sin contactEmail).\n\n404 si el tenant no existe O esta inactivo (los dos casos se devuelven igual, a proposito: no distingue 'no existe' de 'existe pero inactivo')."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('trae subdomain', () => {",
+                  "    pm.expect(pm.response.json()).to.have.property('subdomain');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Invitations",
       "item": [
         {
