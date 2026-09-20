@@ -1672,10 +1672,10 @@
       ]
     },
     {
-      "name": "Consumers (IoT ingest - stubs, 501)",
+      "name": "Consumers (Edge Pi ingest)",
       "item": [
         {
-          "name": "POST Ingest Events (stub, esperar 501)",
+          "name": "POST Ingest Events (200 - contrato real)",
           "request": {
             "method": "POST",
             "header": [
@@ -1690,7 +1690,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"events\": [\n    {\n      \"machine_id\": \"{{device_id}}\",\n      \"event_type\": \"cycle_completed\",\n      \"severity\": \"info\",\n      \"timestamp\": \"2026-07-09T12:00:00Z\",\n      \"payload\": {\n        \"cycle_count\": 1\n      }\n    }\n  ]\n}"
+              "raw": "{\n  \"events\": [\n    {\n      \"eventId\": \"postman-{{$timestamp}}-1\",\n      \"machineId\": \"{{machine_id}}\",\n      \"ts\": \"2026-07-31T01:06:37.147166Z\",\n      \"seq\": 0,\n      \"kind\": \"metric\",\n      \"schemaVersion\": 1,\n      \"payload\": {\n        \"aasPath\": \"Operativos/Pesada/peso\",\n        \"unit\": \"kg\",\n        \"value\": 1,\n        \"valueType\": \"xs:float\"\n      }\n    }\n  ]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/consumers/events",
@@ -1704,14 +1704,19 @@
                 "events"
               ]
             },
-            "description": "Handler es un stub (IngestEvents) sin logica ni contrato definido todavia. Devuelve 501 Not Implemented. Estructura del body es tentativa."
+            "description": "Endpoint real de ingesta (no un stub). Contrato congelado con el Edge Pi Service - ver docs/superpowers/plans/2026-08-05-cloud-ingest-endpoint.md.\n\nBody: {events: [{eventId, machineId, ts, seq, kind, schemaVersion, payload}]}. eventId es la clave de idempotencia (unique index tenantId+eventId en Mongo): reenviar el mismo eventId no duplica la medicion.\n\nRespuesta 200 SIEMPRE (incluso con rechazos parciales, invariante I-2): {data: {accepted, rejected, errors: [{index, code, message}]}}. 400 solo si el body entero es invalido (JSON malformado, events vacio/ausente, excede el maximo de elementos)."
           },
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('Status 501 (stub sin implementar)', () => pm.response.to.have.status(501));"
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('acepta el evento', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.accepted).to.eql(1);",
+                  "    pm.expect(body.data.rejected).to.eql(0);",
+                  "});"
                 ]
               }
             }
