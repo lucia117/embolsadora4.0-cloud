@@ -1305,6 +1305,118 @@ paths:
                     properties:
                       usersAffected: { type: integer }
 
+  ########################
+  # Alarm Rules
+  ########################
+  /api/v1/alarm-rules:
+    get:
+      tags: [AlarmRules]
+      summary: Listar reglas de alarma del tenant
+      description: Sin RBAC adicional — cualquier usuario autenticado del tenant puede listar/ver reglas.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Lista de reglas
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AlarmRule' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [AlarmRules]
+      summary: Crear una regla de alarma
+      description: Requiere `perm_users_manage`.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AlarmRuleCreate' }
+      responses:
+        '201':
+          description: Regla creada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AlarmRule' }
+        '400':
+          description: Validación fallida (VALIDATION_ERROR)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/v1/alarm-rules/{id}:
+    get:
+      tags: [AlarmRules]
+      summary: Obtener una regla de alarma por ID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Regla encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AlarmRule' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: Regla no encontrada (ALARM_RULE_NOT_FOUND)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    patch:
+      tags: [AlarmRules]
+      summary: Actualizar parcialmente una regla de alarma
+      description: Requiere `perm_users_manage`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AlarmRuleUpdate' }
+      responses:
+        '200':
+          description: Regla actualizada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AlarmRule' }
+        '400':
+          description: Validación fallida (VALIDATION_ERROR)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Regla no encontrada (ALARM_RULE_NOT_FOUND)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    delete:
+      tags: [AlarmRules]
+      summary: Eliminar una regla de alarma
+      description: Requiere `perm_users_manage`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Regla eliminada
+          content:
+            application/json:
+              schema: { type: object }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Regla no encontrada (ALARM_RULE_NOT_FOUND)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
 components:
   ########################
   # Security
@@ -1854,6 +1966,47 @@ components:
           type: array
           items: { type: string }
       required: [name]
+
+    AlarmRule:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        metric: { type: string }
+        operator: { type: string, enum: [gt, lt, gte, lte, eq] }
+        threshold: { type: number }
+        severity: { type: string, enum: [info, warning, critical] }
+        enabled: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, tenantId, name, metric, operator, threshold, severity, enabled, createdAt, updatedAt]
+
+    AlarmRuleCreate:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+        metric: { type: string }
+        operator: { type: string, enum: [gt, lt, gte, lte, eq] }
+        threshold: { type: number }
+        severity: { type: string, enum: [info, warning, critical] }
+        enabled: { type: boolean, default: true }
+      required: [name, metric, operator, threshold, severity]
+
+    AlarmRuleUpdate:
+      type: object
+      description: Todos los campos opcionales (actualización parcial).
+      properties:
+        name: { type: string }
+        description: { type: string }
+        metric: { type: string }
+        operator: { type: string, enum: [gt, lt, gte, lte, eq] }
+        threshold: { type: number }
+        severity: { type: string, enum: [info, warning, critical] }
+        enabled: { type: boolean }
+      minProperties: 1
 
   ########################
   # Standard responses
