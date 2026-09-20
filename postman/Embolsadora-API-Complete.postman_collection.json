@@ -1455,6 +1455,161 @@
       ]
     },
     {
+      "name": "Dashboard Metrics",
+      "item": [
+        {
+          "name": "US1 - Query Metrics (single)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"machineId\": \"{{machine_id}}\",\n  \"range\": \"1h\",\n  \"bucket\": \"5m\",\n  \"metrics\": [\n    {\n      \"aasPath\": \"Operativos/Pesada/peso\",\n      \"agg\": \"avg\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dashboards/metrics/query",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dashboards",
+                "metrics",
+                "query"
+              ]
+            },
+            "description": "Requiere perm_metrics_view + esta gateado por DashboardRateLimit (por tenant). range y from/to son mutuamente excluyentes. Bucket valido: 1m|5m|15m|1h|6h|1d. Agg valido: avg|sum|min|max|last|count|delta|raw.\n\n200: {success: true, data: {mode, machineId, from, to, ...}} -- la forma exacta de data depende de mode (scalar/series/raw/grouped).\n400 (INVALID_PARAMS u otro guardrail de domain/metrics), 504 (QUERY_TIMEOUT)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('success true', () => {",
+                  "    pm.expect(pm.response.json().success).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "US2 - Catalog Metrics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dashboards/metrics/catalog?machineId={{machine_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dashboards",
+                "metrics",
+                "catalog"
+              ],
+              "query": [
+                {
+                  "key": "machineId",
+                  "value": "{{machine_id}}"
+                }
+              ]
+            },
+            "description": "Devuelve los aasPath descubiertos para el machineId dado -- util para armar el body de /query sin adivinar rutas AAS.\n\n200: {success: true, data: {machineId, aasPaths: [...]}}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "US3 - Batch Query Metrics",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"queries\": [\n    {\n      \"id\": \"peso-avg\",\n      \"machineId\": \"{{machine_id}}\",\n      \"range\": \"1h\",\n      \"bucket\": \"5m\",\n      \"metrics\": [\n        {\n          \"aasPath\": \"Operativos/Pesada/peso\",\n          \"agg\": \"avg\"\n        }\n      ]\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dashboards/metrics/query/batch",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dashboards",
+                "metrics",
+                "query",
+                "batch"
+              ]
+            },
+            "description": "Ejecuta N queries en paralelo, correlacionadas por id. Un error en UN item (id duplicado a nivel batch aparte) NO aborta el resto -- va dentro de results[i].error/code, la respuesta sigue siendo 200. Limite: MaxBatchQueries (default 50).\n\n200: {success: true, data: {results: [{id, success, data|error, code}]}}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('primer resultado ok', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.results[0].success).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Edge Devices",
       "item": [
         {
