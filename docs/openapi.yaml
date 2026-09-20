@@ -1840,7 +1840,7 @@ components:
           items: { type: string }
         isSystemRole: { type: boolean }
         isGlobal: { type: boolean }
-        tenantId: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid, nullable: true }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
       required: [id, name, permissions, isSystemRole, isGlobal, createdAt, updatedAt]
