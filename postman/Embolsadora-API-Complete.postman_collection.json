@@ -1909,6 +1909,131 @@
             },
             "description": "Retrieve historical log of all check events for an edge device"
           }
+        },
+        {
+          "name": "API Keys - Create Device API Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Pi produccion\",\n  \"expiresAt\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantSubdomain}}/edge-devices/{{device_id}}/api-keys",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tenants",
+                "{{tenantSubdomain}}",
+                "edge-devices",
+                "{{device_id}}",
+                "api-keys"
+              ]
+            },
+            "description": "Requiere perm_edge_devices_manage. name y expiresAt son opcionales (body vacio {} tambien es valido).\n\n201: unica respuesta que incluye el secreto en claro (campo 'key', formato emb_<keyId>_<secreto>) -- no se persiste, no se puede volver a consultar despues de esta llamada."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('edge_api_key_id', body.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "API Keys - List Device API Keys",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantSubdomain}}/edge-devices/{{device_id}}/api-keys",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tenants",
+                "{{tenantSubdomain}}",
+                "edge-devices",
+                "{{device_id}}",
+                "api-keys"
+              ]
+            },
+            "description": "Requiere perm_edge_devices_view. Nunca incluye el secreto -- solo metadata (id, keyId, name, createdAt, expiresAt, revokedAt, lastUsedAt, active, deviceStatus)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "API Keys - Revoke Device API Key",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantSubdomain}}/edge-devices/{{device_id}}/api-keys/{{edge_api_key_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tenants",
+                "{{tenantSubdomain}}",
+                "edge-devices",
+                "{{device_id}}",
+                "api-keys",
+                "{{edge_api_key_id}}"
+              ]
+            },
+            "description": "Requiere perm_edge_devices_manage. Idempotente: revocar una key ya revocada tambien devuelve 204."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
