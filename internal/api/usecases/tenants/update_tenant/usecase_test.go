@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -36,9 +37,10 @@ func (f *fakeRepo) Delete(ctx context.Context, id uuid.UUID) error { return nil 
 func baseTenant() *domain.Tenant {
 	return &domain.Tenant{
 		ID: uuid.New(), Name: "Vieja", CompanyName: "Vieja SA", Subdomain: "vieja", Description: "d", IsActive: true,
-		Theme:    domain.Theme{PrimaryColor: "#000000", LogoUrl: "http://old-logo"},
-		Address:  domain.Address{Street: "Calle Vieja 123", City: "CABA"},
-		Settings: domain.TenantSettings{ContactEmail: "old@x.com", Locale: "es-AR"},
+		Theme:     domain.Theme{PrimaryColor: "#000000", LogoUrl: "http://old-logo"},
+		Address:   domain.Address{Street: "Calle Vieja 123", City: "CABA"},
+		Settings:  domain.TenantSettings{ContactEmail: "old@x.com", Locale: "es-AR"},
+		UpdatedAt: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
 }
 

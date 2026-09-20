@@ -7,17 +7,26 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tu-org/embolsadora-api/internal/domain"
 )
+
+type findByTenantCall struct {
+	tenantID      uuid.UUID
+	status        *string
+	includeGlobal bool
+}
 
 type fakeRepo struct {
 	findByTenantResult []domain.UserTenantRoleDetail
 	findByTenantErr    error
 	lastIncludeGlobal  bool
+	findByTenantCalls  []findByTenantCall
 }
 
-func (f *fakeRepo) FindByTenant(_ context.Context, _ uuid.UUID, _ *string, includeGlobal bool) ([]domain.UserTenantRoleDetail, error) {
+func (f *fakeRepo) FindByTenant(_ context.Context, tenantID uuid.UUID, status *string, includeGlobal bool) ([]domain.UserTenantRoleDetail, error) {
 	f.lastIncludeGlobal = includeGlobal
+	f.findByTenantCalls = append(f.findByTenantCalls, findByTenantCall{tenantID, status, includeGlobal})
 	return f.findByTenantResult, f.findByTenantErr
 }
 func (f *fakeRepo) FindByID(context.Context, uuid.UUID, bool) (*domain.UserTenantRole, error) {
@@ -47,11 +56,15 @@ func TestExecute_FelizPasaIncludeGlobal(t *testing.T) {
 	repo := &fakeRepo{findByTenantResult: want}
 	uc := NewUseCase(repo)
 
-	got, err := uc.Execute(context.Background(), uuid.New(), nil, true)
+	tenantID := uuid.New()
+	got, err := uc.Execute(context.Background(), tenantID, nil, true)
 
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
 	assert.True(t, repo.lastIncludeGlobal)
+
+	require.Len(t, repo.findByTenantCalls, 1)
+	assert.Equal(t, tenantID, repo.findByTenantCalls[0].tenantID, "el tenantID pasado a Execute debe llegar sin alterar al repo")
 }
 
 func TestExecute_ErrorDeRepoPropaga(t *testing.T) {

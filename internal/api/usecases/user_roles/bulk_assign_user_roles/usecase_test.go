@@ -49,14 +49,22 @@ func (f *fakeUserRoleRepo) UpdateStatus(context.Context, uuid.UUID, uuid.UUID, d
 	return nil, nil
 }
 
+type getByIDForTenantCall struct {
+	roleID        string
+	tenantID      uuid.UUID
+	includeGlobal bool
+}
+
 type fakeRolesRepo struct {
-	getByIDForTenantErr error
+	getByIDForTenantErr   error
+	getByIDForTenantCalls []getByIDForTenantCall
 }
 
 func (f *fakeRolesRepo) List(context.Context, uuid.UUID, bool) ([]*domain.Role, error) {
 	return nil, nil
 }
-func (f *fakeRolesRepo) GetByIDForTenant(context.Context, string, uuid.UUID, bool) (*domain.Role, error) {
+func (f *fakeRolesRepo) GetByIDForTenant(_ context.Context, roleID string, tenantID uuid.UUID, includeGlobal bool) (*domain.Role, error) {
+	f.getByIDForTenantCalls = append(f.getByIDForTenantCalls, getByIDForTenantCall{roleID, tenantID, includeGlobal})
 	if f.getByIDForTenantErr != nil {
 		return nil, f.getByIDForTenantErr
 	}
@@ -105,6 +113,10 @@ func TestExecute_FelizArmaUnUTRPorUsuarioConElMismoRolYTenant(t *testing.T) {
 		assert.Equal(t, domain.UserRoleStatusActive, utr.Status)
 	}
 	assert.Equal(t, batch[0].AssignedAt, batch[1].AssignedAt, "todo el batch comparte el mismo timestamp")
+
+	require.Len(t, roleRepo.getByIDForTenantCalls, 1)
+	assert.Equal(t, "operario", roleRepo.getByIDForTenantCalls[0].roleID, "EnsureAssignable debe validar el rol pasado en el request")
+	assert.Equal(t, tenantID, roleRepo.getByIDForTenantCalls[0].tenantID, "EnsureAssignable debe validar contra el tenant del caller")
 }
 
 func TestExecute_ErrorDeBulkCreatePropaga(t *testing.T) {

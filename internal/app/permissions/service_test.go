@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
@@ -27,9 +28,11 @@ type fakeRepo struct {
 	getResult *domain.Permission
 	getErr    error
 
-	createErr error
+	createErr   error
+	createCalls []*domain.Permission
 
-	updateErr error
+	updateErr   error
+	updateCalls []*domain.Permission
 
 	deleteErr error
 }
@@ -41,17 +44,36 @@ func (f *fakeRepo) GetByID(context.Context, string, uuid.UUID) (*domain.Permissi
 	if len(f.getByIDResults) > 0 {
 		i := f.getByIDCalls
 		f.getByIDCalls++
-		if i >= len(f.getByIDResults) {
-			i = len(f.getByIDResults) - 1
+		// Clamp cada slice de forma independiente: getByIDResults y getByIDErrs
+		// pueden tener longitudes distintas (los tests solo llenan hasta donde les
+		// importa), así que un único índice compartido podía indexar fuera de rango
+		// del más corto de los dos y panicar.
+		resultIdx := i
+		if resultIdx >= len(f.getByIDResults) {
+			resultIdx = len(f.getByIDResults) - 1
 		}
-		return f.getByIDResults[i], f.getByIDErrs[i]
+		var err error
+		if len(f.getByIDErrs) > 0 {
+			errIdx := i
+			if errIdx >= len(f.getByIDErrs) {
+				errIdx = len(f.getByIDErrs) - 1
+			}
+			err = f.getByIDErrs[errIdx]
+		}
+		return f.getByIDResults[resultIdx], err
 	}
 	f.getByIDCalls++
 	return f.getResult, f.getErr
 }
-func (f *fakeRepo) Create(context.Context, *domain.Permission) error { return f.createErr }
-func (f *fakeRepo) Update(context.Context, *domain.Permission) error { return f.updateErr }
-func (f *fakeRepo) Delete(context.Context, string, uuid.UUID) error  { return f.deleteErr }
+func (f *fakeRepo) Create(_ context.Context, p *domain.Permission) error {
+	f.createCalls = append(f.createCalls, p)
+	return f.createErr
+}
+func (f *fakeRepo) Update(_ context.Context, p *domain.Permission) error {
+	f.updateCalls = append(f.updateCalls, p)
+	return f.updateErr
+}
+func (f *fakeRepo) Delete(context.Context, string, uuid.UUID) error { return f.deleteErr }
 
 func TestListPermissions(t *testing.T) {
 	t.Run("feliz", func(t *testing.T) {
@@ -125,6 +147,12 @@ func TestCreatePermission(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, created, got)
 		require.Equal(t, 1, repo.getByIDCalls)
+
+		require.Len(t, repo.createCalls, 1)
+		assert.Equal(t, "nombre valido", repo.createCalls[0].Name, "el Permission persistido debe llevar el name pedido")
+		assert.False(t, repo.createCalls[0].IsSystemPermission, "un permiso creado por este flujo nunca es de sistema")
+		require.NotNil(t, repo.createCalls[0].TenantID)
+		assert.Equal(t, tenantID, *repo.createCalls[0].TenantID, "el Permission persistido debe quedar asociado al tenant correcto")
 	})
 }
 
@@ -161,6 +189,12 @@ func TestUpdatePermission(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, after, got)
 		require.Equal(t, 2, repo.getByIDCalls)
+
+		require.Len(t, repo.updateCalls, 1)
+		assert.Equal(t, "perm_x", repo.updateCalls[0].ID, "Update debe persistir el permiso correcto por id")
+		assert.Equal(t, "nombre valido", repo.updateCalls[0].Name, "Update debe persistir el name nuevo pedido")
+		assert.Equal(t, "sec", repo.updateCalls[0].Section)
+		assert.Equal(t, "desc", repo.updateCalls[0].Description)
 	})
 }
 

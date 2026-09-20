@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tu-org/embolsadora-api/internal/domain"
 )
 
@@ -45,14 +46,22 @@ func (f *fakeRepo) UpdateStatus(context.Context, uuid.UUID, uuid.UUID, domain.Us
 	return nil, nil
 }
 
+type getByIDForTenantCall struct {
+	roleID        string
+	tenantID      uuid.UUID
+	includeGlobal bool
+}
+
 type fakeRolesRepo struct {
-	getByIDForTenantErr error
+	getByIDForTenantErr   error
+	getByIDForTenantCalls []getByIDForTenantCall
 }
 
 func (f *fakeRolesRepo) List(context.Context, uuid.UUID, bool) ([]*domain.Role, error) {
 	return nil, nil
 }
-func (f *fakeRolesRepo) GetByIDForTenant(context.Context, string, uuid.UUID, bool) (*domain.Role, error) {
+func (f *fakeRolesRepo) GetByIDForTenant(_ context.Context, roleID string, tenantID uuid.UUID, includeGlobal bool) (*domain.Role, error) {
+	f.getByIDForTenantCalls = append(f.getByIDForTenantCalls, getByIDForTenantCall{roleID, tenantID, includeGlobal})
 	if f.getByIDForTenantErr != nil {
 		return nil, f.getByIDForTenantErr
 	}
@@ -125,17 +134,42 @@ func TestExecute_UpdateDevuelveNilSinErrorEsAssignmentNotFound(t *testing.T) {
 func TestExecute_Feliz(t *testing.T) {
 	tenantID := uuid.New()
 	id := uuid.New()
+	rolAnterior := "operario_viejo"
 	want := &domain.UserTenantRole{ID: id, TenantID: tenantID, RoleID: strPtr("operario")}
 	repo := &fakeRepo{
-		findByIDResult: &domain.UserTenantRole{ID: id, TenantID: tenantID},
+		findByIDResult: &domain.UserTenantRole{ID: id, TenantID: tenantID, RoleID: &rolAnterior},
 		updateResult:   want,
 	}
-	uc := NewUseCase(repo, &fakeRolesRepo{})
+	roleRepo := &fakeRolesRepo{}
+	uc := NewUseCase(repo, roleRepo)
 
 	got, err := uc.Execute(context.Background(), id, tenantID, "operario", false)
 
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
+
+	require.Len(t, repo.updateCalls, 1)
+	require.NotNil(t, repo.updateCalls[0].RoleID)
+	assert.Equal(t, "operario", *repo.updateCalls[0].RoleID, "Update debe recibir el rol NUEVO pasado a Execute, no el original de la asignación")
+
+	require.Len(t, roleRepo.getByIDForTenantCalls, 1)
+	assert.Equal(t, "operario", roleRepo.getByIDForTenantCalls[0].roleID, "EnsureAssignable debe validar el rol NUEVO, no el original de la asignación")
+	assert.Equal(t, tenantID, roleRepo.getByIDForTenantCalls[0].tenantID, "EnsureAssignable debe validar contra el tenant del caller")
+}
+
+func TestExecute_ErrorGenericoDeEnsureAssignablePropagaEnvuelto(t *testing.T) {
+	tenantID := uuid.New()
+	repo := &fakeRepo{findByIDResult: &domain.UserTenantRole{ID: uuid.New(), TenantID: tenantID}}
+	dbErr := errors.New("db down")
+	roleRepo := &fakeRolesRepo{getByIDForTenantErr: dbErr}
+	uc := NewUseCase(repo, roleRepo)
+
+	_, err := uc.Execute(context.Background(), uuid.New(), tenantID, "operario", false)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, dbErr, "un error genérico de GetByIDForTenant debe propagar envuelto, no perderse")
+	assert.NotErrorIs(t, err, domain.ErrInvalidRoleID, "un error genérico no debe mapearse a rol inválido")
+	assert.Empty(t, repo.updateCalls, "Update no debe llamarse cuando EnsureAssignable falla")
 }
 
 func strPtr(s string) *string { return &s }

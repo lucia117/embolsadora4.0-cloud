@@ -14,9 +14,22 @@ import (
 
 // fakeInvRepoForResendRevoke implementa invitations.InvitationRepository al
 // completo (los métodos que Resend/Revoke/List no usan devuelven cero).
+type getByIDCall struct {
+	invID         string
+	tenantID      string
+	includeGlobal bool
+}
+
+type listByTenantCall struct {
+	tenantID      string
+	status        *string
+	includeGlobal bool
+}
+
 type fakeInvRepoForResendRevoke struct {
 	getByIDResult *domain.UserInvitation
 	getByIDErr    error
+	getByIDCalls  []getByIDCall
 
 	updateStatusErr   error
 	updateStatusCalls []struct {
@@ -26,6 +39,7 @@ type fakeInvRepoForResendRevoke struct {
 
 	listByTenantResult []domain.UserInvitation
 	listByTenantErr    error
+	listByTenantCalls  []listByTenantCall
 }
 
 func (f *fakeInvRepoForResendRevoke) Create(context.Context, *domain.UserInvitation) (*domain.UserInvitation, error) {
@@ -37,10 +51,12 @@ func (f *fakeInvRepoForResendRevoke) GetPendingByEmailAndTenant(context.Context,
 func (f *fakeInvRepoForResendRevoke) ListPendingByEmail(context.Context, string) ([]domain.UserInvitation, error) {
 	return nil, nil
 }
-func (f *fakeInvRepoForResendRevoke) GetByID(context.Context, string, string, bool) (*domain.UserInvitation, error) {
+func (f *fakeInvRepoForResendRevoke) GetByID(_ context.Context, invID, tenantID string, includeGlobal bool) (*domain.UserInvitation, error) {
+	f.getByIDCalls = append(f.getByIDCalls, getByIDCall{invID, tenantID, includeGlobal})
 	return f.getByIDResult, f.getByIDErr
 }
-func (f *fakeInvRepoForResendRevoke) ListByTenant(context.Context, string, *string, bool) ([]domain.UserInvitation, error) {
+func (f *fakeInvRepoForResendRevoke) ListByTenant(_ context.Context, tenantID string, status *string, includeGlobal bool) ([]domain.UserInvitation, error) {
+	f.listByTenantCalls = append(f.listByTenantCalls, listByTenantCall{tenantID, status, includeGlobal})
 	return f.listByTenantResult, f.listByTenantErr
 }
 func (f *fakeInvRepoForResendRevoke) UpdateStatus(_ context.Context, id string, status domain.InvitationStatus) error {
@@ -95,6 +111,9 @@ func TestResendInvitation_InviterNameEsQuienReenviaNoElOriginal(t *testing.T) {
 	require.Len(t, admin.inviteCalls, 1)
 	assert.Equal(t, "Caller", admin.inviteCalls[0].InviterName, "InviterName debe ser quien reenvía (el user del contexto), no InvitedBy")
 	assert.Equal(t, "target@example.com", admin.inviteCalls[0].Email)
+
+	require.Len(t, invRepo.getByIDCalls, 1)
+	assert.Equal(t, testTenantID, invRepo.getByIDCalls[0].tenantID, "GetByID debe scopear por el tenant del caller, no por uno arbitrario")
 }
 
 func TestResendInvitation_ErrorDeInviteUserByEmailPropaga(t *testing.T) {
@@ -140,6 +159,9 @@ func TestRevokeInvitation_FelizDevuelveElObjetoConStatusRevocadoAunqueElFakeDevu
 	assert.Equal(t, domain.InvitationStatusRevoked, got.Status, "el status se muta localmente, no se vuelve a leer de la DB")
 	require.Len(t, invRepo.updateStatusCalls, 1)
 	assert.Equal(t, domain.InvitationStatusRevoked, invRepo.updateStatusCalls[0].status)
+
+	require.Len(t, invRepo.getByIDCalls, 1)
+	assert.Equal(t, testTenantID, invRepo.getByIDCalls[0].tenantID, "GetByID debe scopear por el tenant del caller, no por uno arbitrario")
 }
 
 func TestListInvitations_Feliz(t *testing.T) {
@@ -151,6 +173,9 @@ func TestListInvitations_Feliz(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, want, got)
+
+	require.Len(t, invRepo.listByTenantCalls, 1)
+	assert.Equal(t, testTenantID, invRepo.listByTenantCalls[0].tenantID, "ListByTenant debe scopear por el tenant del caller, no por uno arbitrario")
 }
 
 func TestListInvitations_ErrorDeRepoPropaga(t *testing.T) {

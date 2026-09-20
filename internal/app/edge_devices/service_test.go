@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
@@ -27,6 +28,7 @@ type fakeRepo struct {
 
 	setStatusResult *domain.EdgeDevice
 	setStatusErr    error
+	setStatusCalls  []string
 
 	updateErr error
 
@@ -67,7 +69,8 @@ func (f *fakeRepo) Update(_ context.Context, d *domain.EdgeDevice) error {
 	f.device = d
 	return nil
 }
-func (f *fakeRepo) SetStatus(context.Context, uuid.UUID, uuid.UUID, string) (*domain.EdgeDevice, error) {
+func (f *fakeRepo) SetStatus(_ context.Context, _ uuid.UUID, _ uuid.UUID, status string) (*domain.EdgeDevice, error) {
+	f.setStatusCalls = append(f.setStatusCalls, status)
 	return f.setStatusResult, f.setStatusErr
 }
 func (f *fakeRepo) UpdateHealthState(_ context.Context, _ uuid.UUID, _ uuid.UUID, status, summary string) error {
@@ -85,10 +88,10 @@ func (f *fakeRepo) ListEvents(context.Context, uuid.UUID, uuid.UUID) ([]*domain.
 // fakeClient implementa edgeclient.EdgeDeviceClient (satisfacción estructural,
 // no hace falta importar el paquete edgeclient).
 type fakeClient struct {
-	statusResult *domain.CheckResult
-	statusErr    error
-	healthResult *domain.CheckResult
-	healthErr    error
+	statusResult    *domain.CheckResult
+	statusErr       error
+	healthResult    *domain.CheckResult
+	healthErr       error
 	telemetryResult *domain.TelemetrySnapshot
 	telemetryErr    error
 }
@@ -133,9 +136,9 @@ func (f *fakeAPIKeysRepo) TouchLastUsed(context.Context, uuid.UUID) error { retu
 
 func TestListDevices(t *testing.T) {
 	tests := []struct {
-		name    string
-		result  []*domain.EdgeDevice
-		err     error
+		name   string
+		result []*domain.EdgeDevice
+		err    error
 	}{
 		{"feliz", []*domain.EdgeDevice{{ID: uuid.New()}}, nil},
 		{"error de repo", nil, errors.New("db down")},
@@ -224,6 +227,8 @@ func TestEnableDisableDevice(t *testing.T) {
 			got, err := tc.call(svc)
 			require.NoError(t, err)
 			require.Equal(t, tc.wantStat, got.Status)
+			require.Len(t, repo.setStatusCalls, 1)
+			require.Equal(t, tc.wantStat, repo.setStatusCalls[0], "SetStatus debe recibir el literal de status correcto para %s", tc.name)
 		})
 		t.Run(tc.name+"/not_found", func(t *testing.T) {
 			repo := &fakeRepo{setStatusErr: domain.ErrDeviceNotFound}
@@ -246,9 +251,9 @@ func TestStatusAndHealthCheck(t *testing.T) {
 	disabledDevice := &domain.EdgeDevice{ID: deviceID, TenantID: tenantID, Status: "DISABLED"}
 
 	calls := []struct {
-		name string
-		call func(*app.Service, context.Context) (*domain.CheckResult, error)
-		setClientErr func(*fakeClient, error)
+		name            string
+		call            func(*app.Service, context.Context) (*domain.CheckResult, error)
+		setClientErr    func(*fakeClient, error)
 		setClientResult func(*fakeClient, *domain.CheckResult)
 	}{
 		{"StatusCheck", func(s *app.Service, ctx context.Context) (*domain.CheckResult, error) {
@@ -326,6 +331,14 @@ func TestGetTelemetry(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, got)
 	})
+	t.Run("client devuelve (nil,nil) propaga (nil,nil) sin sintetizar error", func(t *testing.T) {
+		repo := &fakeRepo{device: activeDevice}
+		client := &fakeClient{} // telemetryResult y telemetryErr en su cero-valor: nil, nil
+		svc := app.NewService(repo, client, zap.NewNop(), nil, nil)
+		got, err := svc.GetTelemetry(context.Background(), tenantID, deviceID)
+		require.NoError(t, err, "a diferencia de StatusCheck/HealthCheck, GetTelemetry no sintetiza un resultado ERROR")
+		require.Nil(t, got)
+	})
 	t.Run("feliz", func(t *testing.T) {
 		repo := &fakeRepo{device: activeDevice}
 		client := &fakeClient{telemetryResult: &domain.TelemetrySnapshot{}}
@@ -385,6 +398,8 @@ func TestCreateAPIKey(t *testing.T) {
 		require.NotNil(t, key)
 		require.Equal(t, "ACTIVE", status)
 		require.Len(t, apiRepo.createCalls, 1)
+		assert.Equal(t, tenantID, apiRepo.createCalls[0].TenantID, "la key creada debe quedar asociada al tenant correcto")
+		assert.Equal(t, deviceID, apiRepo.createCalls[0].DeviceID, "la key creada debe quedar asociada al device correcto")
 	})
 }
 
@@ -422,6 +437,7 @@ func TestRevokeAPIKey(t *testing.T) {
 		svc := app.NewService(&fakeRepo{}, nil, zap.NewNop(), apiRepo, nil)
 		err := svc.RevokeAPIKey(context.Background(), tenantID, deviceID, keyPK)
 		require.ErrorIs(t, err, apikeys.ErrKeyNotFound)
+		assert.Empty(t, apiRepo.revokeCalls, "Revoke no debe llamarse cuando la key no pertenece al device (el chequeo de ownership debe correr antes)")
 	})
 	t.Run("error de ListByDevice", func(t *testing.T) {
 		apiRepo := &fakeAPIKeysRepo{listErr: errors.New("db down")}
