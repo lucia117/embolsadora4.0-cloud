@@ -160,6 +160,7 @@ func TestUpdatePermission(t *testing.T) {
 		got, err := svc.UpdatePermission(context.Background(), "perm_x", tenantID, "nombre valido", "sec", "desc")
 		require.NoError(t, err)
 		require.Equal(t, after, got)
+		require.Equal(t, 2, repo.getByIDCalls)
 	})
 }
 
