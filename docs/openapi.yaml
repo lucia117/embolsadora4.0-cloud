@@ -35,6 +35,38 @@ paths:
   ########################
   # Auth (Supabase delegado)
   ########################
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login contra Supabase Auth (password grant)
+      description: >
+        Proxy transparente a `POST {SUPABASE_URL}/auth/v1/token?grant_type=password`.
+        La respuesta (status y body) de Supabase se reenvía tal cual — no hay
+        transformación ni envelope propio. Si el fetch a Supabase falla (red,
+        timeout), responde 502.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Login exitoso — body pasado tal cual desde Supabase (access_token, refresh_token, token_type, expires_in, user, ...)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SupabaseAuthResponse' }
+        '400':
+          description: Body inválido (bind falló) o error 4xx pasado tal cual desde Supabase (ej. credenciales incorrectas)
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '502':
+          description: No se pudo contactar a Supabase Auth
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+
   /api/v1/me:
     get:
       tags: [Me]
@@ -222,6 +254,21 @@ paths:
   ########################
   # ABM (JWT + RBAC)
   ########################
+  /api/v1/users/pending:
+    get:
+      tags: [Users]
+      summary: Listar usuarios con invitación pendiente de activación
+      description: Requiere permiso `perm_users_view`.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Usuarios pendientes
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PendingUserList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
   /api/v1/users:
     get:
       tags: [Users]
@@ -1451,6 +1498,33 @@ components:
       required: [retention_days]
       properties:
         retention_days: { type: integer, minimum: 1, maximum: 3650 }
+
+    LoginRequest:
+      type: object
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+      required: [email, password]
+
+    SupabaseAuthResponse:
+      type: object
+      description: Passthrough del body de Supabase Auth — no es un contrato propio de esta API.
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, example: bearer }
+        expires_in: { type: integer }
+        refresh_token: { type: string }
+        user: { type: object, additionalProperties: true }
+      additionalProperties: true
+
+    PendingUserList:
+      type: object
+      required: [data, total]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/User' }
+        total: { type: integer }
 
   ########################
   # Standard responses
