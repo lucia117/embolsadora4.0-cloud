@@ -129,6 +129,53 @@
             },
             "description": "Limpia el flag password_change_required. Llamar desde el frontend después de que el usuario completó el cambio de contraseña en Supabase. No requiere X-Tenant-ID."
           }
+        },
+        {
+          "name": "PATCH Update Me (self-service)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Nuevo\",\n  \"lastName\": \"Apellido\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            },
+            "description": "Self-service: el usuario actualiza SU PROPIO firstName/lastName. El userId sale del JWT, nunca de la URL -- NO tiene RBACCheck, cualquier rol autenticado puede usarlo (ver TestUpdateMe_SinPermisoRBAC_Funciona). Registrada antes de PATCH /users/:id en el router para que Gin no la trate como 'id=me'.\n\nRespuesta 200: el user actualizado."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
