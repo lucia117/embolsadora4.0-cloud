@@ -1059,6 +1059,11 @@ paths:
       summary: Listar permisos del catálogo
       description: Sin RBAC adicional — cualquier usuario autenticado puede consultar.
       security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
       responses:
         '200':
           description: Lista de permisos
@@ -1073,6 +1078,11 @@ paths:
       summary: Crear un permiso
       description: Requiere `perm_users_manage`.
       security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
       requestBody:
         required: true
         content:
@@ -1100,6 +1110,10 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
       responses:
         '200':
           description: Permiso encontrado
@@ -1119,6 +1133,10 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
       requestBody:
         required: true
         content:
@@ -1148,6 +1166,10 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
       responses:
         '200':
           description: Permiso eliminado
@@ -1178,6 +1200,11 @@ paths:
       summary: Listar roles del tenant
       description: Sin RBAC adicional — cualquier usuario autenticado puede listar/ver roles.
       security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
       responses:
         '200':
           description: Lista de roles
@@ -1192,6 +1219,11 @@ paths:
       summary: Crear un rol
       description: Requiere `perm_users_manage`.
       security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
       requestBody:
         required: true
         content:
@@ -1223,6 +1255,10 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
       responses:
         '200':
           description: Rol encontrado
@@ -1242,6 +1278,10 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
       requestBody:
         required: true
         content:
@@ -1277,6 +1317,10 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
       responses:
         '200':
           description: Rol eliminado
@@ -1314,6 +1358,11 @@ paths:
       summary: Listar reglas de alarma del tenant
       description: Sin RBAC adicional — cualquier usuario autenticado del tenant puede listar/ver reglas.
       security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
       responses:
         '200':
           description: Lista de reglas
@@ -1328,6 +1377,11 @@ paths:
       summary: Crear una regla de alarma
       description: Requiere `perm_users_manage`.
       security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
       requestBody:
         required: true
         content:
@@ -1354,6 +1408,10 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
       responses:
         '200':
           description: Regla encontrada
@@ -1373,6 +1431,10 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
       requestBody:
         required: true
         content:
@@ -1403,6 +1465,10 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
       responses:
         '200':
           description: Regla eliminada
@@ -1426,6 +1492,11 @@ paths:
       summary: Listar layouts de dashboard del usuario
       description: tenant_id viene de `X-Tenant-ID`, user_id del JWT. Sin RBAC adicional más allá de estar autenticado.
       security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
       responses:
         '200':
           description: Lista de layouts (máx. 3 por usuario/tenant)
@@ -1441,6 +1512,11 @@ paths:
       tags: [DashboardLayouts]
       summary: Crear un layout de dashboard
       security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
       requestBody:
         required: true
         content:
@@ -1476,6 +1552,10 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: layoutId, in: path, required: true, schema: { type: string, format: uuid } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
       responses:
         '200':
           description: Layout encontrado
@@ -1494,6 +1574,10 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: layoutId, in: path, required: true, schema: { type: string, format: uuid } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
       requestBody:
         required: true
         content:
@@ -1524,6 +1608,10 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: layoutId, in: path, required: true, schema: { type: string, format: uuid } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
       responses:
         '200':
           description: Layout eliminado
@@ -1554,6 +1642,11 @@ paths:
         (`DashboardRateLimit`, responde 429 con header `Retry-After`).
         `metrics` acepta hasta `MaxSpecs` (10) entradas.
       security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
       requestBody:
         required: true
         content:
@@ -1588,6 +1681,10 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: machineId, in: query, required: true, schema: { type: string } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
       responses:
         '200':
           description: Catálogo de métricas disponibles
@@ -1613,6 +1710,11 @@ paths:
         por batch, cada una con su propio `id`. Los errores de una consulta
         individual no abortan el resto del batch.
       security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
       requestBody:
         required: true
         content:
@@ -1636,10 +1738,13 @@ paths:
 
   ########################
   # Edge Devices — núcleo
+  # 403 puede llegar con el shape estándar JWTError (JWTAuth/RBACCheck) o
+  # como EdgeDeviceErrorEnvelope {success:false, error:"tenant access denied"}
+  # (chequeo de membership del tenant, ResolveTenantAndCheckMembership).
   ########################
   /api/v1/tenants/{tenantId}/edge-devices:
     parameters:
-      - { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: tenantId, in: path, required: true, description: "Subdominio (slug) del tenant, no su UUID — se resuelve contra tenants.subdomain.", schema: { type: string } }
     get:
       tags: [EdgeDevices]
       summary: Listar dispositivos edge del tenant
@@ -1653,6 +1758,11 @@ paths:
               schema: { $ref: '#/components/schemas/EdgeDeviceListEnvelope' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Tenant no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
     post:
       tags: [EdgeDevices]
       summary: Crear un dispositivo edge
@@ -1676,6 +1786,11 @@ paths:
               schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Tenant no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
         '409':
           description: "machineId ya existe en el tenant"
           content:
@@ -1684,7 +1799,7 @@ paths:
 
   /api/v1/tenants/{tenantId}/edge-devices/{deviceId}:
     parameters:
-      - { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: tenantId, in: path, required: true, description: "Subdominio (slug) del tenant, no su UUID — se resuelve contra tenants.subdomain.", schema: { type: string } }
       - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
     get:
       tags: [EdgeDevices]
@@ -1740,7 +1855,7 @@ paths:
       description: Requiere `perm_edge_devices_manage`.
       security: [{ bearerAuth: [] }]
       parameters:
-        - { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: tenantId, in: path, required: true, description: "Subdominio (slug) del tenant, no su UUID — se resuelve contra tenants.subdomain.", schema: { type: string } }
         - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         '200':
@@ -1763,7 +1878,7 @@ paths:
       description: Requiere `perm_edge_devices_manage`.
       security: [{ bearerAuth: [] }]
       parameters:
-        - { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: tenantId, in: path, required: true, description: "Subdominio (slug) del tenant, no su UUID — se resuelve contra tenants.subdomain.", schema: { type: string } }
         - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         '200':
@@ -1789,7 +1904,7 @@ paths:
       description: Requiere `perm_edge_devices_check`. Queda registrado en el audit trail (`userId`/`userEmail` del JWT).
       security: [{ bearerAuth: [] }]
       parameters:
-        - { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: tenantId, in: path, required: true, description: "Subdominio (slug) del tenant, no su UUID — se resuelve contra tenants.subdomain.", schema: { type: string } }
         - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         '200':
@@ -1817,7 +1932,7 @@ paths:
       description: Requiere `perm_edge_devices_check`. Igual contrato que `/status`.
       security: [{ bearerAuth: [] }]
       parameters:
-        - { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: tenantId, in: path, required: true, description: "Subdominio (slug) del tenant, no su UUID — se resuelve contra tenants.subdomain.", schema: { type: string } }
         - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         '200':
@@ -1845,7 +1960,7 @@ paths:
       description: Requiere `perm_edge_devices_view`.
       security: [{ bearerAuth: [] }]
       parameters:
-        - { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: tenantId, in: path, required: true, description: "Subdominio (slug) del tenant, no su UUID — se resuelve contra tenants.subdomain.", schema: { type: string } }
         - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         '200':
@@ -1873,7 +1988,7 @@ paths:
       description: Requiere `perm_edge_devices_view`.
       security: [{ bearerAuth: [] }]
       parameters:
-        - { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: tenantId, in: path, required: true, description: "Subdominio (slug) del tenant, no su UUID — se resuelve contra tenants.subdomain.", schema: { type: string } }
         - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         '200':
@@ -1891,7 +2006,7 @@ paths:
 
   /api/v1/tenants/{tenantId}/edge-devices/{deviceId}/api-keys:
     parameters:
-      - { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: tenantId, in: path, required: true, description: "Subdominio (slug) del tenant, no su UUID — se resuelve contra tenants.subdomain.", schema: { type: string } }
       - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
     get:
       tags: [EdgeDevices]
@@ -1950,9 +2065,9 @@ paths:
       description: Requiere `perm_edge_devices_manage`. Idempotente.
       security: [{ bearerAuth: [] }]
       parameters:
-        - { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: tenantId, in: path, required: true, description: "Subdominio (slug) del tenant, no su UUID — se resuelve contra tenants.subdomain.", schema: { type: string } }
         - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: keyId, in: path, required: true, schema: { type: string } }
+        - { name: keyId, in: path, required: true, description: "El campo id de EdgeDeviceAPIKey (la PK), no su campo keyId.", schema: { type: string, format: uuid } }
       responses:
         '204':
           description: API key revocada
