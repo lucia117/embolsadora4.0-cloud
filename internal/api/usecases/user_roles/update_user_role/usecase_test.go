@@ -16,6 +16,7 @@ type fakeRepo struct {
 
 	updateResult *domain.UserTenantRole
 	updateErr    error
+	updateCalls  []*domain.UserTenantRole
 }
 
 func (f *fakeRepo) FindByTenant(context.Context, uuid.UUID, *string, bool) ([]domain.UserTenantRoleDetail, error) {
@@ -27,7 +28,8 @@ func (f *fakeRepo) FindByID(context.Context, uuid.UUID, bool) (*domain.UserTenan
 func (f *fakeRepo) Create(context.Context, *domain.UserTenantRole, bool) (*domain.UserTenantRole, error) {
 	return nil, nil
 }
-func (f *fakeRepo) Update(context.Context, *domain.UserTenantRole, bool) (*domain.UserTenantRole, error) {
+func (f *fakeRepo) Update(_ context.Context, utr *domain.UserTenantRole, _ bool) (*domain.UserTenantRole, error) {
+	f.updateCalls = append(f.updateCalls, utr)
 	return f.updateResult, f.updateErr
 }
 func (f *fakeRepo) Revoke(context.Context, uuid.UUID, uuid.UUID, bool) (*domain.UserTenantRole, error) {
@@ -88,6 +90,7 @@ func TestExecute_RolNuevoNoAsignableRechazaSinLlamarUpdate(t *testing.T) {
 	_, err := uc.Execute(context.Background(), uuid.New(), tenantID, "super_admin", false)
 
 	assert.ErrorIs(t, err, domain.ErrInvalidRoleID)
+	assert.Empty(t, repo.updateCalls, "Update debe nunca ser llamado cuando EnsureAssignable rechaza el rol")
 }
 
 func TestExecute_ErrorDeRepoUpdatePropaga(t *testing.T) {
