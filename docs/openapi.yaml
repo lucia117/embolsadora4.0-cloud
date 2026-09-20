@@ -1050,6 +1050,125 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  ########################
+  # Permissions
+  ########################
+  /api/v1/permissions:
+    get:
+      tags: [Permissions]
+      summary: Listar permisos del catálogo
+      description: Sin RBAC adicional — cualquier usuario autenticado puede consultar.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Lista de permisos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Permission' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Permissions]
+      summary: Crear un permiso
+      description: Requiere `perm_users_manage`.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PermissionCreate' }
+      responses:
+        '201':
+          description: Permiso creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Permission' }
+        '400':
+          description: Validación fallida
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PermissionValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/v1/permissions/{id}:
+    get:
+      tags: [Permissions]
+      summary: Obtener un permiso por ID
+      description: Sin RBAC adicional.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Permiso encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Permission' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: Permiso no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PermissionError' }
+    put:
+      tags: [Permissions]
+      summary: Actualizar un permiso
+      description: Requiere `perm_users_manage`. Los permisos del sistema (`isSystemPermission=true`) no se pueden modificar.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PermissionCreate' }
+      responses:
+        '200':
+          description: Permiso actualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Permission' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: No se pueden modificar permisos del sistema
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PermissionError' }
+        '404':
+          description: Permiso no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PermissionError' }
+    delete:
+      tags: [Permissions]
+      summary: Eliminar un permiso
+      description: Requiere `perm_users_manage`. Los permisos del sistema no se pueden eliminar.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Permiso eliminado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { success: { type: boolean } }
+                required: [success]
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: No se pueden eliminar permisos del sistema
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PermissionError' }
+        '404':
+          description: Permiso no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PermissionError' }
+
 components:
   ########################
   # Security
@@ -1525,6 +1644,45 @@ components:
           type: array
           items: { $ref: '#/components/schemas/User' }
         total: { type: integer }
+
+    Permission:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        section: { type: string }
+        description: { type: string }
+        isSystemPermission: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, name, section, description, isSystemPermission]
+
+    PermissionCreate:
+      type: object
+      properties:
+        name: { type: string }
+        section: { type: string }
+        description: { type: string }
+      required: [name, section, description]
+
+    PermissionError:
+      type: object
+      properties:
+        error: { type: string }
+      required: [error]
+
+    PermissionValidationError:
+      type: object
+      properties:
+        error: { type: string, example: "Validation failed" }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              path: { type: string }
+              message: { type: string }
+      required: [error, errors]
 
   ########################
   # Standard responses
