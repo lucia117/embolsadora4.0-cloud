@@ -20,7 +20,7 @@ type fakeRepo struct {
 }
 
 func (f *fakeRepo) Create(ctx context.Context, tenant *domain.Tenant) error { return nil }
-func (f *fakeRepo) FindAll(ctx context.Context) ([]domain.Tenant, error)   { return nil, nil }
+func (f *fakeRepo) FindAll(ctx context.Context) ([]domain.Tenant, error)    { return nil, nil }
 func (f *fakeRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Tenant, error) {
 	return f.findByIDResult, f.findByIDErr
 }
@@ -79,7 +79,7 @@ func TestUpdate_TodosLosCamposNilNoCambiaNadaExceptoUpdatedAt(t *testing.T) {
 	assert.Equal(t, before.Theme, got.Theme)
 	assert.Equal(t, before.Address, got.Address)
 	assert.Equal(t, before.Settings, got.Settings)
-	assert.True(t, got.UpdatedAt.After(before.UpdatedAt) || !got.UpdatedAt.IsZero(), "UpdatedAt siempre se refresca")
+	assert.True(t, got.UpdatedAt.After(before.UpdatedAt), "UpdatedAt siempre se refresca")
 }
 
 func TestUpdate_ErrorDeRepoUpdatePropaga(t *testing.T) {

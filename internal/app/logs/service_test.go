@@ -3,7 +3,6 @@ package logs_test
 import (
 	"context"
 	"errors"
-	"sync"
 	"testing"
 	"time"
 
@@ -17,11 +16,9 @@ import (
 )
 
 type fakeRepo struct {
-	mu sync.Mutex
-
-	listResult []domain.LogEntry
-	listTotal  int
-	listErr    error
+	listResult     []domain.LogEntry
+	listTotal      int
+	listErr        error
 	lastListParams logsRepo.ListParams
 
 	getResult *domain.LogEntry
@@ -33,9 +30,9 @@ type fakeRepo struct {
 	getContextErr    error
 	lastWindowSize   int
 
-	exportResult []domain.LogEntry
-	exportTotal  int
-	exportErr    error
+	exportResult     []domain.LogEntry
+	exportTotal      int
+	exportErr        error
 	lastExportParams logsRepo.ExportParams
 
 	retentionResult *domain.RetentionPolicy

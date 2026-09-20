@@ -15,9 +15,9 @@ import (
 )
 
 type fakeRepo struct {
-	listResult []*domain.Notification
-	listTotal  int
-	listErr    error
+	listResult     []*domain.Notification
+	listTotal      int
+	listErr        error
 	lastListParams notifRepo.ListParams
 
 	countUnreadResult int
@@ -97,8 +97,8 @@ func TestGetAckClose(t *testing.T) {
 	notif := &domain.Notification{ID: uuid.New(), Status: domain.StatusAcknowledged}
 
 	cases := []struct {
-		name string
-		call func(*app.Service, *fakeRepo) (*domain.Notification, error)
+		name      string
+		call      func(*app.Service, *fakeRepo) (*domain.Notification, error)
 		setResult func(*fakeRepo, *domain.Notification)
 		setErr    func(*fakeRepo, error)
 	}{

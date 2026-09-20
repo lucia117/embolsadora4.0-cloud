@@ -19,13 +19,15 @@ func (f *fakeRepo) Create(ctx context.Context, tenant *domain.Tenant) error {
 	f.createCalls = append(f.createCalls, tenant)
 	return f.createErr
 }
-func (f *fakeRepo) FindAll(ctx context.Context) ([]domain.Tenant, error)             { return nil, nil }
-func (f *fakeRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Tenant, error) { return nil, nil }
+func (f *fakeRepo) FindAll(ctx context.Context) ([]domain.Tenant, error) { return nil, nil }
+func (f *fakeRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Tenant, error) {
+	return nil, nil
+}
 func (f *fakeRepo) FindBySubdomain(ctx context.Context, subdomain string) (*domain.Tenant, error) {
 	return nil, nil
 }
 func (f *fakeRepo) Update(ctx context.Context, tenant *domain.Tenant) error { return nil }
-func (f *fakeRepo) Delete(ctx context.Context, id uuid.UUID) error         { return nil }
+func (f *fakeRepo) Delete(ctx context.Context, id uuid.UUID) error          { return nil }
 
 func TestCreate_Feliz(t *testing.T) {
 	repo := &fakeRepo{}

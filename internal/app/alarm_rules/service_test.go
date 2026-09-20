@@ -124,9 +124,9 @@ func TestCreateAlarmRule(t *testing.T) {
 	})
 }
 
-func strp(s string) *string { return &s }
+func strp(s string) *string   { return &s }
 func f64p(f float64) *float64 { return &f }
-func boolp(b bool) *bool { return &b }
+func boolp(b bool) *bool      { return &b }
 
 func TestUpdateAlarmRule(t *testing.T) {
 	tenantID, ruleID := uuid.New(), uuid.New()

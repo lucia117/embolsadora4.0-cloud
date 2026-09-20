@@ -16,6 +16,8 @@ type fakeRepo struct {
 
 	revokeResult *domain.UserTenantRole
 	revokeErr    error
+
+	revokeCalls []uuid.UUID
 }
 
 func (f *fakeRepo) FindByTenant(context.Context, uuid.UUID, *string, bool) ([]domain.UserTenantRoleDetail, error) {
@@ -30,7 +32,8 @@ func (f *fakeRepo) Create(context.Context, *domain.UserTenantRole, bool) (*domai
 func (f *fakeRepo) Update(context.Context, *domain.UserTenantRole, bool) (*domain.UserTenantRole, error) {
 	return nil, nil
 }
-func (f *fakeRepo) Revoke(context.Context, uuid.UUID, uuid.UUID, bool) (*domain.UserTenantRole, error) {
+func (f *fakeRepo) Revoke(_ context.Context, id uuid.UUID, _ uuid.UUID, _ bool) (*domain.UserTenantRole, error) {
+	f.revokeCalls = append(f.revokeCalls, id)
 	return f.revokeResult, f.revokeErr
 }
 func (f *fakeRepo) BulkCreate(context.Context, []domain.UserTenantRole, bool) ([]domain.UserTenantRole, error) {
@@ -60,6 +63,7 @@ func TestExecute_AsignacionDeOtroTenantMismoErrorQueInexistente(t *testing.T) {
 	_, err := uc.Execute(context.Background(), uuid.New(), tenantID, false)
 
 	assert.ErrorIs(t, err, domain.ErrAssignmentNotFound, "misma respuesta que inexistente, para no revelar que la asignación existe en otro tenant")
+	assert.Empty(t, repo.revokeCalls, "una asignación de otro tenant no debe llegar a Revoke")
 }
 
 func TestExecute_ErrorDeFindByIDPropaga(t *testing.T) {

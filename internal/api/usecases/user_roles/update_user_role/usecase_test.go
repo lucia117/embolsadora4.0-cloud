@@ -49,7 +49,9 @@ type fakeRolesRepo struct {
 	getByIDForTenantErr error
 }
 
-func (f *fakeRolesRepo) List(context.Context, uuid.UUID, bool) ([]*domain.Role, error) { return nil, nil }
+func (f *fakeRolesRepo) List(context.Context, uuid.UUID, bool) ([]*domain.Role, error) {
+	return nil, nil
+}
 func (f *fakeRolesRepo) GetByIDForTenant(context.Context, string, uuid.UUID, bool) (*domain.Role, error) {
 	if f.getByIDForTenantErr != nil {
 		return nil, f.getByIDForTenantErr
@@ -79,6 +81,7 @@ func TestExecute_AsignacionDeOtroTenant(t *testing.T) {
 	_, err := uc.Execute(context.Background(), uuid.New(), tenantID, "operario", false)
 
 	assert.ErrorIs(t, err, domain.ErrAssignmentNotFound)
+	assert.Empty(t, repo.updateCalls, "una asignación de otro tenant no debe llegar a Update")
 }
 
 func TestExecute_RolNuevoNoAsignableRechazaSinLlamarUpdate(t *testing.T) {

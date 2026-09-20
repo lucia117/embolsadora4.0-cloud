@@ -19,10 +19,14 @@ func (f *fakeUserRepoForAuth) UpsertBySupabaseID(_ context.Context, supabaseUser
 	f.upsertCalls = append(f.upsertCalls, struct{ supabaseUserID, email string }{supabaseUserID, email})
 	return f.upsertResult, f.upsertErr
 }
-func (f *fakeUserRepoForAuth) GetBySupabaseID(context.Context, string) (*domain.User, error) { return nil, nil }
-func (f *fakeUserRepoForAuth) GetByID(context.Context, string) (*domain.User, error)         { return nil, nil }
-func (f *fakeUserRepoForAuth) SetStatus(context.Context, string, domain.UserStatus) error    { return nil }
-func (f *fakeUserRepoForAuth) SetPasswordChangeRequired(context.Context, string, bool) error { return nil }
+func (f *fakeUserRepoForAuth) GetBySupabaseID(context.Context, string) (*domain.User, error) {
+	return nil, nil
+}
+func (f *fakeUserRepoForAuth) GetByID(context.Context, string) (*domain.User, error)      { return nil, nil }
+func (f *fakeUserRepoForAuth) SetStatus(context.Context, string, domain.UserStatus) error { return nil }
+func (f *fakeUserRepoForAuth) SetPasswordChangeRequired(context.Context, string, bool) error {
+	return nil
+}
 func (f *fakeUserRepoForAuth) IsActiveMemberOfTenant(context.Context, string, string) (bool, error) {
 	return false, nil
 }

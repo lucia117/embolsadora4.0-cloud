@@ -53,7 +53,9 @@ type fakeRolesRepo struct {
 	getByIDForTenantErr error
 }
 
-func (f *fakeRolesRepo) List(context.Context, uuid.UUID, bool) ([]*domain.Role, error) { return nil, nil }
+func (f *fakeRolesRepo) List(context.Context, uuid.UUID, bool) ([]*domain.Role, error) {
+	return nil, nil
+}
 func (f *fakeRolesRepo) GetByIDForTenant(context.Context, string, uuid.UUID, bool) (*domain.Role, error) {
 	if f.getByIDForTenantErr != nil {
 		return nil, f.getByIDForTenantErr

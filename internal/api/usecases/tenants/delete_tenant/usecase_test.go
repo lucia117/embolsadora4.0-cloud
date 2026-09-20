@@ -16,7 +16,7 @@ type fakeRepo struct {
 }
 
 func (f *fakeRepo) Create(ctx context.Context, tenant *domain.Tenant) error { return nil }
-func (f *fakeRepo) FindAll(ctx context.Context) ([]domain.Tenant, error)   { return nil, nil }
+func (f *fakeRepo) FindAll(ctx context.Context) ([]domain.Tenant, error)    { return nil, nil }
 func (f *fakeRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Tenant, error) {
 	return nil, nil
 }

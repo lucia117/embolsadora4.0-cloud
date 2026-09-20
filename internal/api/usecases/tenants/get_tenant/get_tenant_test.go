@@ -16,7 +16,7 @@ type fakeRepo struct {
 }
 
 func (f *fakeRepo) Create(ctx context.Context, tenant *domain.Tenant) error { return nil }
-func (f *fakeRepo) FindAll(ctx context.Context) ([]domain.Tenant, error)   { return nil, nil }
+func (f *fakeRepo) FindAll(ctx context.Context) ([]domain.Tenant, error)    { return nil, nil }
 func (f *fakeRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Tenant, error) {
 	return f.findByIDResult, f.findByIDErr
 }
@@ -24,7 +24,7 @@ func (f *fakeRepo) FindBySubdomain(ctx context.Context, subdomain string) (*doma
 	return nil, nil
 }
 func (f *fakeRepo) Update(ctx context.Context, tenant *domain.Tenant) error { return nil }
-func (f *fakeRepo) Delete(ctx context.Context, id uuid.UUID) error         { return nil }
+func (f *fakeRepo) Delete(ctx context.Context, id uuid.UUID) error          { return nil }
 
 func TestExecute_Feliz(t *testing.T) {
 	want := &domain.Tenant{ID: uuid.New(), Name: "Acme"}

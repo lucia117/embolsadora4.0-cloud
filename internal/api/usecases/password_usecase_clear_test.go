@@ -25,7 +25,9 @@ func (f *fakeUserRepoForClearPwd) UpsertBySupabaseID(context.Context, string, st
 func (f *fakeUserRepoForClearPwd) GetBySupabaseID(context.Context, string) (*domain.User, error) {
 	return nil, nil
 }
-func (f *fakeUserRepoForClearPwd) GetByID(context.Context, string) (*domain.User, error) { return nil, nil }
+func (f *fakeUserRepoForClearPwd) GetByID(context.Context, string) (*domain.User, error) {
+	return nil, nil
+}
 func (f *fakeUserRepoForClearPwd) SetStatus(context.Context, string, domain.UserStatus) error {
 	return nil
 }
