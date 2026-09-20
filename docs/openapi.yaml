@@ -1634,6 +1634,151 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
 
+  ########################
+  # Edge Devices — núcleo
+  ########################
+  /api/v1/tenants/{tenantId}/edge-devices:
+    parameters:
+      - { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [EdgeDevices]
+      summary: Listar dispositivos edge del tenant
+      description: Requiere `perm_edge_devices_view`. Tenant resuelto desde el path, no desde `X-Tenant-ID`.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Lista de dispositivos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceListEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [EdgeDevices]
+      summary: Crear un dispositivo edge
+      description: Requiere `perm_edge_devices_create`.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EdgeDeviceCreate' }
+      responses:
+        '201':
+          description: Dispositivo creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceEnvelope' }
+        '400':
+          description: Body inválido
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: "machineId ya existe en el tenant"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+
+  /api/v1/tenants/{tenantId}/edge-devices/{deviceId}:
+    parameters:
+      - { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [EdgeDevices]
+      summary: Obtener un dispositivo edge por ID
+      description: Requiere `perm_edge_devices_view`.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Dispositivo encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Dispositivo no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+    put:
+      tags: [EdgeDevices]
+      summary: Actualizar un dispositivo edge
+      description: Requiere `perm_edge_devices_manage`. `machineId` y `edgeType` son inmutables (se ignoran si se envían).
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EdgeDeviceUpdate' }
+      responses:
+        '200':
+          description: Dispositivo actualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceEnvelope' }
+        '400':
+          description: "Nombre vacío o raspberryBaseUrl inválida"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Dispositivo no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+
+  /api/v1/tenants/{tenantId}/edge-devices/{deviceId}/enable:
+    post:
+      tags: [EdgeDevices]
+      summary: Habilitar un dispositivo edge
+      description: Requiere `perm_edge_devices_manage`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: "Dispositivo habilitado (status pasa a ACTIVE)"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Dispositivo no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+
+  /api/v1/tenants/{tenantId}/edge-devices/{deviceId}/disable:
+    post:
+      tags: [EdgeDevices]
+      summary: Deshabilitar un dispositivo edge
+      description: Requiere `perm_edge_devices_manage`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: "Dispositivo deshabilitado (status pasa a DISABLED)"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Dispositivo no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+
 components:
   ########################
   # Security
@@ -2443,6 +2588,69 @@ components:
               items: { $ref: '#/components/schemas/MetricsBatchResultItem' }
           required: [results]
       required: [success, data]
+
+    EdgeDevice:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        machineId: { type: string }
+        edgeType: { type: string, enum: [RASPBERRY_PLC] }
+        raspberryBaseUrl: { type: string }
+        plcAddress: { type: string, nullable: true }
+        status: { type: string, enum: [ACTIVE, DISABLED] }
+        lastSeenAt: { type: string, format: date-time, nullable: true }
+        lastHealthCheckAt: { type: string, format: date-time, nullable: true }
+        lastHealthStatus: { type: string, enum: [OK, DEGRADED, ERROR, UNKNOWN] }
+        lastHealthSummary: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, tenantId, name, machineId, edgeType, raspberryBaseUrl, status, lastHealthStatus, createdAt, updatedAt]
+
+    EdgeDeviceCreate:
+      type: object
+      properties:
+        name: { type: string }
+        machineId: { type: string }
+        edgeType: { type: string, enum: [RASPBERRY_PLC] }
+        raspberryBaseUrl: { type: string }
+        description: { type: string, nullable: true }
+        plcAddress: { type: string, nullable: true }
+      required: [name, machineId, edgeType, raspberryBaseUrl]
+
+    EdgeDeviceUpdate:
+      type: object
+      description: machineId y edgeType son inmutables — no se aceptan en este body.
+      properties:
+        name: { type: string, nullable: true }
+        description: { type: string, nullable: true }
+        raspberryBaseUrl: { type: string, nullable: true }
+        plcAddress: { type: string, nullable: true }
+
+    EdgeDeviceEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data: { $ref: '#/components/schemas/EdgeDevice' }
+      required: [success, data]
+
+    EdgeDeviceListEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/EdgeDevice' }
+      required: [success, data]
+
+    EdgeDeviceErrorEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        error: { type: string }
+      required: [success, error]
 
   ########################
   # Standard responses
