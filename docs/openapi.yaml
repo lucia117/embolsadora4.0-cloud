@@ -1542,6 +1542,98 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
 
+  ########################
+  # Dashboard Metrics
+  ########################
+  /api/v1/dashboards/metrics/query:
+    post:
+      tags: [DashboardMetrics]
+      summary: Consultar métricas de una máquina
+      description: >
+        Requiere `perm_metrics_view`. Sujeto a rate limit por tenant
+        (`DashboardRateLimit`, responde 429 con header `Retry-After`).
+        `metrics` acepta hasta `MaxSpecs` (10) entradas.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MetricsQueryRequest' }
+      responses:
+        '200':
+          description: Resultado de la consulta
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MetricsQueryEnvelope' }
+        '400':
+          description: "Parámetros inválidos, X-Tenant-ID ausente/inválido, JSON malformado, o conflicto de modo (ej. RAW_MODE_CONFLICT, GROUP_BY_CONFLICT, RANGE_TOO_WIDE, TOO_MANY_METRICS, TOO_MANY_GROUPS)"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MetricsErrorEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '504':
+          description: Timeout consultando Mongo (QUERY_TIMEOUT)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MetricsErrorEnvelope' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/dashboards/metrics/catalog:
+    get:
+      tags: [DashboardMetrics]
+      summary: Listar los aasPaths disponibles para una máquina
+      description: Requiere `perm_metrics_view`. Sujeto al mismo rate limit que `/query`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: machineId, in: query, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Catálogo de métricas disponibles
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MetricsCatalogResponse' }
+        '400':
+          description: X-Tenant-ID ausente/inválido o machineId ausente (INVALID_PARAMS)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MetricsErrorEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/dashboards/metrics/query/batch:
+    post:
+      tags: [DashboardMetrics]
+      summary: Consultar métricas de varias máquinas/consultas en un solo request
+      description: >
+        Requiere `perm_metrics_view`. Hasta `MaxBatchQueries` (50) consultas
+        por batch, cada una con su propio `id`. Los errores de una consulta
+        individual no abortan el resto del batch.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MetricsBatchRequest' }
+      responses:
+        '200':
+          description: Resultados del batch (por ítem, ver `MetricsBatchResultItem.success`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MetricsBatchResponse' }
+        '400':
+          description: "Parámetros inválidos a nivel batch (ej. ids duplicados, más de MaxBatchQueries consultas)"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MetricsErrorEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
 components:
   ########################
   # Security
@@ -2190,6 +2282,167 @@ components:
             limit: { type: integer, description: "Hardcodeado a 3 hoy — no es un query param configurable." }
           required: [total, limit]
       required: [data, meta]
+
+    MetricSpec:
+      type: object
+      properties:
+        aasPath: { type: string }
+        agg: { type: string, enum: [avg, sum, min, max, last, count, delta, raw] }
+      required: [aasPath, agg]
+
+    MetricsQueryRequest:
+      type: object
+      properties:
+        machineId: { type: string }
+        range: { type: string, enum: ["15m", "30m", "1h", "8h", "24h", "7d", "30d"] }
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        bucket: { type: string, enum: ["1m", "5m", "15m", "1h", "6h", "1d"] }
+        metrics:
+          type: array
+          items: { $ref: '#/components/schemas/MetricSpec' }
+          minItems: 1
+          maxItems: 10
+        groupBy: { type: string }
+        filter:
+          type: object
+          properties:
+            valueEquals: {}
+        maxPoints: { type: integer }
+      required: [machineId, metrics]
+
+    MetricPoint:
+      type: object
+      properties:
+        ts: { type: string, format: date-time }
+        value: {}
+      required: [ts, value]
+
+    MetricScalarResult:
+      type: object
+      properties:
+        aasPath: { type: string }
+        agg: { type: string }
+        value: { type: number }
+        sampleCount: { type: integer }
+      required: [aasPath, agg, value, sampleCount]
+
+    MetricSeriesPoint:
+      type: object
+      properties:
+        ts: { type: string, format: date-time }
+        results:
+          type: array
+          items: { $ref: '#/components/schemas/MetricScalarResult' }
+      required: [ts, results]
+
+    MetricGroupResult:
+      type: object
+      properties:
+        key: { type: string }
+        value: { type: number }
+      required: [key, value]
+
+    MetricsQueryResponse:
+      type: object
+      description: >
+        Forma discriminada por `mode`: `scalar` usa `results`, `series` usa
+        `series`, `raw` usa `points`, `grouped` usa `groups`. Los campos no
+        aplicables al modo actual se omiten.
+      properties:
+        mode: { type: string, enum: [scalar, series, raw, grouped] }
+        machineId: { type: string }
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        dataAsOf: { type: string, format: date-time, nullable: true }
+        bucket: { type: string }
+        results:
+          type: array
+          items: { $ref: '#/components/schemas/MetricScalarResult' }
+        series:
+          type: array
+          items: { $ref: '#/components/schemas/MetricSeriesPoint' }
+        aasPath: { type: string }
+        points:
+          type: array
+          items: { $ref: '#/components/schemas/MetricPoint' }
+        agg: { type: string }
+        groupBy: { type: string }
+        groups:
+          type: array
+          items: { $ref: '#/components/schemas/MetricGroupResult' }
+      required: [mode, machineId, from, to]
+
+    MetricsQueryEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data: { $ref: '#/components/schemas/MetricsQueryResponse' }
+      required: [success, data]
+
+    MetricsErrorEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        error: { type: string }
+        code: { type: string, enum: [INVALID_PARAMS, TOO_MANY_METRICS, RAW_MODE_CONFLICT, GROUP_BY_CONFLICT, RANGE_TOO_WIDE, TOO_MANY_GROUPS, TOO_MANY_QUERIES, QUERY_TIMEOUT] }
+      required: [success, error, code]
+
+    MetricsCatalogResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          type: object
+          properties:
+            machineId: { type: string }
+            aasPaths:
+              type: array
+              items: { type: string }
+          required: [machineId, aasPaths]
+      required: [success, data]
+
+    MetricsBatchQueryItem:
+      allOf:
+        - $ref: '#/components/schemas/MetricsQueryRequest'
+        - type: object
+          properties:
+            id: { type: string }
+          required: [id]
+
+    MetricsBatchRequest:
+      type: object
+      properties:
+        queries:
+          type: array
+          items: { $ref: '#/components/schemas/MetricsBatchQueryItem' }
+          minItems: 1
+          maxItems: 50
+      required: [queries]
+
+    MetricsBatchResultItem:
+      type: object
+      description: Los errores por ítem no abortan el batch — solo errores a nivel batch (ej. ids duplicados) devuelven un envelope de error top-level.
+      properties:
+        id: { type: string }
+        success: { type: boolean }
+        data: { $ref: '#/components/schemas/MetricsQueryResponse' }
+        error: { type: string }
+        code: { type: string }
+      required: [id, success]
+
+    MetricsBatchResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          type: object
+          properties:
+            results:
+              type: array
+              items: { $ref: '#/components/schemas/MetricsBatchResultItem' }
+          required: [results]
+      required: [success, data]
 
   ########################
   # Standard responses
