@@ -1,6 +1,7 @@
 package login
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,8 +14,20 @@ import (
 func TestHandle_ValidCredentials_ProxiesSupabaseResponse(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	fakeSupabase := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPost, r.Method)
 		require.Equal(t, "/auth/v1/token", r.URL.Path)
+		require.Equal(t, "password", r.URL.Query().Get("grant_type"))
+		require.Equal(t, "application/json", r.Header.Get("Content-Type"))
 		require.Equal(t, "anon-key", r.Header.Get("apikey"))
+
+		var body struct {
+			Email    string `json:"email"`
+			Password string `json:"password"`
+		}
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		require.Equal(t, "user@example.com", body.Email)
+		require.Equal(t, "secret123", body.Password)
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"access_token":"tok123"}`))

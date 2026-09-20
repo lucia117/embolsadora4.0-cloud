@@ -52,12 +52,12 @@ func newRevokeRouter(repo invitations.InvitationRepository) *gin.Engine {
 	uc := usecases.NewInvitationUsecase(repo, nil, nil, nil, nil, nil, nil, "https://embolsadora.site", 100)
 	h := NewHandler(uc)
 	r := gin.New()
-	r.POST("/api/v1/invitations/:id/revoke", h.Handle)
+	r.DELETE("/api/v1/invitations/:id", h.Handle)
 	return r
 }
 
 func doRevokeRequest(r *gin.Engine, id string) *httptest.ResponseRecorder {
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/invitations/"+id+"/revoke", nil)
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/invitations/"+id, nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	return w

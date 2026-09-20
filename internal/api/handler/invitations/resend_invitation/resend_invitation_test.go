@@ -49,12 +49,17 @@ func (fakeInvRepo) UpdateStatus(ctx context.Context, id string, status domain.In
 
 type fakeAdminClient struct {
 	inviteErr error
+
+	inviteCalls int
+	lastParams  supabase.InviteParams
 }
 
-func (f fakeAdminClient) InviteUserByEmail(ctx context.Context, p supabase.InviteParams) error {
+func (f *fakeAdminClient) InviteUserByEmail(ctx context.Context, p supabase.InviteParams) error {
+	f.inviteCalls++
+	f.lastParams = p
 	return f.inviteErr
 }
-func (fakeAdminClient) SendPasswordResetEmail(ctx context.Context, userEmail, redirectTo string) error {
+func (*fakeAdminClient) SendPasswordResetEmail(ctx context.Context, userEmail, redirectTo string) error {
 	return errors.New("not implemented")
 }
 
@@ -75,13 +80,13 @@ func doResendRequest(r *gin.Engine, id string) *httptest.ResponseRecorder {
 }
 
 func TestHandle_InvalidID_Returns400(t *testing.T) {
-	r := newResendRouter(fakeInvRepo{}, fakeAdminClient{})
+	r := newResendRouter(fakeInvRepo{}, &fakeAdminClient{})
 	w := doResendRequest(r, "not-a-uuid")
 	require.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestHandle_InvitationNotFound_Returns404(t *testing.T) {
-	r := newResendRouter(fakeInvRepo{getErr: domain.ErrNotFound}, fakeAdminClient{})
+	r := newResendRouter(fakeInvRepo{getErr: domain.ErrNotFound}, &fakeAdminClient{})
 	w := doResendRequest(r, uuid.NewString())
 	require.Equal(t, http.StatusNotFound, w.Code)
 }
@@ -91,21 +96,24 @@ func TestHandle_InvitationNotFound_Returns404(t *testing.T) {
 // esto se podría reenviar el mail de una invitación ya aceptada o revocada.
 func TestHandle_InvitationAlreadyAccepted_Returns409(t *testing.T) {
 	inv := &domain.UserInvitation{ID: uuid.NewString(), Email: "a@b.com", Status: domain.InvitationStatusAccepted}
-	r := newResendRouter(fakeInvRepo{inv: inv}, fakeAdminClient{})
+	r := newResendRouter(fakeInvRepo{inv: inv}, &fakeAdminClient{})
 	w := doResendRequest(r, inv.ID)
 	require.Equal(t, http.StatusConflict, w.Code)
 }
 
 func TestHandle_SupabaseFails_Returns500(t *testing.T) {
 	inv := &domain.UserInvitation{ID: uuid.NewString(), Email: "a@b.com", Status: domain.InvitationStatusPending}
-	r := newResendRouter(fakeInvRepo{inv: inv}, fakeAdminClient{inviteErr: errors.New("smtp down")})
+	r := newResendRouter(fakeInvRepo{inv: inv}, &fakeAdminClient{inviteErr: errors.New("smtp down")})
 	w := doResendRequest(r, inv.ID)
 	require.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
 func TestHandle_PendingInvitation_ResendsAndReturns200(t *testing.T) {
 	inv := &domain.UserInvitation{ID: uuid.NewString(), Email: "a@b.com", Status: domain.InvitationStatusPending}
-	r := newResendRouter(fakeInvRepo{inv: inv}, fakeAdminClient{})
+	admin := &fakeAdminClient{}
+	r := newResendRouter(fakeInvRepo{inv: inv}, admin)
 	w := doResendRequest(r, inv.ID)
 	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, 1, admin.inviteCalls)
+	require.Equal(t, "a@b.com", admin.lastParams.Email)
 }

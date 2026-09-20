@@ -22,6 +22,10 @@ import (
 // resto de los métodos no los llama este flujo.
 type fakeUserRepo struct {
 	setErr error
+
+	setCalls   int
+	lastUserID string
+	lastValue  bool
 }
 
 func (fakeUserRepo) UpsertBySupabaseID(ctx context.Context, supabaseUserID, email string) (*domain.User, error) {
@@ -36,7 +40,10 @@ func (fakeUserRepo) GetByID(ctx context.Context, id string) (*domain.User, error
 func (fakeUserRepo) SetStatus(ctx context.Context, userID string, status domain.UserStatus) error {
 	return nil
 }
-func (r fakeUserRepo) SetPasswordChangeRequired(ctx context.Context, userID string, value bool) error {
+func (r *fakeUserRepo) SetPasswordChangeRequired(ctx context.Context, userID string, value bool) error {
+	r.setCalls++
+	r.lastUserID = userID
+	r.lastValue = value
 	return r.setErr
 }
 func (fakeUserRepo) IsActiveMemberOfTenant(ctx context.Context, userID, tenantID string) (bool, error) {
@@ -78,19 +85,23 @@ func doChangePasswordRequest(r *gin.Engine) *httptest.ResponseRecorder {
 }
 
 func TestHandle_AuthenticatedUser_ClearsFlagAndReturns200(t *testing.T) {
-	r := newChangePasswordRouter(fakeUserRepo{}, &domain.User{ID: "u1"})
+	repo := &fakeUserRepo{}
+	r := newChangePasswordRouter(repo, &domain.User{ID: "u1"})
 	w := doChangePasswordRequest(r)
 	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, 1, repo.setCalls)
+	require.Equal(t, "u1", repo.lastUserID)
+	require.False(t, repo.lastValue)
 }
 
 func TestHandle_NoDomainUserInContext_Returns401(t *testing.T) {
-	r := newChangePasswordRouter(fakeUserRepo{}, nil)
+	r := newChangePasswordRouter(&fakeUserRepo{}, nil)
 	w := doChangePasswordRequest(r)
 	require.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
 func TestHandle_RepoError_Returns500(t *testing.T) {
-	r := newChangePasswordRouter(fakeUserRepo{setErr: errors.New("db down")}, &domain.User{ID: "u1"})
+	r := newChangePasswordRouter(&fakeUserRepo{setErr: errors.New("db down")}, &domain.User{ID: "u1"})
 	w := doChangePasswordRequest(r)
 	require.Equal(t, http.StatusInternalServerError, w.Code)
 }
