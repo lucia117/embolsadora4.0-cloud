@@ -1779,6 +1779,191 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
 
+  ########################
+  # Edge Devices — operacional
+  ########################
+  /api/v1/tenants/{tenantId}/edge-devices/{deviceId}/status:
+    post:
+      tags: [EdgeDevices]
+      summary: Disparar un chequeo de status contra el dispositivo
+      description: Requiere `perm_edge_devices_check`. Queda registrado en el audit trail (`userId`/`userEmail` del JWT).
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Resultado del chequeo
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceCheckResultEnvelope' }
+        '400':
+          description: "Dispositivo deshabilitado (EDGE_DEVICE_DISABLED)"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Dispositivo no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+
+  /api/v1/tenants/{tenantId}/edge-devices/{deviceId}/health-check:
+    post:
+      tags: [EdgeDevices]
+      summary: Disparar un health check contra el dispositivo
+      description: Requiere `perm_edge_devices_check`. Igual contrato que `/status`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Resultado del chequeo
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceCheckResultEnvelope' }
+        '400':
+          description: "Dispositivo deshabilitado (EDGE_DEVICE_DISABLED)"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Dispositivo no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+
+  /api/v1/tenants/{tenantId}/edge-devices/{deviceId}/telemetry:
+    get:
+      tags: [EdgeDevices]
+      summary: Obtener telemetría actual del dispositivo
+      description: Requiere `perm_edge_devices_view`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Telemetría del dispositivo
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceTelemetryEnvelope' }
+        '400':
+          description: "Dispositivo deshabilitado (EDGE_DEVICE_DISABLED)"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Dispositivo no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+
+  /api/v1/tenants/{tenantId}/edge-devices/{deviceId}/events:
+    get:
+      tags: [EdgeDevices]
+      summary: Listar el historial de chequeos (status/health-check) del dispositivo
+      description: Requiere `perm_edge_devices_view`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Historial de eventos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceEventListEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Dispositivo no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+
+  /api/v1/tenants/{tenantId}/edge-devices/{deviceId}/api-keys:
+    parameters:
+      - { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [EdgeDevices]
+      summary: Listar API keys del dispositivo
+      description: Requiere `perm_edge_devices_view`. No expone secretos, solo metadata.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Lista de API keys
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceAPIKeyListEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Dispositivo no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+    post:
+      tags: [EdgeDevices]
+      summary: Emitir una nueva API key para el dispositivo
+      description: >
+        Requiere `perm_edge_devices_manage`. El secreto en texto plano solo se
+        devuelve en esta respuesta — nunca vuelve a exponerse (ver GET, que
+        solo devuelve metadata).
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EdgeDeviceAPIKeyCreate' }
+      responses:
+        '201':
+          description: API key creada (incluye el secreto en texto plano una única vez)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceAPIKeyEnvelope' }
+        '400':
+          description: Body malformado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Dispositivo no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+
+  /api/v1/tenants/{tenantId}/edge-devices/{deviceId}/api-keys/{keyId}:
+    delete:
+      tags: [EdgeDevices]
+      summary: Revocar una API key del dispositivo
+      description: Requiere `perm_edge_devices_manage`. Idempotente.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: keyId, in: path, required: true, schema: { type: string } }
+      responses:
+        '204':
+          description: API key revocada
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: "API key no encontrada"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+
 components:
   ########################
   # Security
@@ -2651,6 +2836,138 @@ components:
         success: { type: boolean, example: false }
         error: { type: string }
       required: [success, error]
+
+    EdgeDeviceCheckResult:
+      type: object
+      properties:
+        checkType: { type: string, enum: [STATUS, HEALTH_CHECK] }
+        checkedAt: { type: string, format: date-time }
+        overallStatus: { type: string, enum: [OK, DEGRADED, ERROR, UNKNOWN] }
+        summary: { type: string }
+        details:
+          type: object
+          additionalProperties: true
+      required: [checkType, checkedAt, overallStatus, summary]
+
+    EdgeDeviceCheckResultEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data: { $ref: '#/components/schemas/EdgeDeviceCheckResult' }
+      required: [success, data]
+
+    EdgeDeviceTelemetry:
+      type: object
+      properties:
+        capturedAt: { type: string, format: date-time }
+        cpu:
+          type: object
+          nullable: true
+          properties:
+            usagePercent: { type: number, nullable: true }
+        ram:
+          type: object
+          nullable: true
+          properties:
+            usedPercent: { type: number }
+            usedMb: { type: number }
+            totalMb: { type: number }
+        disk:
+          type: object
+          nullable: true
+          properties:
+            usedPercent: { type: number }
+            usedGb: { type: number }
+            totalGb: { type: integer }
+        temperatureCelsius: { type: number, nullable: true }
+        uptimeSeconds: { type: integer, nullable: true }
+        plc:
+          type: object
+          nullable: true
+          properties:
+            reachable: { type: boolean }
+            latencyMs: { type: integer, nullable: true }
+            lastHeartbeatAt: { type: string, format: date-time, nullable: true }
+      required: [capturedAt]
+
+    EdgeDeviceTelemetryEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data: { $ref: '#/components/schemas/EdgeDeviceTelemetry' }
+      required: [success, data]
+
+    EdgeDeviceEvent:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        deviceId: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        checkType: { type: string, enum: [STATUS, HEALTH_CHECK] }
+        checkedAt: { type: string, format: date-time }
+        overallStatus: { type: string, enum: [OK, DEGRADED, ERROR, UNKNOWN] }
+        summary: { type: string, nullable: true }
+        details:
+          type: object
+          additionalProperties: true
+        userId: { type: string, format: uuid }
+        userEmail: { type: string, format: email }
+      required: [id, deviceId, tenantId, checkType, checkedAt, overallStatus, userId, userEmail]
+
+    EdgeDeviceEventListEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/EdgeDeviceEvent' }
+      required: [success, data]
+
+    EdgeDeviceAPIKey:
+      type: object
+      description: Nunca incluye el secreto en texto plano — eso solo aparece en la respuesta de creación (ver `EdgeDeviceAPIKeyCreated`).
+      properties:
+        id: { type: string }
+        keyId: { type: string }
+        name: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time, nullable: true }
+        revokedAt: { type: string, format: date-time, nullable: true }
+        lastUsedAt: { type: string, format: date-time, nullable: true }
+        active: { type: boolean }
+        deviceStatus: { type: string, enum: [ACTIVE, DISABLED] }
+      required: [id, keyId, createdAt, active, deviceStatus]
+
+    EdgeDeviceAPIKeyCreate:
+      type: object
+      properties:
+        name: { type: string, nullable: true }
+        expiresAt: { type: string, format: date-time, nullable: true }
+
+    EdgeDeviceAPIKeyCreated:
+      description: Igual a `EdgeDeviceAPIKey` más el secreto en texto plano — se muestra una única vez, en esta respuesta.
+      allOf:
+        - $ref: '#/components/schemas/EdgeDeviceAPIKey'
+        - type: object
+          properties:
+            key: { type: string }
+          required: [key]
+
+    EdgeDeviceAPIKeyEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data: { $ref: '#/components/schemas/EdgeDeviceAPIKeyCreated' }
+      required: [success, data]
+
+    EdgeDeviceAPIKeyListEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/EdgeDeviceAPIKey' }
+      required: [success, data]
 
   ########################
   # Standard responses
