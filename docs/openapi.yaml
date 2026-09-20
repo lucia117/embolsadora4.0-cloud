@@ -1417,6 +1417,131 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
 
+  ########################
+  # Dashboard Layouts
+  ########################
+  /api/v1/dashboard-layouts:
+    get:
+      tags: [DashboardLayouts]
+      summary: Listar layouts de dashboard del usuario
+      description: tenant_id viene de `X-Tenant-ID`, user_id del JWT. Sin RBAC adicional más allá de estar autenticado.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Lista de layouts (máx. 3 por usuario/tenant)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DashboardLayoutList' }
+        '401':
+          description: Usuario no identificado en el JWT (UNAUTHORIZED)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    post:
+      tags: [DashboardLayouts]
+      summary: Crear un layout de dashboard
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DashboardLayoutWrite' }
+      responses:
+        '200':
+          description: Layout creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DashboardLayout' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401':
+          description: Usuario no identificado en el JWT (UNAUTHORIZED)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Límite de layouts alcanzado (LIMIT_REACHED)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: Ya existe un layout con ese nombre (DUPLICATE_NAME)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/v1/dashboard-layouts/{layoutId}:
+    get:
+      tags: [DashboardLayouts]
+      summary: Obtener un layout por ID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: layoutId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Layout encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DashboardLayout' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: Layout no encontrado (LAYOUT_NOT_FOUND)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    put:
+      tags: [DashboardLayouts]
+      summary: Actualizar un layout
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: layoutId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DashboardLayoutWrite' }
+      responses:
+        '200':
+          description: Layout actualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DashboardLayout' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: Layout no encontrado (LAYOUT_NOT_FOUND)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: Ya existe un layout con ese nombre (DUPLICATE_NAME)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    delete:
+      tags: [DashboardLayouts]
+      summary: Eliminar un layout
+      description: No se puede eliminar el último layout del usuario (CANNOT_DELETE_LAST_LAYOUT).
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: layoutId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Layout eliminado
+          content:
+            application/json:
+              schema: { type: object }
+        '400':
+          description: No se puede eliminar el último layout (CANNOT_DELETE_LAST_LAYOUT)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: Layout no encontrado (LAYOUT_NOT_FOUND)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
 components:
   ########################
   # Security
@@ -2007,6 +2132,64 @@ components:
         severity: { type: string, enum: [info, warning, critical] }
         enabled: { type: boolean }
       minProperties: 1
+
+    LayoutWidgetPosition:
+      type: object
+      properties:
+        x: { type: integer }
+        y: { type: integer }
+        w: { type: integer }
+        h: { type: integer }
+        i: { type: string }
+      required: [x, y, w, h, i]
+
+    LayoutWidget:
+      type: object
+      properties:
+        id: { type: string }
+        type: { type: string }
+        name: { type: string }
+        title: { type: string }
+        description: { type: string }
+        category: { type: string }
+        icon: { type: string }
+        position: { $ref: '#/components/schemas/LayoutWidgetPosition' }
+      required: [id, type, position]
+
+    DashboardLayout:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        widgets:
+          type: array
+          items: { $ref: '#/components/schemas/LayoutWidget' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, name, widgets, createdAt, updatedAt]
+
+    DashboardLayoutWrite:
+      type: object
+      properties:
+        name: { type: string }
+        widgets:
+          type: array
+          items: { $ref: '#/components/schemas/LayoutWidget' }
+      required: [name]
+
+    DashboardLayoutList:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/DashboardLayout' }
+        meta:
+          type: object
+          properties:
+            total: { type: integer }
+            limit: { type: integer, description: "Hardcodeado a 3 hoy — no es un query param configurable." }
+          required: [total, limit]
+      required: [data, meta]
 
   ########################
   # Standard responses
