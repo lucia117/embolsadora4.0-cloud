@@ -29,7 +29,7 @@ type fakeRolesRepo struct {
 	listErr    error
 
 	countCustomResult int
-	countCustomErr     error
+	countCustomErr    error
 
 	createErr   error
 	createCalls []*domain.Role

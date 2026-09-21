@@ -12,10 +12,10 @@ import (
 
 // Service handles business logic for log operations.
 type Service struct {
-	repo   logsRepo.Repository
-	log    *zap.Logger
-	mu     sync.RWMutex
-	subs   map[uuid.UUID][]chan *domain.LogEntry
+	repo logsRepo.Repository
+	log  *zap.Logger
+	mu   sync.RWMutex
+	subs map[uuid.UUID][]chan *domain.LogEntry
 }
 
 // New creates a new logs Service.

@@ -8,21 +8,21 @@ import (
 
 // EdgeDevice represents a physical edge computing unit (Raspberry Pi + PLC).
 type EdgeDevice struct {
-	ID                 uuid.UUID
-	TenantID           uuid.UUID
-	Name               string
-	Description        *string
-	MachineID          string
-	EdgeType           string // "RASPBERRY_PLC"
-	RaspberryBaseURL   string
-	PLCAddress         *string
-	Status             string // "ACTIVE", "DISABLED"
-	LastSeenAt         *time.Time
-	LastHealthCheckAt  *time.Time
-	LastHealthStatus   string // "OK", "DEGRADED", "ERROR", "UNKNOWN"
-	LastHealthSummary  *string
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	ID                uuid.UUID
+	TenantID          uuid.UUID
+	Name              string
+	Description       *string
+	MachineID         string
+	EdgeType          string // "RASPBERRY_PLC"
+	RaspberryBaseURL  string
+	PLCAddress        *string
+	Status            string // "ACTIVE", "DISABLED"
+	LastSeenAt        *time.Time
+	LastHealthCheckAt *time.Time
+	LastHealthStatus  string // "OK", "DEGRADED", "ERROR", "UNKNOWN"
+	LastHealthSummary *string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 // DeviceEvent represents an immutable record of a triggered check.

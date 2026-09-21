@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	appRoles "github.com/tu-org/embolsadora-api/internal/app/roles"
 	domain "github.com/tu-org/embolsadora-api/internal/domain"
 	domainUsers "github.com/tu-org/embolsadora-api/internal/domain/users"
-	appRoles "github.com/tu-org/embolsadora-api/internal/app/roles"
 	rolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/roles"
-	usersRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/users"
 	userRolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/user_roles"
+	usersRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/users"
 	"go.uber.org/zap"
 )
 

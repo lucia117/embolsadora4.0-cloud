@@ -42,7 +42,7 @@ func BatchQueryMetrics(service *app.Service) gin.HandlerFunc {
 
 		items := make([]app.BatchItem, len(req.Queries))
 		for i, q := range req.Queries {
-			items[i] = app.BatchItem{ID: q.ID, Query: q.QueryRequest.ToDomain()}
+			items[i] = app.BatchItem{ID: q.ID, Query: q.ToDomain()}
 		}
 
 		results, err := service.Batch(c.Request.Context(), tenantID, items, time.Now().UTC())

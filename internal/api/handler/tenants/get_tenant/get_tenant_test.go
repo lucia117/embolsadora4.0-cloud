@@ -41,7 +41,7 @@ func (f *fakeRepo) FindBySubdomain(ctx context.Context, subdomain string) (*doma
 	return &t, nil
 }
 func (f *fakeRepo) Update(ctx context.Context, tenant *domain.Tenant) error { return nil }
-func (f *fakeRepo) Delete(ctx context.Context, id uuid.UUID) error         { return nil }
+func (f *fakeRepo) Delete(ctx context.Context, id uuid.UUID) error          { return nil }
 
 func withActorContext(req *http.Request, role, tenantID string) *http.Request {
 	// Los 4 archivos de test de este paquete solo ejercitan "super_admin" (global)

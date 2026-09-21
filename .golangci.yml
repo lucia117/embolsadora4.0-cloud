@@ -1,14 +1,23 @@
+version: "2"
+
 run:
-  timeout: 3m
-  tests: false
+  timeout: 5m
+
 linters:
+  default: standard
   enable:
-    - govet
+    - bodyclose
+    - sqlclosecheck
+    - unconvert
+  exclusions:
+    rules:
+      # Cierre "best effort" en defer (resp.Body, cursores, tx.Rollback tras commit,
+      # logger.Sync): common idiom, no vale la pena chequear el error en cada uno.
+      - linters:
+          - errcheck
+        text: "Error return value of .*\\.(Close|Rollback|Sync). is not checked"
+
+formatters:
+  enable:
     - gofmt
-    - staticcheck
-    - gosimple
-    - ineffassign
-issues:
-  exclude-use-default: false
-  max-issues-per-linter: 0
-  max-same-issues: 0
+    - goimports

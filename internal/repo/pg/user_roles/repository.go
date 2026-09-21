@@ -387,23 +387,6 @@ func scanUTR(row pgx.Row) (*domain.UserTenantRole, error) {
 	return &utr, nil
 }
 
-// scanUTRFromRow scans a single UTR row from a Rows iterator.
-func scanUTRFromRow(rows pgx.Rows) (*domain.UserTenantRole, error) {
-	var utr domain.UserTenantRole
-	var roleID *string
-	var assignedBy *uuid.UUID
-	err := rows.Scan(
-		&utr.ID, &utr.UserID, &utr.TenantID, &roleID, &utr.Status,
-		&assignedBy, &utr.AssignedAt, &utr.CreatedAt, &utr.UpdatedAt,
-	)
-	if err != nil {
-		return nil, err
-	}
-	utr.RoleID = roleID
-	utr.AssignedBy = assignedBy
-	return &utr, nil
-}
-
 // scanUTRDetailFromRow scans a single UTR row plus its joined role name and
 // user display fields, from the FindByTenant / FindByTenantWithStatus queries.
 func scanUTRDetailFromRow(rows pgx.Rows) (*domain.UserTenantRoleDetail, error) {
@@ -445,12 +428,4 @@ func (r *userRoleRepository) UpdateStatus(ctx context.Context, userID, tenantID 
 	utr.RoleID = roleID
 	utr.AssignedBy = assignedBy
 	return &utr, nil
-}
-
-// derefString converts a nullable *string to string, returning "" if nil.
-func derefString(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
 }
