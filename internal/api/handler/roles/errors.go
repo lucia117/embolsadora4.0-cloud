@@ -66,11 +66,3 @@ func invalidTenantResponse(c *gin.Context) {
 		Status:  http.StatusBadRequest,
 	})
 }
-
-func invalidIDResponse(c *gin.Context) {
-	c.JSON(http.StatusBadRequest, ErrorResponse{
-		Error:   "INVALID_ID",
-		Message: "El ID proporcionado no es un UUID válido",
-		Status:  http.StatusBadRequest,
-	})
-}

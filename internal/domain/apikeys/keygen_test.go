@@ -47,13 +47,13 @@ func TestParseHandlesUnderscoreInSecret(t *testing.T) {
 
 func TestParseRejectsMalformed(t *testing.T) {
 	cases := map[string]string{
-		"vacio":              "",
-		"sin prefijo":        "xxx_0123456789ab_secreto",
-		"sin separador":      "emb_0123456789absecreto",
-		"key_id corto":       "emb_0123_secreto",
-		"key_id no hex":      "emb_zzzzzzzzzzzz_secreto",
-		"secreto vacio":      "emb_0123456789ab_",
-		"solo prefijo":       "emb_",
+		"vacio":         "",
+		"sin prefijo":   "xxx_0123456789ab_secreto",
+		"sin separador": "emb_0123456789absecreto",
+		"key_id corto":  "emb_0123_secreto",
+		"key_id no hex": "emb_zzzzzzzzzzzz_secreto",
+		"secreto vacio": "emb_0123456789ab_",
+		"solo prefijo":  "emb_",
 	}
 	for name, input := range cases {
 		t.Run(name, func(t *testing.T) {

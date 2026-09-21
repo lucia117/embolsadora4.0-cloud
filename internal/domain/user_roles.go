@@ -25,10 +25,10 @@ type UserTenantRole struct {
 	ID         uuid.UUID
 	UserID     uuid.UUID
 	TenantID   uuid.UUID
-	RoleID     *string        // nullable: pending assignments have no role yet
+	RoleID     *string // nullable: pending assignments have no role yet
 	Status     UserRoleStatus
-	AssignedBy *uuid.UUID     // nullable: set when role is assigned
-	AssignedAt *time.Time     // nullable: set when role is assigned
+	AssignedBy *uuid.UUID // nullable: set when role is assigned
+	AssignedAt *time.Time // nullable: set when role is assigned
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }

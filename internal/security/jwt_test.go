@@ -42,7 +42,7 @@ func makeJWKSServer(t *testing.T, key *rsa.PrivateKey, kid string) *httptest.Ser
 	}
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(jwks)
+		_ = json.NewEncoder(w).Encode(jwks)
 	}))
 }
 

@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	tenantserrors "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/errors"
 	"github.com/tu-org/embolsadora-api/internal/api/handler/tenants/create_tenant/models"
+	tenantserrors "github.com/tu-org/embolsadora-api/internal/api/handler/tenants/errors"
 	ucCreateTenant "github.com/tu-org/embolsadora-api/internal/api/usecases/tenants/create_tenant"
 )
 

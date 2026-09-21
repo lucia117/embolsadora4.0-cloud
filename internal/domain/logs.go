@@ -21,13 +21,13 @@ const (
 type EventType string
 
 const (
-	EventTypeAlarmTriggered      EventType = "alarm_triggered"
-	EventTypeAlarmResolved       EventType = "alarm_resolved"
-	EventTypeDeviceConnected     EventType = "device_connected"
-	EventTypeDeviceDisconnected  EventType = "device_disconnected"
-	EventTypeDeviceStateChanged  EventType = "device_state_changed"
-	EventTypeUserAction          EventType = "user_action"
-	EventTypeSystem              EventType = "system"
+	EventTypeAlarmTriggered     EventType = "alarm_triggered"
+	EventTypeAlarmResolved      EventType = "alarm_resolved"
+	EventTypeDeviceConnected    EventType = "device_connected"
+	EventTypeDeviceDisconnected EventType = "device_disconnected"
+	EventTypeDeviceStateChanged EventType = "device_state_changed"
+	EventTypeUserAction         EventType = "user_action"
+	EventTypeSystem             EventType = "system"
 )
 
 // LogEntry is an immutable record of an operational event.

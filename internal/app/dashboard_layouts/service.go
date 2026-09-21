@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
-	"go.uber.org/zap"
 	domain "github.com/tu-org/embolsadora-api/internal/domain/dashboard_layouts"
+	"go.uber.org/zap"
 )
 
 // Service implements application business logic for dashboard layouts.

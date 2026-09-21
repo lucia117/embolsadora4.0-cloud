@@ -6,8 +6,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/tu-org/embolsadora-api/internal/app/edge_devices"
 	"github.com/tu-org/embolsadora-api/internal/api/handler/edge_devices/dto"
+	"github.com/tu-org/embolsadora-api/internal/app/edge_devices"
 	edgeerrors "github.com/tu-org/embolsadora-api/internal/domain/edge_devices"
 	"github.com/tu-org/embolsadora-api/internal/platform"
 )

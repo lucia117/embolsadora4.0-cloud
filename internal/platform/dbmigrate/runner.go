@@ -44,7 +44,7 @@ func Run(sourceURL, databaseURL string, logger *zap.Logger) error {
 		logger.Info("dbmigrate: starting from empty schema")
 	} else {
 		logger.Info("dbmigrate: current schema version",
-			zap.Uint("version", uint(beforeVer)), zap.Bool("dirty", beforeDirty))
+			zap.Uint("version", beforeVer), zap.Bool("dirty", beforeDirty))
 		if beforeDirty {
 			return fmt.Errorf("dbmigrate: refusing to migrate dirty schema at version %d (manual intervention required: migrate force <v>)", beforeVer)
 		}
@@ -63,7 +63,7 @@ func Run(sourceURL, databaseURL string, logger *zap.Logger) error {
 			zap.Error(afterErr))
 	default:
 		logger.Info("dbmigrate: complete",
-			zap.Uint("version", uint(afterVer)), zap.Bool("dirty", afterDirty))
+			zap.Uint("version", afterVer), zap.Bool("dirty", afterDirty))
 	}
 	return nil
 }

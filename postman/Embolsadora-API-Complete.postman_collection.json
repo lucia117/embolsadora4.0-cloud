@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "embolsadora-api-master-collection",
     "name": "Embolsadora API - Complete Collection",
-    "description": "Master collection for Embolsadora 4.0 Cloud API\n\nConsolidated endpoints across all features:\n- Auth (Supabase JWT)\n- Invitations CRUD\n- Tenants management\n- Users CRUD\n- User Role Assignments\n- Edge Device Management (Complete US1-US9)\n- Dashboard Layouts (Complete US1-US5)\n- Roles Management (7 Pact interactions)\n\n**Base URL:** `{{baseUrl}}` = http://localhost:8080\n\n**Authentication:** Bearer JWT Token (usar POST Login para obtenerlo)\n**Multi-tenant:** `X-Tenant-ID: {{tenant_uuid}}` header requerido en la mayoría de endpoints\n\n**Dashboard Layout Endpoints (005-dashboard-layouts):**\n- US1: List Layouts - GET /api/v1/dashboard-layouts\n- US2: Create Layout - POST /api/v1/dashboard-layouts\n- US3: Get Layout - GET /api/v1/dashboard-layouts/:layoutId\n- US4: Update Layout - PUT /api/v1/dashboard-layouts/:layoutId\n- US5: Delete Layout - DELETE /api/v1/dashboard-layouts/:layoutId\n- Headers: Authorization + X-Tenant-ID (UUID) requeridos\n\n**Edge Device Endpoints (All 9 User Stories Implemented):**\n- US1: List Devices - GET /api/v1/tenants/:tenantId/edge-devices\n- US2: Create Device - POST /api/v1/tenants/:tenantId/edge-devices\n- US3: Get Device - GET /api/v1/tenants/:tenantId/edge-devices/:deviceId\n- US4: Update Device - PUT /api/v1/tenants/:tenantId/edge-devices/:deviceId\n- US5: Enable/Disable - POST /api/v1/tenants/:tenantId/edge-devices/:deviceId/enable, /disable\n- US6: Status Check - POST /api/v1/tenants/:tenantId/edge-devices/:deviceId/status\n- US7: Health Check - POST /api/v1/tenants/:tenantId/edge-devices/:deviceId/health-check\n- US8: Telemetry - GET /api/v1/tenants/:tenantId/edge-devices/:deviceId/telemetry\n- US9: Events - GET /api/v1/tenants/:tenantId/edge-devices/:deviceId/events\n- Alarm Rules (008-alarm-rules) â CRUD completo con 10 Pact interactions (GET list, GET by id, POST, PATCH, DELETE + errores 401/404/400)",
+    "description": "Master collection for Embolsadora 4.0 Cloud API\n\nConsolidated endpoints across all features:\n- Auth (Supabase JWT)\n- Invitations CRUD\n- Tenants management\n- Users CRUD\n- User Role Assignments\n- Edge Device Management (Complete US1-US9)\n- Dashboard Layouts (Complete US1-US5)\n- Roles Management (7 Pact interactions)\n\n**Base URL:** `{{baseUrl}}` = http://localhost:8080\n\n**Authentication:** Bearer JWT Token (usar POST Login para obtenerlo)\n**Multi-tenant:** `X-Tenant-ID: {{tenant_uuid}}` header requerido en la mayoría de endpoints\n\n**Dashboard Layout Endpoints (005-dashboard-layouts):**\n- US1: List Layouts - GET /api/v1/dashboard-layouts\n- US2: Create Layout - POST /api/v1/dashboard-layouts\n- US3: Get Layout - GET /api/v1/dashboard-layouts/:layoutId\n- US4: Update Layout - PUT /api/v1/dashboard-layouts/:layoutId\n- US5: Delete Layout - DELETE /api/v1/dashboard-layouts/:layoutId\n- Headers: Authorization + X-Tenant-ID (UUID) requeridos\n\n**Edge Device Endpoints (All 9 User Stories Implemented):**\n- US1: List Devices - GET /api/v1/tenants/:tenantId/edge-devices\n- US2: Create Device - POST /api/v1/tenants/:tenantId/edge-devices\n- US3: Get Device - GET /api/v1/tenants/:tenantId/edge-devices/:deviceId\n- US4: Update Device - PUT /api/v1/tenants/:tenantId/edge-devices/:deviceId\n- US5: Enable/Disable - POST /api/v1/tenants/:tenantId/edge-devices/:deviceId/enable, /disable\n- US6: Status Check - POST /api/v1/tenants/:tenantId/edge-devices/:deviceId/status\n- US7: Health Check - POST /api/v1/tenants/:tenantId/edge-devices/:deviceId/health-check\n- US8: Telemetry - GET /api/v1/tenants/:tenantId/edge-devices/:deviceId/telemetry\n- US9: Events - GET /api/v1/tenants/:tenantId/edge-devices/:deviceId/events\n- Alarm Rules (008-alarm-rules) â CRUD completo con 10 Pact interactions (GET list, GET by id, POST, PATCH, DELETE + errores 401/404/400)\n\n**Dashboard Metrics Query API (added 2026-09):**\n- POST /api/v1/dashboards/metrics/query -- single query\n- GET /api/v1/dashboards/metrics/catalog -- discovered aasPaths for a machine\n- POST /api/v1/dashboards/metrics/query/batch -- up to MaxBatchQueries in parallel\n- Requires perm_metrics_view + is rate-limited (DashboardRateLimit)\n\n**Public Tenant Lookup (added 2026-09):**\n- GET /api/v1/public/tenants/:idOrSubdomain -- no auth, backs invitation/reset links\n\n**Self-service (added 2026-09):**\n- PATCH /api/v1/users/me -- no RBAC, userId comes from the JWT\n\n**Edge Device API Keys (added 2026-09):**\n- POST/GET /api/v1/tenants/:tenantId/edge-devices/:deviceId/api-keys\n- DELETE .../api-keys/:keyId\n\n**Consumers surface note:** POST /api/v1/consumers/events is a REAL, fully implemented endpoint (frozen contract with the Edge Pi Service) -- only POST /api/v1/consumers/heartbeat is still a 501 stub.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -129,6 +129,92 @@
             },
             "description": "Limpia el flag password_change_required. Llamar desde el frontend después de que el usuario completó el cambio de contraseña en Supabase. No requiere X-Tenant-ID."
           }
+        },
+        {
+          "name": "PATCH Update Me (self-service)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Nuevo\",\n  \"lastName\": \"Apellido\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            },
+            "description": "Self-service: el usuario actualiza SU PROPIO firstName/lastName. El userId sale del JWT, nunca de la URL -- NO tiene RBACCheck, cualquier rol autenticado puede usarlo (ver TestUpdateMe_SinPermisoRBAC_Funciona). Registrada antes de PATCH /users/:id en el router para que Gin no la trate como 'id=me'.\n\nRespuesta 200: el user actualizado."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Public",
+      "item": [
+        {
+          "name": "GET Public Tenant (sin auth, por id o subdominio)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/tenants/{{tenantSubdomain}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "public",
+                "tenants",
+                "{{tenantSubdomain}}"
+              ]
+            },
+            "description": "Lookup PUBLICO (sin Authorization, sin X-Tenant-ID) por UUID o subdominio del tenant. Backea el link de invitacion/reset de password (corre antes de que exista sesion) y la landing page publica del tenant.\n\nRespuesta 200: {id, subdomain, name, companyName, isActive, theme: {...}, settings: {locale, timezone, dateFormat, timeFormat, currency}} -- subconjunto seguro para exponer sin auth (sin address, sin contactEmail).\n\n404 si el tenant no existe O esta inactivo (los dos casos se devuelven igual, a proposito: no distingue 'no existe' de 'existe pero inactivo')."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('trae subdomain', () => {",
+                  "    pm.expect(pm.response.json()).to.have.property('subdomain');",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -1369,6 +1455,161 @@
       ]
     },
     {
+      "name": "Dashboard Metrics",
+      "item": [
+        {
+          "name": "US1 - Query Metrics (single)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"machineId\": \"{{machine_id}}\",\n  \"range\": \"1h\",\n  \"bucket\": \"5m\",\n  \"metrics\": [\n    {\n      \"aasPath\": \"Operativos/Pesada/peso\",\n      \"agg\": \"avg\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dashboards/metrics/query",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dashboards",
+                "metrics",
+                "query"
+              ]
+            },
+            "description": "Requiere perm_metrics_view + esta gateado por DashboardRateLimit (por tenant). range y from/to son mutuamente excluyentes. Bucket valido: 1m|5m|15m|1h|6h|1d. Agg valido: avg|sum|min|max|last|count|delta|raw.\n\n200: {success: true, data: {mode, machineId, from, to, ...}} -- la forma exacta de data depende de mode (scalar/series/raw/grouped).\n400 (INVALID_PARAMS u otro guardrail de domain/metrics), 504 (QUERY_TIMEOUT)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('success true', () => {",
+                  "    pm.expect(pm.response.json().success).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "US2 - Catalog Metrics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dashboards/metrics/catalog?machineId={{machine_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dashboards",
+                "metrics",
+                "catalog"
+              ],
+              "query": [
+                {
+                  "key": "machineId",
+                  "value": "{{machine_id}}"
+                }
+              ]
+            },
+            "description": "Devuelve los aasPath descubiertos para el machineId dado -- util para armar el body de /query sin adivinar rutas AAS.\n\n200: {success: true, data: {machineId, aasPaths: [...]}}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "US3 - Batch Query Metrics",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"queries\": [\n    {\n      \"id\": \"peso-avg\",\n      \"machineId\": \"{{machine_id}}\",\n      \"range\": \"1h\",\n      \"bucket\": \"5m\",\n      \"metrics\": [\n        {\n          \"aasPath\": \"Operativos/Pesada/peso\",\n          \"agg\": \"avg\"\n        }\n      ]\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dashboards/metrics/query/batch",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dashboards",
+                "metrics",
+                "query",
+                "batch"
+              ]
+            },
+            "description": "Ejecuta N queries en paralelo, correlacionadas por id. Un error en UN item (id duplicado a nivel batch aparte) NO aborta el resto -- va dentro de results[i].error/code, la respuesta sigue siendo 200. Limite: MaxBatchQueries (default 50).\n\n200: {success: true, data: {results: [{id, success, data|error, code}]}}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('primer resultado ok', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.results[0].success).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Edge Devices",
       "item": [
         {
@@ -1668,14 +1909,139 @@
             },
             "description": "Retrieve historical log of all check events for an edge device"
           }
+        },
+        {
+          "name": "API Keys - Create Device API Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Pi produccion\",\n  \"expiresAt\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantSubdomain}}/edge-devices/{{device_id}}/api-keys",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tenants",
+                "{{tenantSubdomain}}",
+                "edge-devices",
+                "{{device_id}}",
+                "api-keys"
+              ]
+            },
+            "description": "Requiere perm_edge_devices_manage. name y expiresAt son opcionales (body vacio {} tambien es valido).\n\n201: unica respuesta que incluye el secreto en claro (campo 'key', formato emb_<keyId>_<secreto>) -- no se persiste, no se puede volver a consultar despues de esta llamada."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('edge_api_key_id', body.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "API Keys - List Device API Keys",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantSubdomain}}/edge-devices/{{device_id}}/api-keys",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tenants",
+                "{{tenantSubdomain}}",
+                "edge-devices",
+                "{{device_id}}",
+                "api-keys"
+              ]
+            },
+            "description": "Requiere perm_edge_devices_view. Nunca incluye el secreto -- solo metadata (id, keyId, name, createdAt, expiresAt, revokedAt, lastUsedAt, active, deviceStatus)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "API Keys - Revoke Device API Key",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantSubdomain}}/edge-devices/{{device_id}}/api-keys/{{edge_api_key_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tenants",
+                "{{tenantSubdomain}}",
+                "edge-devices",
+                "{{device_id}}",
+                "api-keys",
+                "{{edge_api_key_id}}"
+              ]
+            },
+            "description": "Requiere perm_edge_devices_manage. Idempotente: revocar una key ya revocada tambien devuelve 204."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
     {
-      "name": "Consumers (IoT ingest - stubs, 501)",
+      "name": "Consumers (Edge Pi ingest)",
       "item": [
         {
-          "name": "POST Ingest Events (stub, esperar 501)",
+          "name": "POST Ingest Events (200 - contrato real)",
           "request": {
             "method": "POST",
             "header": [
@@ -1690,7 +2056,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"events\": [\n    {\n      \"machine_id\": \"{{device_id}}\",\n      \"event_type\": \"cycle_completed\",\n      \"severity\": \"info\",\n      \"timestamp\": \"2026-07-09T12:00:00Z\",\n      \"payload\": {\n        \"cycle_count\": 1\n      }\n    }\n  ]\n}"
+              "raw": "{\n  \"events\": [\n    {\n      \"eventId\": \"postman-{{$timestamp}}-1\",\n      \"machineId\": \"{{machine_id}}\",\n      \"ts\": \"2026-07-31T01:06:37.147166Z\",\n      \"seq\": 0,\n      \"kind\": \"metric\",\n      \"schemaVersion\": 1,\n      \"payload\": {\n        \"aasPath\": \"Operativos/Pesada/peso\",\n        \"unit\": \"kg\",\n        \"value\": 1,\n        \"valueType\": \"xs:float\"\n      }\n    }\n  ]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/consumers/events",
@@ -1704,14 +2070,19 @@
                 "events"
               ]
             },
-            "description": "Handler es un stub (IngestEvents) sin logica ni contrato definido todavia. Devuelve 501 Not Implemented. Estructura del body es tentativa."
+            "description": "Endpoint real de ingesta (no un stub). Contrato congelado con el Edge Pi Service - ver docs/superpowers/plans/2026-08-05-cloud-ingest-endpoint.md.\n\nBody: {events: [{eventId, machineId, ts, seq, kind, schemaVersion, payload}]}. eventId es la clave de idempotencia (unique index tenantId+eventId en Mongo): reenviar el mismo eventId no duplica la medicion.\n\nRespuesta 200 SIEMPRE (incluso con rechazos parciales, invariante I-2): {data: {accepted, rejected, errors: [{index, code, message}]}}. 400 solo si el body entero es invalido (JSON malformado, events vacio/ausente, excede el maximo de elementos)."
           },
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('Status 501 (stub sin implementar)', () => pm.response.to.have.status(501));"
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('acepta el evento', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data.accepted).to.eql(1);",
+                  "    pm.expect(body.data.rejected).to.eql(0);",
+                  "});"
                 ]
               }
             }

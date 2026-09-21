@@ -5,17 +5,10 @@ Master collection for testing all Embolsadora 4.0 Cloud API endpoints across all
 ## 📦 Collection Files
 
 ### Primary Collection (USE THIS)
-- **`Embolsadora-API-Complete.postman_collection.json`** — Master collection with 20+ endpoints organized in 4 folders
-
-### Legacy Collections (for reference only)
-- `User-Management-API.postman_collection.json` — Users CRUD (included in master)
-- `Edge-Device-Management-API.postman_collection.json` — Edge Devices (included in master)
-- `tenants.postman_collection.json` — Tenant management (included in master)
-- `user-role-assignments.postman_collection.json` — User role assignments (included in master)
+- **`Embolsadora-API-Complete.postman_collection.json`** — Master collection with 17 folders covering every route registered in `internal/routes/url_mappings.go` and `internal/api/router.go`.
 
 ### Environment Files
-- `Edge-Device-Management-API.postman_environment.json` — For edge device testing
-- (Generic environment from collection variables)
+- **`env-local.postman_environment.json`** — Variables for a local `go run cmd/api/main.go` server (`baseUrl=http://localhost:8080`).
 
 ## 🚀 Quick Start
 
@@ -25,20 +18,13 @@ Master collection for testing all Embolsadora 4.0 Cloud API endpoints across all
 Postman → File → Import → Select "Embolsadora-API-Complete.postman_collection.json"
 ```
 
-### Step 2: Set Collection Variables
+### Step 2: Import the Environment
 
-Click collection **Variables** tab and update:
+```
+Postman → File → Import → Select "env-local.postman_environment.json"
+```
 
-| Variable | Example Value | Purpose |
-|----------|---------------|---------|
-| `baseUrl` | `http://localhost:8080/api/v1` | Base API URL |
-| `jwt_token` | `eyJhbGciOiJIUzI1NiIs...` | Bearer token for auth |
-| `tenant_id` | `acme` | Tenant subdomain (edge devices) |
-| `tenantId` | `550e8400-e29b...` | Tenant UUID (users, roles) |
-| `user_id` | `323e4567-e89b...` | User UUID for testing |
-| `userId` | `00000000-0000...` | User UUID for role assignment |
-| `device_id` | `550e8400-e29b...` | Device UUID for status checks |
-| `utrId` | (auto-set) | User-Tenant-Role assignment UUID |
+Set `token` (a Supabase JWT — see Authentication below), `tenant_id` / `tenant_uuid` (a tenant UUID), and `tenantSubdomain` (that same tenant's subdomain, used by the Edge Devices and Public folders, which take the tenant from the URL instead of a header).
 
 ### Step 3: Start API Server
 
@@ -49,96 +35,24 @@ go run cmd/api/main.go
 
 ### Step 4: Execute Requests
 
-Navigate to each folder in the collection:
-1. **Tenants** — Create and manage tenants
-2. **Users** — CRUD operations on users
-3. **User Roles** — Assign and manage roles
-4. **Edge Devices** — Register and monitor devices
+Folders, in collection order:
 
----
-
-## 📋 Folder Structure
-
-### Tenants (5 endpoints)
-- `GET All Tenants` — List all tenants
-- `POST Create Tenant` — Create new tenant with admin user
-- `GET Tenant by ID` — Get tenant details
-- `PATCH Update Tenant` — Update tenant info
-- `DELETE Tenant` — Delete tenant
-
-**Headers**: Bearer JWT token
-
-**Example**: Create a tenant and the collection auto-extracts `tenantId` for later use.
-
----
-
-### Users (5 endpoints)
-- `List Users (with pagination)` — Paginated user list for tenant
-- `Get User by ID` — Retrieve user profile
-- `Create User` — Create new user (admin only)
-- `Update User` — Partial update (admin only)
-- `Delete User` — Soft-delete user (admin only)
-
-**Headers**:
-- `X-Tenant-ID: {{tenant_id}}` (required)
-- `Authorization: Bearer {{jwt_token}}`
-
-**Flow**:
-```
-1. List Users → See current users
-2. Create User → POST with firstName, lastName, email, role
-3. Get User by ID → Verify creation
-4. Update User → Change role or profile
-5. Delete User → Soft-delete (soft delete = user marked deleted, record preserved)
-```
-
----
-
-### User Roles (7 endpoints)
-- `POST Assign Role` — Assign role to user in tenant
-- `GET List Assignments` — List all role assignments
-- `GET List Assignments (filtered by status)` — Filter by active/pending/revoked
-- `PUT Update Role` — Change assigned role
-- `DELETE Revoke Role` — Revoke role (soft delete)
-- `POST Bulk Assign Roles` — Assign same role to multiple users
-- `GET User Roles (cross-tenant)` — View user's roles in all tenants
-
-**Key Features**:
-- Auto-sets `{{utrId}}` after POST Assign Role (used by PUT/DELETE)
-- Built-in Postman tests validate response structure
-- 409 conflict if user already has active role in tenant
-
-**Flow**:
-```
-1. Assign Role (userId, tenantId, roleId)
-   ↓ Auto-extracts utrId
-2. List Assignments (verify creation)
-3. Update Role (change roleId via utrId)
-4. Try duplicate assign → 409 Conflict (expected)
-5. Bulk Assign multiple users at once
-6. Revoke Role (soft delete)
-```
-
----
-
-### Edge Devices (3 endpoints)
-- `US1 - List Edge Devices` — GET all devices for tenant
-- `US2 - Create Edge Device` — POST new device
-- `US6 - Status Check` — POST connectivity check
-
-**Key Details**:
-- Uses tenant subdomain slug in path: `/tenants/{{tenant_id}}/edge-devices`
-- Device status check performs health check against Raspberry Pi
-- Response includes version, reachability, response time
-
-**Flow**:
-```
-1. Create Device → machineId must be unique per tenant
-2. List Devices → Verify creation
-3. Status Check → Connectivity + version info
-   ├─ 200 OK (device online)
-   └─ 200 OK with ERROR (device offline but recorded)
-```
+1. **Auth** — Login, `GET /me`, `PATCH /users/me` (self-service), change password
+2. **Public** — Unauthenticated tenant lookup (invitation/reset callback links)
+3. **Invitations** — Create/list/resend/revoke
+4. **Users (Auth)** — Force password change (admin-triggered)
+5. **Tenants** — Tenant CRUD (admin)
+6. **Users** — User CRUD, status, pending list, roles-across-tenants
+7. **User Roles** — Assign/list/update/revoke/bulk-assign
+8. **Dashboard Layouts** — Per-user dashboard layout CRUD
+9. **Dashboard Metrics** — Query/catalog/batch-query time-series metrics
+10. **Edge Devices** — Device CRUD, enable/disable, status/health checks, telemetry, events, Edge Device API Keys (create/list/revoke)
+11. **Consumers (Edge Pi ingest)** — `POST /events` (real, frozen contract), `POST /heartbeat` (still a 501 stub)
+12. **Roles** — Role CRUD (Pact-style contract tests)
+13. **Alarm Rules** — Alarm rule CRUD
+14. **Notifications** — List/count/ack/close
+15. **Logs** — List/filter/export/stream, retention policy
+16. **Permissions** — Permission catalog CRUD
 
 ---
 
@@ -157,12 +71,11 @@ Use any JWT from jwt.io with claims like:
 }
 ```
 
-#### Option 2: Use Actual Auth Endpoint
-If your API has login:
+#### Option 2: Use the Actual Login Endpoint
 ```bash
-POST http://localhost:8080/api/auth/login
+POST http://localhost:8080/api/v1/auth/login
 Body: {"email": "admin@example.com", "password": "..."}
-# Copy "access_token" from response → {{jwt_token}}
+# Copy "access_token" from response → {{token}}
 ```
 
 ---
@@ -173,10 +86,7 @@ Body: {"email": "admin@example.com", "password": "..."}
 
 ```
 1. SET Variables
-   - baseUrl = http://localhost:8080/api/v1
-   - tenant_id = "acme" (for edge devices)
-   - tenantId = "550e8400..." (from DB or create tenant)
-   - jwt_token = "eyJ..."
+   - baseUrl, token, tenant_id, tenantSubdomain
 
 2. Users/List Users → 200 OK
 3. Users/Create User → 201 Created (copies id to user_id)
@@ -191,42 +101,49 @@ Body: {"email": "admin@example.com", "password": "..."}
 ```
 1. SET Variables (same as above + userId)
 
-2. User Roles/POST Assign Role → 201 Created
-   (auto-extracts utrId)
-
+2. User Roles/POST Assign Role → 201 Created (auto-extracts utrId)
 3. User Roles/GET List Assignments → 200 OK
-   (verify role is assigned)
-
 4. User Roles/PUT Update Role → 200 OK
-   (change roleId)
-
-5. User Roles/DELETE Revoke Role → 200 OK
-   (soft revoke - status=revoked)
-
-6. User Roles/GET List Assignments (filtered)
-   → Only "active" roles returned (revoked excluded)
+5. User Roles/DELETE Revoke Role → 200 OK (soft revoke)
 ```
 
-### Workflow 3: Edge Device Monitoring
+### Workflow 3: Edge Device Monitoring + Ingest Credentials
 
 ```
 1. SET Variables
-   - tenant_id = "acme" (subdomain)
-   - device_id = "550e8400..." (from create response)
+   - tenantSubdomain, device_id (from create response)
 
-2. Edge Devices/US2 - Create Device → 201 Created
-   (copies device id to device_id)
-
-3. Edge Devices/US1 - List Devices → 200 OK
-   (verify device registered)
-
+2. Edge Devices/US2 - Create Edge Device → 201 Created
+3. Edge Devices/US1 - List Edge Devices → 200 OK
 4. Edge Devices/US6 - Status Check → 200 OK
-   (check connectivity to Raspberry Pi at raspberryBaseUrl)
-   Returns:
-   - checkType: "STATUS"
-   - overallStatus: "OK" or "ERROR"
-   - summary: "Device reachable, version 1.2.3"
-   - details: { version, reachable, responseTime }
+5. Edge Devices/API Keys - Create Device API Key → 201 Created
+   (auto-extracts edge_api_key_id; the "key" field in the response is the
+   ONLY time the plaintext secret is ever shown — copy it now if you plan
+   to actually authenticate a Pi with it)
+6. Edge Devices/API Keys - List Device API Keys → 200 OK (no secret in the list)
+7. Edge Devices/API Keys - Revoke Device API Key → 204 No Content
+```
+
+### Workflow 4: Ingest a Metric, Then Query It
+
+```
+1. SET Variables
+   - consumer_api_key (an active edge device API key's plaintext "key")
+   - machine_id (the machineId of an existing, ACTIVE edge device)
+
+2. Consumers (Edge Pi ingest)/POST Ingest Events → 200 OK, accepted=1
+3. Dashboard Metrics/US2 - Catalog Metrics → 200 OK, confirm the aasPath appears
+4. Dashboard Metrics/US1 - Query Metrics (single) → 200 OK
+```
+
+### Workflow 5: Public Tenant Lookup (no auth)
+
+```
+1. SET Variables
+   - tenantSubdomain (or a tenant UUID)
+
+2. Public/GET Public Tenant → 200 OK, no Authorization header sent
+   404 if the tenant is inactive or doesn't exist
 ```
 
 ---
@@ -237,89 +154,62 @@ Body: {"email": "admin@example.com", "password": "..."}
 |--------|-----------|-------|-----------|
 | 400 | `MISSING_HEADER` | Missing X-Tenant-ID | Add header in collection |
 | 400 | `VALIDATION_ERROR` | Invalid JSON or required fields missing | Check request body |
+| 400 | `INVALID_PARAMS` | Dashboard Metrics guardrail (bad range/bucket/agg) | Check `internal/domain/metrics/validate.go` |
 | 400 | `EDGE_DEVICE_DISABLED` | Device status is DISABLED | Device must be ACTIVE |
 | 400 | `IMMUTABLE_FIELD` | Attempted to change email/tenantId | Only update mutable fields |
 | 401 | `UNAUTHORIZED` | Invalid or missing JWT | Get fresh token |
-| 403 | `INSUFFICIENT_PERMISSIONS` | User doesn't have admin role | POST/PATCH/DELETE need admin |
+| 403 | `INSUFFICIENT_PERMISSIONS` | Missing the RBAC permission for that route | Check the request's `description` for the required `perm_*` |
 | 404 | `NOT_FOUND` | Resource doesn't exist | Verify ID and tenant |
-| 409 | `CONFLICT` | machineId already exists | Use unique machineId per tenant |
-| 409 | `CONFLICT` | User already has active role | Use PUT to update, DELETE to revoke |
+| 409 | `CONFLICT` | `machineId` already exists, or user already has an active role | Use PUT/PATCH to update instead |
+| 504 | `QUERY_TIMEOUT` | Dashboard Metrics query took too long | Narrow the range/bucket |
 | 500 | Internal error | Server error | Check API logs |
 
----
-
-## 🔍 Built-In Postman Tests
-
-All requests include **Tests** tab with assertions:
-
-### User Roles Examples:
-```javascript
-// POST Assign Role
-✓ Status 201
-✓ success = true
-✓ data has id and status active
-
-// PUT Update Role
-✓ Status 200
-✓ roleId actualizado a operario
-
-// DELETE Revoke Role
-✓ Status 200
-✓ status = revoked
-```
-
-Run tests: **Send** → view **Test Results** tab
+Notes:
+- **`POST /api/v1/consumers/events` es el endpoint real**, not a stub — it always returns `200` with `{data: {accepted, rejected, errors}}`, even on partial rejection. `400` only for a malformed/oversized batch. `POST /api/v1/consumers/heartbeat` is the one still returning `501`.
+- **`PATCH /api/v1/users/me`** has no RBAC check by design — any authenticated user can update their own name.
+- **`GET /api/v1/public/tenants/:idOrSubdomain`** sends no `Authorization`/`X-Tenant-ID` at all.
 
 ---
 
 ## 📊 Multi-Tenant Isolation
 
-**CRITICAL**: All operations are tenant-scoped.
+**CRITICAL**: Almost every operation is tenant-scoped, but the mechanism differs by surface:
 
-- **Users endpoint**: Requires `X-Tenant-ID` header
-- **User Roles endpoint**: Scoped by `tenantId` query param
-- **Edge Devices endpoint**: Scoped by `:tenantId` in path
-- **Emails are unique PER TENANT** — same email can exist in different tenants
-- **Roles are PER TENANT** — user can have admin in tenant A, operario in tenant B
+- **`/api/v1/*` under the main `v1` group** (Users, Invitations, Roles, Dashboard Layouts, Dashboard Metrics, Alarm Rules, Notifications, Logs, Permissions, User Roles): `X-Tenant-ID` header (UUID).
+- **`/api/v1/tenants/:tenantId/edge-devices/*`** (Edge Devices, incl. API keys): tenant comes from the **URL path segment**, no header.
+- **`/api/v1/consumers/*`**: no tenant header or path segment at all — the tenant is resolved server-side from the API key.
+- **`/api/v1/public/*`**: no tenant scoping, no auth — deliberately safe to call before any session exists.
 
 ---
 
 ## 🛠️ Troubleshooting
 
-### "Unknown Variable {{tenantId}}"
-**Cause**: Variable not set in collection
-**Fix**: Click collection → Variables → Set `tenantId` to actual UUID
+### "Unknown Variable {{tenant_id}}" / "{{tenantSubdomain}}"
+**Fix**: Click collection → environment → set the variable to an actual UUID/subdomain.
 
 ### "401 Unauthorized"
-**Cause**: JWT expired or missing
-**Fix**: Get fresh token from auth endpoint or jwt.io
+**Fix**: Get a fresh token from `POST /api/v1/auth/login` or jwt.io.
+
+### "403 INSUFFICIENT_PERMISSIONS"
+**Fix**: Check the request's `description` field for the exact `perm_*` id it requires, then confirm your test user's role has it (`GET /api/v1/roles` or `GET /api/v1/permissions`).
 
 ### "409 Conflict - machineId already exists"
-**Cause**: Creating device with duplicate machineId in same tenant
-**Fix**: Use unique machineId or change tenant
-
-### "Test script not running"
-**Cause**: Tests tab exists but not executing
-**Fix**: Click **Send** and view **Test Results** tab (bottom)
-
-### "X-Tenant-ID header is required"
-**Cause**: Missing multi-tenant header
-**Fix**: Verify header is set in Users requests
+**Fix**: Use a unique `machineId` or a different tenant.
 
 ---
 
 ## 📚 Additional Resources
 
-- **Specification**: `specs/003-edge-device-management/spec.md`
-- **Plan**: `specs/003-edge-device-management/plan.md`
-- **Data Model**: `specs/003-edge-device-management/data-model.md`
-- **OpenAPI Contract**: `specs/003-edge-device-management/contracts/`
-- **User Guide**: `POSTMAN-GUIDE.md` (this file)
+- **Ingest contract**: `docs/superpowers/plans/2026-08-05-cloud-ingest-endpoint.md`
+- **Edge Device Management spec**: `specs/003-edge-device-management/spec.md`
+- **Dashboard Layout spec**: `specs/005-dashboard-layouts` (see `specs/`)
+- **OpenAPI Contract**: `docs/openapi.yaml`
 
 ---
 
 ## 📝 Version History
 
+- **2026-09-19**: Synced against the actual routes in `internal/routes/url_mappings.go` / `internal/api/router.go` — added Dashboard Metrics (query/catalog/batch), Public tenant lookup, `PATCH /users/me`, edge device API keys; corrected the Consumers folder (events is a real endpoint, not a 501 stub).
 - **2026-03-11**: Master collection created — consolidated all 4 separate collections
 - **2026-03-02**: User Management API collection + docs
 - **2026-03-11**: Edge Device Management collection + README
@@ -329,5 +219,5 @@ Run tests: **Send** → view **Test Results** tab
 ---
 
 **Status**: Production-Ready
-**Collection Version**: 2.0 (Consolidated)
-**Last Updated**: 2026-03-11
+**Collection Version**: 3.0 (Synced 2026-09-19)
+**Last Updated**: 2026-09-19

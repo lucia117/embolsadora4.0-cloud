@@ -7,9 +7,9 @@ import (
 
 // BulkAssignUserRolesRequest holds the parsed and validated fields from the request body.
 type BulkAssignUserRolesRequest struct {
-	UserIDs   []uuid.UUID
-	TenantID  uuid.UUID
-	RoleID    string
+	UserIDs  []uuid.UUID
+	TenantID uuid.UUID
+	RoleID   string
 }
 
 // Parse binds and validates the JSON body, parses UUIDs, and returns the request.
@@ -42,8 +42,8 @@ func Parse(c *gin.Context) (BulkAssignUserRolesRequest, error) {
 	}
 
 	return BulkAssignUserRolesRequest{
-		UserIDs:   userIDs,
-		TenantID:  tenantID,
-		RoleID:    body.RoleID,
+		UserIDs:  userIDs,
+		TenantID: tenantID,
+		RoleID:   body.RoleID,
 	}, nil
 }

@@ -5,10 +5,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	appNotifications "github.com/tu-org/embolsadora-api/internal/app/notifications"
 	"github.com/tu-org/embolsadora-api/internal/api/handler/notifications/dto"
-	notifRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/notifications"
+	appNotifications "github.com/tu-org/embolsadora-api/internal/app/notifications"
 	"github.com/tu-org/embolsadora-api/internal/platform"
+	notifRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/notifications"
 )
 
 func ListNotifications(service *appNotifications.Service) gin.HandlerFunc {
