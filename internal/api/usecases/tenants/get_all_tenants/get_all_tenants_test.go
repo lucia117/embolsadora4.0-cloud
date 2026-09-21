@@ -28,7 +28,7 @@ func (f *fakeRepo) FindBySubdomain(ctx context.Context, subdomain string) (*doma
 	return nil, nil
 }
 func (f *fakeRepo) Update(ctx context.Context, tenant *domain.Tenant) error { return nil }
-func (f *fakeRepo) Delete(ctx context.Context, id uuid.UUID) error         { return nil }
+func (f *fakeRepo) Delete(ctx context.Context, id uuid.UUID) error          { return nil }
 
 func TestExecute_NoScopeReturnsAll(t *testing.T) {
 	repo := &fakeRepo{all: []domain.Tenant{{Name: "A"}, {Name: "B"}, {Name: "C"}}}

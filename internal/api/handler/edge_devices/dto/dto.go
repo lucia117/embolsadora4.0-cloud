@@ -9,21 +9,21 @@ import (
 
 // EdgeDeviceResponse represents an edge device in JSON (camelCase).
 type EdgeDeviceResponse struct {
-	ID                 uuid.UUID              `json:"id"`
-	TenantID           uuid.UUID              `json:"tenantId"`
-	Name               string                 `json:"name"`
-	Description        *string                `json:"description"`
-	MachineID          string                 `json:"machineId"`
-	EdgeType           string                 `json:"edgeType"`
-	RaspberryBaseURL   string                 `json:"raspberryBaseUrl"`
-	PLCAddress         *string                `json:"plcAddress"`
-	Status             string                 `json:"status"`
-	LastSeenAt         *time.Time             `json:"lastSeenAt"`
-	LastHealthCheckAt  *time.Time             `json:"lastHealthCheckAt"`
-	LastHealthStatus   string                 `json:"lastHealthStatus"`
-	LastHealthSummary  *string                `json:"lastHealthSummary"`
-	CreatedAt          time.Time              `json:"createdAt"`
-	UpdatedAt          time.Time              `json:"updatedAt"`
+	ID                uuid.UUID  `json:"id"`
+	TenantID          uuid.UUID  `json:"tenantId"`
+	Name              string     `json:"name"`
+	Description       *string    `json:"description"`
+	MachineID         string     `json:"machineId"`
+	EdgeType          string     `json:"edgeType"`
+	RaspberryBaseURL  string     `json:"raspberryBaseUrl"`
+	PLCAddress        *string    `json:"plcAddress"`
+	Status            string     `json:"status"`
+	LastSeenAt        *time.Time `json:"lastSeenAt"`
+	LastHealthCheckAt *time.Time `json:"lastHealthCheckAt"`
+	LastHealthStatus  string     `json:"lastHealthStatus"`
+	LastHealthSummary *string    `json:"lastHealthSummary"`
+	CreatedAt         time.Time  `json:"createdAt"`
+	UpdatedAt         time.Time  `json:"updatedAt"`
 }
 
 // CreateDeviceRequest is the request body for creating a device.
@@ -123,21 +123,21 @@ type ErrorResponse struct {
 // EdgeDeviceToResponse converts a domain EdgeDevice to a response DTO.
 func EdgeDeviceToResponse(device *edge_devices.EdgeDevice) EdgeDeviceResponse {
 	return EdgeDeviceResponse{
-		ID:                 device.ID,
-		TenantID:           device.TenantID,
-		Name:               device.Name,
-		Description:        device.Description,
-		MachineID:          device.MachineID,
-		EdgeType:           device.EdgeType,
-		RaspberryBaseURL:   device.RaspberryBaseURL,
-		PLCAddress:         device.PLCAddress,
-		Status:             device.Status,
-		LastSeenAt:         device.LastSeenAt,
-		LastHealthCheckAt:  device.LastHealthCheckAt,
-		LastHealthStatus:   device.LastHealthStatus,
-		LastHealthSummary:  device.LastHealthSummary,
-		CreatedAt:          device.CreatedAt,
-		UpdatedAt:          device.UpdatedAt,
+		ID:                device.ID,
+		TenantID:          device.TenantID,
+		Name:              device.Name,
+		Description:       device.Description,
+		MachineID:         device.MachineID,
+		EdgeType:          device.EdgeType,
+		RaspberryBaseURL:  device.RaspberryBaseURL,
+		PLCAddress:        device.PLCAddress,
+		Status:            device.Status,
+		LastSeenAt:        device.LastSeenAt,
+		LastHealthCheckAt: device.LastHealthCheckAt,
+		LastHealthStatus:  device.LastHealthStatus,
+		LastHealthSummary: device.LastHealthSummary,
+		CreatedAt:         device.CreatedAt,
+		UpdatedAt:         device.UpdatedAt,
 	}
 }
 

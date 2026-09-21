@@ -34,7 +34,7 @@ func setupNullTenantUser(t *testing.T, db *pgxpool.Pool) (tenantID, userID strin
 		VALUES ($1, 'Test Tenant', 'Test Tenant SRL', $2)`,
 		tenantID, "test-tenant-"+tenantID[:8])
 	require.NoError(t, err)
-	t.Cleanup(func() { db.Exec(context.Background(), "DELETE FROM tenants WHERE id = $1", tenantID) })
+	t.Cleanup(func() { _, _ = db.Exec(context.Background(), "DELETE FROM tenants WHERE id = $1", tenantID) })
 
 	// cliente_admin, no admin: desde la migración 000010 admin es platform-only
 	// y no se puede asignar en un tenant cliente como el que este helper crea —
@@ -44,7 +44,7 @@ func setupNullTenantUser(t *testing.T, db *pgxpool.Pool) (tenantID, userID strin
 		VALUES ($1, $2, NULL, 'active', 'Before', 'Update', 'cliente_admin')`,
 		userID, "repro-"+userID[:8]+"@test.local")
 	require.NoError(t, err)
-	t.Cleanup(func() { db.Exec(context.Background(), "DELETE FROM users WHERE id = $1", userID) })
+	t.Cleanup(func() { _, _ = db.Exec(context.Background(), "DELETE FROM users WHERE id = $1", userID) })
 
 	_, err = db.Exec(ctx, `
 		INSERT INTO user_tenant_roles (id, user_id, tenant_id, role_id, status, assigned_at)

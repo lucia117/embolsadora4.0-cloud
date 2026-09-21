@@ -23,5 +23,10 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v2.13.2
+
       - name: Test (unitarios; los de integración se saltean sin DATABASE_URL/MONGO_URI/REDIS_URL)
         run: go test ./...

@@ -11,6 +11,9 @@ go build ./...
 echo "==> go vet ./..."
 go vet ./...
 
+echo "==> golangci-lint run"
+golangci-lint run
+
 echo "==> go test ./..."
 go test ./...
 

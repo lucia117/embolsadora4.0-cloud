@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tu-org/embolsadora-api/internal/app/edge_devices"
 	"github.com/tu-org/embolsadora-api/internal/api/handler/edge_devices/dto"
+	"github.com/tu-org/embolsadora-api/internal/app/edge_devices"
 	"github.com/tu-org/embolsadora-api/internal/platform"
 )
 

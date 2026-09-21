@@ -30,7 +30,7 @@ func TestAdminClient_InviteUserByEmail_Success(t *testing.T) {
 		assert.Equal(t, "Operador", data["role_name"])
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"id": "user-123"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"id": "user-123"})
 	}))
 	defer srv.Close()
 
@@ -53,7 +53,7 @@ func TestAdminClient_InviteUserByEmail_SinMetadataOmiteData(t *testing.T) {
 		assert.NotContains(t, body, "data", "sin datos que mostrar, no se manda data vacio")
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"id": "user-123"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"id": "user-123"})
 	}))
 	defer srv.Close()
 
@@ -112,7 +112,7 @@ func TestAdminClient_SendPasswordResetEmail_Success(t *testing.T) {
 		assert.Equal(t, "user@example.com", body["email"])
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{})
+		_ = json.NewEncoder(w).Encode(map[string]string{})
 	}))
 	defer srv.Close()
 
