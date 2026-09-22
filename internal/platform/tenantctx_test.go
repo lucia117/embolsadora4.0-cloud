@@ -2,6 +2,7 @@ package platform_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -98,9 +99,7 @@ func TestTenantMatches(t *testing.T) {
 	})
 
 	t.Run("case insensitive: mismo uuid con distinto casing", func(t *testing.T) {
-		ctx := platform.WithTenantID(context.Background(), tenantID.String())
-		upper, err := uuid.Parse(tenantID.String())
-		require.NoError(t, err)
-		assert.True(t, platform.TenantMatches(ctx, upper))
+		ctx := platform.WithTenantID(context.Background(), strings.ToUpper(tenantID.String()))
+		assert.True(t, platform.TenantMatches(ctx, tenantID))
 	})
 }
