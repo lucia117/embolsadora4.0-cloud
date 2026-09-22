@@ -91,6 +91,16 @@ func TestSetPasswordChangeRequired(t *testing.T) {
 	assert.False(t, got.PasswordChangeRequired)
 }
 
+func TestSetPasswordChangeRequired_IDInexistenteNoDaError(t *testing.T) {
+	// Mismo comportamiento que SetStatus: no chequea RowsAffected, un id
+	// inexistente es un no-op silencioso, no un error.
+	pool := poolOrSkip(t)
+	repo := usersRepo.NewUserRepository(pool)
+
+	err := repo.SetPasswordChangeRequired(context.Background(), uuid.NewString(), true)
+	assert.NoError(t, err)
+}
+
 func TestIsActiveMemberOfTenant(t *testing.T) {
 	pool := poolOrSkip(t)
 	repo := usersRepo.NewUserRepository(pool)

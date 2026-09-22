@@ -54,7 +54,7 @@ func TestCreate_ValidacionFalla(t *testing.T) {
 	assert.ErrorIs(t, err, domusers.ErrValidation, "sin FirstName/LastName debe fallar la validacion antes de tocar la DB")
 }
 
-func ptrTo(s string) *string { return &s }
+func roleIDPtr(s string) *string { return &s }
 
 func TestCreateWithRole_HappyPath(t *testing.T) {
 	pool := poolOrSkip(t)
@@ -69,7 +69,7 @@ func TestCreateWithRole_HappyPath(t *testing.T) {
 	utr := &domain.UserTenantRole{
 		ID:       uuid.New(),
 		TenantID: tenantUUID,
-		RoleID:   ptrTo("cliente_operario"),
+		RoleID:   roleIDPtr("cliente_operario"),
 		Status:   domain.UserRoleStatusActive,
 	}
 
@@ -99,7 +99,7 @@ func TestCreateWithRole_RoleIDInexistente(t *testing.T) {
 	utr := &domain.UserTenantRole{
 		ID:       uuid.New(),
 		TenantID: tenantUUID,
-		RoleID:   ptrTo("no-existe-" + uuid.NewString()[:8]),
+		RoleID:   roleIDPtr("no-existe-" + uuid.NewString()[:8]),
 		Status:   domain.UserRoleStatusActive,
 	}
 
@@ -122,7 +122,7 @@ func TestCreateWithRole_EmailDuplicadoEnElMismoTenant(t *testing.T) {
 
 	email := "crud-dup-" + uuid.NewString()[:8] + "@test.local"
 	first := newCrudUser(tenantID, email)
-	firstUTR := &domain.UserTenantRole{ID: uuid.New(), TenantID: tenantUUID, RoleID: ptrTo("cliente_operario"), Status: domain.UserRoleStatusActive}
+	firstUTR := &domain.UserTenantRole{ID: uuid.New(), TenantID: tenantUUID, RoleID: roleIDPtr("cliente_operario"), Status: domain.UserRoleStatusActive}
 	createdFirst, err := repo.CreateWithRole(ctx, first, firstUTR)
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -131,7 +131,7 @@ func TestCreateWithRole_EmailDuplicadoEnElMismoTenant(t *testing.T) {
 	})
 
 	second := newCrudUser(tenantID, email)
-	secondUTR := &domain.UserTenantRole{ID: uuid.New(), TenantID: tenantUUID, RoleID: ptrTo("cliente_operario"), Status: domain.UserRoleStatusActive}
+	secondUTR := &domain.UserTenantRole{ID: uuid.New(), TenantID: tenantUUID, RoleID: roleIDPtr("cliente_operario"), Status: domain.UserRoleStatusActive}
 	_, err = repo.CreateWithRole(ctx, second, secondUTR)
 	assert.ErrorIs(t, err, domusers.ErrEmailTaken)
 }
