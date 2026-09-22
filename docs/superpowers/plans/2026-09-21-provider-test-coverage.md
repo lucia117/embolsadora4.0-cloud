@@ -57,7 +57,7 @@
 
 Es lógica pura sin dependencias externas — 100% unitario, sin gateo. `TenantMatches` es la función con más peso real (la usan los handlers de escritura tenant-scoped para comparar el tenant del path contra el del contexto), así que merece varios casos.
 
-- [ ] **Step 1: Crear el archivo con los tests de round-trip simples**
+- [x] **Step 1: Crear el archivo con los tests de round-trip simples**
 
 ```go
 package platform_test
@@ -138,7 +138,7 @@ func TestAppBaseURLSinSetearDevuelveVacio(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: `TenantMatches` — feliz, mismatch, contexto vacío, tenantID inválido**
+- [x] **Step 2: `TenantMatches` — feliz, mismatch, contexto vacío, tenantID inválido**
 
 ```go
 func TestTenantMatches(t *testing.T) {
@@ -172,7 +172,7 @@ func TestTenantMatches(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: Correr los tests del paquete**
+- [x] **Step 3: Correr los tests del paquete**
 
 Run: `go test ./internal/platform/... -run TestTenant -v`
 Expected: PASS.
@@ -180,7 +180,7 @@ Expected: PASS.
 Run completo del paquete: `go test ./internal/platform/... -v`
 Expected: PASS (incluye Task 1 y Task 2, que viven en subpaquetes distintos así que no colisionan).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add internal/platform/tenantctx_test.go
@@ -200,7 +200,7 @@ git commit -m "test(platform): cubrir tenantctx.go (paquete no tenía ningún te
 
 100% unitario — el `HTTPClient` es un cliente HTTP genérico, se testea contra un `httptest.Server` local, sin tocar red real ni DB.
 
-- [ ] **Step 1: Crear el archivo con `StatusCheck`/`HealthCheck` (comparten `callEndpoint`)**
+- [x] **Step 1: Crear el archivo con `StatusCheck`/`HealthCheck` (comparten `callEndpoint`)**
 
 ```go
 package edgeclient_test
@@ -287,7 +287,7 @@ func TestHealthCheck(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: `GetTelemetry` — feliz, no-2xx propaga error (a diferencia de los checks, NO sintetiza), `CapturedAt` por defecto**
+- [x] **Step 2: `GetTelemetry` — feliz, no-2xx propaga error (a diferencia de los checks, NO sintetiza), `CapturedAt` por defecto**
 
 ```go
 func TestGetTelemetry(t *testing.T) {
@@ -333,12 +333,12 @@ func TestNewHTTPClientTimeoutPorDefecto(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: Correr los tests del paquete**
+- [x] **Step 3: Correr los tests del paquete**
 
 Run: `go test ./internal/platform/edgeclient/... -v`
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add internal/platform/edgeclient/http_client_test.go
@@ -358,7 +358,7 @@ git commit -m "test(edgeclient): cubrir HTTPClient contra httptest.Server (paque
 
 Es el wrapper de conexión real usado en producción (`internal/routes/url_mappings.go:362`) — sin test hoy. Sigue el mismo patrón de skip que el resto de los tests de Mongo del repo.
 
-- [ ] **Step 1: Crear el archivo**
+- [x] **Step 1: Crear el archivo**
 
 ```go
 package mongo_test
@@ -426,12 +426,12 @@ func TestConnectServidorInalcanzableFallaPorPing(t *testing.T) {
 
 Nota: `TestConnectURIInvalidaDevuelveError` y `TestConnectServidorInalcanzableFallaPorPing` NO dependen de `MONGO_URI` (no llaman `testConfig`) — corren siempre, sin skip. Solo `TestConnectPingClose` está gateado.
 
-- [ ] **Step 2: Correr los tests del paquete**
+- [x] **Step 2: Correr los tests del paquete**
 
 Run: `go test ./internal/platform/mongo/... -v`
 Expected: sin `MONGO_URI`, `TestConnectPingClose` hace SKIP y los otros dos PASS. Con `MONGO_URI` seteada (`docker compose up -d mongo`), los tres PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add internal/platform/mongo/client_test.go
@@ -451,7 +451,7 @@ git commit -m "test(mongo): cubrir Connect/Ping/Close (paquete no tenia ningun t
 
 Requiere un tenant real (`alarm_rules_tenant_id_fkey`). Sigue el patrón exacto de `internal/repo/pg/apikeys/repository_test.go` (seed helper + `t.Cleanup`).
 
-- [ ] **Step 1: Crear el archivo con el seed helper y CRUD feliz**
+- [x] **Step 1: Crear el archivo con el seed helper y CRUD feliz**
 
 ```go
 package alarm_rules_test
@@ -562,7 +562,7 @@ func TestGetByIDDeOtroTenantEsNotFound(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: `List` — orden y scoping por tenant**
+- [x] **Step 2: `List` — orden y scoping por tenant**
 
 ```go
 func TestListOrdenaPorCreatedAtYScopeaPorTenant(t *testing.T) {
@@ -601,7 +601,7 @@ func TestListSinReglasDevuelveSliceVacioNoNil(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: `Update` y `Delete` — feliz y not-found**
+- [x] **Step 3: `Update` y `Delete` — feliz y not-found**
 
 ```go
 func TestUpdateHappyPathAndNotFound(t *testing.T) {
@@ -647,12 +647,12 @@ func TestDeleteHappyPathAndNotFound(t *testing.T) {
 }
 ```
 
-- [ ] **Step 4: Correr los tests del paquete**
+- [x] **Step 4: Correr los tests del paquete**
 
 Run: `go test ./internal/repo/pg/alarm_rules/... -v`
 Expected: sin `DATABASE_URL`, todos SKIP. Con `DATABASE_URL` (`docker compose up -d db`), todos PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/repo/pg/alarm_rules/repository_test.go
@@ -672,7 +672,7 @@ git commit -m "test(alarm_rules): cubrir el repository completo (paquete no teni
 
 Requiere tenant Y user reales (`dashboard_layouts_tenant_id_fkey`, `dashboard_layouts_user_id_fkey`). El repo tiene lógica real no trivial (límite de 3 vía `SELECT ... FOR UPDATE`, no-borrar-el-último) que vale la pena cubrir a fondo.
 
-- [ ] **Step 1: Crear el archivo con seed helpers y CRUD feliz**
+- [x] **Step 1: Crear el archivo con seed helpers y CRUD feliz**
 
 ```go
 package dashboard_layouts_test
@@ -765,7 +765,7 @@ func TestGetByIDNotFound(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Límite de 3 layouts y nombre duplicado**
+- [x] **Step 2: Límite de 3 layouts y nombre duplicado**
 
 ```go
 func TestCreateRespetaElLimiteDeTresPorUsuario(t *testing.T) {
@@ -816,7 +816,7 @@ func TestListSoloDevuelveActivosOrdenadosPorCreatedAt(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: `Update` y `SoftDelete` — feliz, not-found, no-borrar-el-ultimo**
+- [x] **Step 3: `Update` y `SoftDelete` — feliz, not-found, no-borrar-el-ultimo**
 
 ```go
 func TestUpdateHappyPathAndNotFound(t *testing.T) {
@@ -866,12 +866,12 @@ func TestSoftDeleteNotFound(t *testing.T) {
 }
 ```
 
-- [ ] **Step 4: Correr los tests del paquete**
+- [x] **Step 4: Correr los tests del paquete**
 
 Run: `go test ./internal/repo/pg/dashboard_layouts/... -v`
 Expected: sin `DATABASE_URL`, SKIP. Con ella, PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/repo/pg/dashboard_layouts/repository_test.go
@@ -891,7 +891,7 @@ git commit -m "test(dashboard_layouts): cubrir el repository completo, incluido 
 
 Requiere tenant real (`edge_devices_tenant_id_fkey`); `device_events.device_id` tiene FK a `edge_devices` (`ON DELETE CASCADE`), así que basta con sembrar el tenant y crear el device vía el propio repo.
 
-- [ ] **Step 1: Crear el archivo con seed helper y CRUD feliz**
+- [x] **Step 1: Crear el archivo con seed helper y CRUD feliz**
 
 ```go
 package edge_devices_test
@@ -1003,7 +1003,7 @@ func TestListScopeaPorTenant(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: `Update`, `SetStatus`, `UpdateHealthState`, `TouchLastSeen` — feliz + not-found**
+- [x] **Step 2: `Update`, `SetStatus`, `UpdateHealthState`, `TouchLastSeen` — feliz + not-found**
 
 ```go
 func TestUpdateHappyPathAndNotFound(t *testing.T) {
@@ -1071,7 +1071,7 @@ func TestUpdateHealthStateAndTouchLastSeen(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: `SaveEvent` y `ListEvents`**
+- [x] **Step 3: `SaveEvent` y `ListEvents`**
 
 ```go
 func TestSaveEventAndListEventsNewestFirst(t *testing.T) {
@@ -1108,12 +1108,12 @@ func TestSaveEventAndListEventsNewestFirst(t *testing.T) {
 }
 ```
 
-- [ ] **Step 4: Correr los tests del paquete**
+- [x] **Step 4: Correr los tests del paquete**
 
 Run: `go test ./internal/repo/pg/edge_devices/... -v`
 Expected: sin `DATABASE_URL`, SKIP. Con ella, PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/repo/pg/edge_devices/repository_test.go
@@ -1135,7 +1135,7 @@ git commit -m "test(edge_devices): cubrir el repository completo (paquete no ten
 
 Precedente de mezclar test whitebox (`package logs`) y test de integración (`package logs_test`) en el mismo directorio: `internal/repo/mongo/metrics/decimate_test.go` (whitebox) + `repository_test.go` (integración), ambos compilando juntos sin problema. `log_entries`/`log_retention_policies` NO tienen FK a `tenants` (confirmado por grep) — no hace falta sembrar tenant, un `uuid.New()` alcanza.
 
-- [ ] **Step 1: Unit tests de `encodeCursor`/`decodeCursor` (round-trip e inválido) y `buildFilterClauses`**
+- [x] **Step 1: Unit tests de `encodeCursor`/`decodeCursor` (round-trip e inválido) y `buildFilterClauses`**
 
 ```go
 package logs
@@ -1206,12 +1206,12 @@ func TestBuildFilterClausesAcumulaTodosLosFiltrosEnOrden(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Correr solo los unit tests**
+- [x] **Step 2: Correr solo los unit tests**
 
 Run: `go test ./internal/repo/pg/logs/... -run 'TestEncodeDecodeCursor|TestDecodeCursor|TestBuildFilterClauses' -v`
 Expected: PASS, sin necesitar `DATABASE_URL`.
 
-- [ ] **Step 3: Crear el archivo de integración con seed helper, `Write`/`Get`/`List`**
+- [x] **Step 3: Crear el archivo de integración con seed helper, `Write`/`Get`/`List`**
 
 ```go
 package logs_test
@@ -1321,7 +1321,7 @@ func TestListCursorInvalidoDevuelveError(t *testing.T) {
 }
 ```
 
-- [ ] **Step 4: `GetContext`, `Export` y retención**
+- [x] **Step 4: `GetContext`, `Export` y retención**
 
 ```go
 func TestGetContextDevuelveVentanaAlrededorDelAncla(t *testing.T) {
@@ -1398,12 +1398,12 @@ func TestRetentionUpsertAndGet(t *testing.T) {
 }
 ```
 
-- [ ] **Step 5: Correr todos los tests del paquete**
+- [x] **Step 5: Correr todos los tests del paquete**
 
 Run: `go test ./internal/repo/pg/logs/... -v`
 Expected: los unit tests del Step 1 PASS siempre. Sin `DATABASE_URL`, los de integración SKIP; con ella, PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add internal/repo/pg/logs/cursor_filters_test.go internal/repo/pg/logs/repository_test.go
@@ -1423,7 +1423,7 @@ git commit -m "test(logs): cubrir cursor/filtros (unit) y el repository completo
 
 `notifications.tenant_id` NO tiene FK (confirmado por grep) — no hace falta sembrar tenant, un `uuid.New()` alcanza. La idempotencia de `Ack`/`Close` (no pisan un estado ya avanzado) es la lógica más delicada del repo.
 
-- [ ] **Step 1: Crear el archivo con seed helper, `List`, `CountUnread`, `GetByID`**
+- [x] **Step 1: Crear el archivo con seed helper, `List`, `CountUnread`, `GetByID`**
 
 ```go
 package notifications_test
@@ -1515,7 +1515,7 @@ func TestGetByIDNotFound(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: `Ack`/`Close` — feliz e idempotencia (no pisar un estado ya avanzado)**
+- [x] **Step 2: `Ack`/`Close` — feliz e idempotencia (no pisar un estado ya avanzado)**
 
 ```go
 func TestAckEsIdempotenteYNoPisaAcknowledgedAtExistente(t *testing.T) {
@@ -1564,12 +1564,12 @@ func TestAckDeIDInexistenteEsNotFound(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: Correr los tests del paquete**
+- [x] **Step 3: Correr los tests del paquete**
 
 Run: `go test ./internal/repo/pg/notifications/... -v`
 Expected: sin `DATABASE_URL`, SKIP. Con ella, PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add internal/repo/pg/notifications/repository_test.go
@@ -1589,7 +1589,7 @@ git commit -m "test(notifications): cubrir el repository completo, incluida la i
 
 `permissions.tenant_id` tiene FK a `tenants` SOLO cuando no es NULL (`chk_custom_perm_has_tenant` obliga a que un permiso custom tenga tenant) — los tests de permisos custom sí siembran tenant; el test de `ErrPermissionIsSystem` sembra un permiso de sistema directo por SQL (tenant_id NULL, sin FK que satisfacer).
 
-- [ ] **Step 1: Crear el archivo con seed helpers y CRUD feliz sobre permisos custom**
+- [x] **Step 1: Crear el archivo con seed helpers y CRUD feliz sobre permisos custom**
 
 ```go
 package permissions_test
@@ -1696,7 +1696,7 @@ func TestListIncluyeSistemaYCustomDelTenant(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: `Update` y `Delete` — feliz, not-found, `ErrPermissionIsSystem`**
+- [x] **Step 2: `Update` y `Delete` — feliz, not-found, `ErrPermissionIsSystem`**
 
 ```go
 func TestUpdateHappyPathAndNotFound(t *testing.T) {
@@ -1760,12 +1760,12 @@ func TestDeleteDePermisoDeSistemaFalla(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: Correr los tests del paquete**
+- [x] **Step 3: Correr los tests del paquete**
 
 Run: `go test ./internal/repo/pg/permissions/... -v`
 Expected: sin `DATABASE_URL`, SKIP. Con ella, PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add internal/repo/pg/permissions/repository_test.go
@@ -1785,7 +1785,7 @@ git commit -m "test(permissions): cubrir el repository completo, incluido el gua
 
 `cloaking_test.go` no cubre: `Create` (happy path + el mapeo del choque contra `idx_user_invitations_pending` a `ErrInvitationAlreadyPending`), `ListPendingByEmail` (sin cloaking, cross-tenant), `UpdateStatus`, y el caso simple de `GetByID` con un id que directamente no existe (no el caso cloaking).
 
-- [ ] **Step 1: Crear el archivo con seed helpers y `Create`**
+- [x] **Step 1: Crear el archivo con seed helpers y `Create`**
 
 ```go
 package invitations_test
@@ -1872,7 +1872,7 @@ func TestCreateDuplicadoPendingDevuelveErrInvitationAlreadyPending(t *testing.T)
 }
 ```
 
-- [ ] **Step 2: `ListPendingByEmail`, `UpdateStatus`, `GetByID` not-found simple**
+- [x] **Step 2: `ListPendingByEmail`, `UpdateStatus`, `GetByID` not-found simple**
 
 ```go
 func TestListPendingByEmailCrossTenantSinCloaking(t *testing.T) {
@@ -1925,12 +1925,12 @@ func TestGetByIDInexistenteEsNotFound(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: Correr los tests del paquete completo (nuevo + `cloaking_test.go` existente)**
+- [x] **Step 3: Correr los tests del paquete completo (nuevo + `cloaking_test.go` existente)**
 
 Run: `go test ./internal/repo/pg/invitations/... -v`
 Expected: sin `DATABASE_URL`, todos SKIP. Con ella, PASS — incluidos los tests ya existentes de `cloaking_test.go`, que no se tocan.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add internal/repo/pg/invitations/repository_test.go
@@ -1941,7 +1941,7 @@ git commit -m "test(invitations): cubrir Create, ListPendingByEmail, UpdateStatu
 
 ## Verificación final (después de todas las tareas)
 
-- [ ] **`go build ./...`** — debe compilar sin errores.
-- [ ] **`go test ./...`** sin `DATABASE_URL`/`MONGO_URI` — todo lo nuevo debe hacer SKIP limpio, nada debe FAIL.
-- [ ] **`go test ./...`** con `DATABASE_URL`/`MONGO_URI`/`REDIS_URL` seteadas (`docker compose up -d db redis mongo`) — todo debe pasar en verde, incluidos los tests preexistentes.
-- [ ] Si el repo tiene `golangci-lint` configurado (ver PR #87), correr `golangci-lint run ./...` sobre los paquetes tocados antes de abrir el PR.
+- [x] **`go build ./...`** — debe compilar sin errores.
+- [x] **`go test ./...`** sin `DATABASE_URL`/`MONGO_URI` — todo lo nuevo debe hacer SKIP limpio, nada debe FAIL.
+- [x] **`go test ./...`** con `DATABASE_URL`/`MONGO_URI`/`REDIS_URL` seteadas (`docker compose up -d db redis mongo`) — todo debe pasar en verde, incluidos los tests preexistentes.
+- [x] Si el repo tiene `golangci-lint` configurado (ver PR #87), correr `golangci-lint run ./...` sobre los paquetes tocados antes de abrir el PR.
