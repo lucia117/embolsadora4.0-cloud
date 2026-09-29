@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	appNotifications "github.com/tu-org/embolsadora-api/internal/app/notifications"
 	"github.com/tu-org/embolsadora-api/internal/api/handler/notifications/dto"
+	appNotifications "github.com/tu-org/embolsadora-api/internal/app/notifications"
 	"github.com/tu-org/embolsadora-api/internal/platform"
 )
 

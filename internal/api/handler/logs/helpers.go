@@ -17,14 +17,14 @@ var validSeverities = map[string]bool{
 }
 
 var validEventTypes = map[string]bool{
-	"":                      true,
-	"alarm_triggered":       true,
-	"alarm_resolved":        true,
-	"device_connected":      true,
-	"device_disconnected":   true,
-	"device_state_changed":  true,
-	"user_action":           true,
-	"system":                true,
+	"":                     true,
+	"alarm_triggered":      true,
+	"alarm_resolved":       true,
+	"device_connected":     true,
+	"device_disconnected":  true,
+	"device_state_changed": true,
+	"user_action":          true,
+	"system":               true,
 }
 
 func parseTenantID(c *gin.Context) (uuid.UUID, bool) {

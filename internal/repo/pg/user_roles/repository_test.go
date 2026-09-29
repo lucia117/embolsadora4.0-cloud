@@ -52,7 +52,7 @@ func TestFindByTenant_ResolvesUserAndRoleAcrossJoin(t *testing.T) {
 	)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		db.Exec(ctx, `DELETE FROM users WHERE id = $1`, autoProvisionedUserID)
+		_, _ = db.Exec(ctx, `DELETE FROM users WHERE id = $1`, autoProvisionedUserID)
 	})
 
 	activeUTRID := uuid.New()
@@ -63,7 +63,7 @@ func TestFindByTenant_ResolvesUserAndRoleAcrossJoin(t *testing.T) {
 	)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		db.Exec(ctx, `DELETE FROM user_tenant_roles WHERE id = $1`, activeUTRID)
+		_, _ = db.Exec(ctx, `DELETE FROM user_tenant_roles WHERE id = $1`, activeUTRID)
 	})
 
 	pendingUTRID := uuid.New()
@@ -73,7 +73,7 @@ func TestFindByTenant_ResolvesUserAndRoleAcrossJoin(t *testing.T) {
 	)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		db.Exec(ctx, `DELETE FROM user_tenant_roles WHERE id = $1`, pendingUTRID)
+		_, _ = db.Exec(ctx, `DELETE FROM user_tenant_roles WHERE id = $1`, pendingUTRID)
 	})
 
 	var expectedRoleName string

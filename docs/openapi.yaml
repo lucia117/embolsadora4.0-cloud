@@ -1,4 +1,4 @@
- openapi: 3.1.0
+openapi: 3.1.0
 info:
   title: Embolsadora Cloud API
   version: 2.0.0-alpha
@@ -23,11 +23,50 @@ tags:
   - name: Consumers
   - name: Logs
   - name: Retention
+  - name: Notifications
+  - name: Permissions
+  - name: Roles
+  - name: AlarmRules
+  - name: DashboardLayouts
+  - name: DashboardMetrics
+  - name: EdgeDevices
 
 paths:
   ########################
   # Auth (Supabase delegado)
   ########################
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login contra Supabase Auth (password grant)
+      description: >
+        Proxy transparente a `POST {SUPABASE_URL}/auth/v1/token?grant_type=password`.
+        La respuesta (status y body) de Supabase se reenvía tal cual — no hay
+        transformación ni envelope propio. Si el fetch a Supabase falla (red,
+        timeout), responde 502.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Login exitoso — body pasado tal cual desde Supabase (access_token, refresh_token, token_type, expires_in, user, ...)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SupabaseAuthResponse' }
+        '400':
+          description: Body inválido (bind falló) o error 4xx pasado tal cual desde Supabase (ej. credenciales incorrectas)
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '502':
+          description: No se pudo contactar a Supabase Auth
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+
   /api/v1/me:
     get:
       tags: [Me]
@@ -215,6 +254,21 @@ paths:
   ########################
   # ABM (JWT + RBAC)
   ########################
+  /api/v1/users/pending:
+    get:
+      tags: [Users]
+      summary: Listar usuarios con invitación pendiente de activación
+      description: Requiere permiso `perm_users_view`.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Usuarios pendientes
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PendingUserList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
   /api/v1/users:
     get:
       tags: [Users]
@@ -996,6 +1050,1035 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  ########################
+  # Permissions
+  ########################
+  /api/v1/permissions:
+    get:
+      tags: [Permissions]
+      summary: Listar permisos del catálogo
+      description: Sin RBAC adicional — cualquier usuario autenticado puede consultar.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Lista de permisos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Permission' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Permissions]
+      summary: Crear un permiso
+      description: Requiere `perm_users_manage`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PermissionCreate' }
+      responses:
+        '201':
+          description: Permiso creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Permission' }
+        '400':
+          description: Validación fallida
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PermissionValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/v1/permissions/{id}:
+    get:
+      tags: [Permissions]
+      summary: Obtener un permiso por ID
+      description: Sin RBAC adicional.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Permiso encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Permission' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: Permiso no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PermissionError' }
+    put:
+      tags: [Permissions]
+      summary: Actualizar un permiso
+      description: Requiere `perm_users_manage`. Los permisos del sistema (`isSystemPermission=true`) no se pueden modificar.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PermissionCreate' }
+      responses:
+        '200':
+          description: Permiso actualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Permission' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: No se pueden modificar permisos del sistema
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PermissionError' }
+        '404':
+          description: Permiso no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PermissionError' }
+    delete:
+      tags: [Permissions]
+      summary: Eliminar un permiso
+      description: Requiere `perm_users_manage`. Los permisos del sistema no se pueden eliminar.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Permiso eliminado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { success: { type: boolean } }
+                required: [success]
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: No se pueden eliminar permisos del sistema
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PermissionError' }
+        '404':
+          description: Permiso no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PermissionError' }
+
+  ########################
+  # Roles
+  ########################
+  /api/v1/roles:
+    get:
+      tags: [Roles]
+      summary: Listar roles del tenant
+      description: Sin RBAC adicional — cualquier usuario autenticado puede listar/ver roles.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Lista de roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Role' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Roles]
+      summary: Crear un rol
+      description: Requiere `perm_users_manage`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoleWrite' }
+      responses:
+        '201':
+          description: Rol creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Role' }
+        '400':
+          description: "Validación fallida o límite de roles alcanzado (LIMIT_REACHED)"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: Ya existe un rol con ese nombre (DUPLICATE_NAME)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/v1/roles/{id}:
+    get:
+      tags: [Roles]
+      summary: Obtener un rol por ID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Rol encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Role' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: Rol no encontrado (ROLE_NOT_FOUND)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    put:
+      tags: [Roles]
+      summary: Actualizar un rol
+      description: Requiere `perm_users_manage`. Los roles del sistema no se pueden modificar (SYSTEM_ROLE).
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoleWrite' }
+      responses:
+        '200':
+          description: Rol actualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Role' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Rol del sistema, no modificable (SYSTEM_ROLE)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: Rol no encontrado (ROLE_NOT_FOUND)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: Ya existe un rol con ese nombre (DUPLICATE_NAME)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    delete:
+      tags: [Roles]
+      summary: Eliminar un rol
+      description: Requiere `perm_users_manage`. Falla si el rol tiene asignaciones activas (ROLE_HAS_ASSIGNMENTS).
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Rol eliminado
+          content:
+            application/json:
+              schema: { type: object }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Rol del sistema, no eliminable (SYSTEM_ROLE)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: Rol no encontrado (ROLE_NOT_FOUND)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: El rol tiene usuarios asignados (ROLE_HAS_ASSIGNMENTS)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ErrorResponse'
+                  - type: object
+                    properties:
+                      usersAffected: { type: integer }
+
+  ########################
+  # Alarm Rules
+  ########################
+  /api/v1/alarm-rules:
+    get:
+      tags: [AlarmRules]
+      summary: Listar reglas de alarma del tenant
+      description: Sin RBAC adicional — cualquier usuario autenticado del tenant puede listar/ver reglas.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Lista de reglas
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AlarmRule' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [AlarmRules]
+      summary: Crear una regla de alarma
+      description: Requiere `perm_users_manage`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AlarmRuleCreate' }
+      responses:
+        '201':
+          description: Regla creada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AlarmRule' }
+        '400':
+          description: Validación fallida (VALIDATION_ERROR)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/v1/alarm-rules/{id}:
+    get:
+      tags: [AlarmRules]
+      summary: Obtener una regla de alarma por ID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Regla encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AlarmRule' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: Regla no encontrada (ALARM_RULE_NOT_FOUND)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    patch:
+      tags: [AlarmRules]
+      summary: Actualizar parcialmente una regla de alarma
+      description: Requiere `perm_users_manage`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AlarmRuleUpdate' }
+      responses:
+        '200':
+          description: Regla actualizada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AlarmRule' }
+        '400':
+          description: Validación fallida (VALIDATION_ERROR)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Regla no encontrada (ALARM_RULE_NOT_FOUND)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    delete:
+      tags: [AlarmRules]
+      summary: Eliminar una regla de alarma
+      description: Requiere `perm_users_manage`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Regla eliminada
+          content:
+            application/json:
+              schema: { type: object }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Regla no encontrada (ALARM_RULE_NOT_FOUND)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  ########################
+  # Dashboard Layouts
+  ########################
+  /api/v1/dashboard-layouts:
+    get:
+      tags: [DashboardLayouts]
+      summary: Listar layouts de dashboard del usuario
+      description: tenant_id viene de `X-Tenant-ID`, user_id del JWT. Sin RBAC adicional más allá de estar autenticado.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Lista de layouts (máx. 3 por usuario/tenant)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DashboardLayoutList' }
+        '401':
+          description: Usuario no identificado en el JWT (UNAUTHORIZED)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    post:
+      tags: [DashboardLayouts]
+      summary: Crear un layout de dashboard
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DashboardLayoutWrite' }
+      responses:
+        '200':
+          description: Layout creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DashboardLayout' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401':
+          description: Usuario no identificado en el JWT (UNAUTHORIZED)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Límite de layouts alcanzado (LIMIT_REACHED)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: Ya existe un layout con ese nombre (DUPLICATE_NAME)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/v1/dashboard-layouts/{layoutId}:
+    get:
+      tags: [DashboardLayouts]
+      summary: Obtener un layout por ID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: layoutId, in: path, required: true, schema: { type: string, format: uuid } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Layout encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DashboardLayout' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: Layout no encontrado (LAYOUT_NOT_FOUND)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    put:
+      tags: [DashboardLayouts]
+      summary: Actualizar un layout
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: layoutId, in: path, required: true, schema: { type: string, format: uuid } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DashboardLayoutWrite' }
+      responses:
+        '200':
+          description: Layout actualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DashboardLayout' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: Layout no encontrado (LAYOUT_NOT_FOUND)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: Ya existe un layout con ese nombre (DUPLICATE_NAME)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    delete:
+      tags: [DashboardLayouts]
+      summary: Eliminar un layout
+      description: No se puede eliminar el último layout del usuario (CANNOT_DELETE_LAST_LAYOUT).
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: layoutId, in: path, required: true, schema: { type: string, format: uuid } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Layout eliminado
+          content:
+            application/json:
+              schema: { type: object }
+        '400':
+          description: No se puede eliminar el último layout (CANNOT_DELETE_LAST_LAYOUT)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: Layout no encontrado (LAYOUT_NOT_FOUND)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  ########################
+  # Dashboard Metrics
+  ########################
+  /api/v1/dashboards/metrics/query:
+    post:
+      tags: [DashboardMetrics]
+      summary: Consultar métricas de una máquina
+      description: >
+        Requiere `perm_metrics_view`. Sujeto a rate limit por tenant
+        (`DashboardRateLimit`, responde 429 con header `Retry-After`).
+        `metrics` acepta hasta `MaxSpecs` (10) entradas.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MetricsQueryRequest' }
+      responses:
+        '200':
+          description: Resultado de la consulta
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MetricsQueryEnvelope' }
+        '400':
+          description: "Parámetros inválidos, X-Tenant-ID ausente/inválido, JSON malformado, o conflicto de modo (ej. RAW_MODE_CONFLICT, GROUP_BY_CONFLICT, RANGE_TOO_WIDE, TOO_MANY_METRICS, TOO_MANY_GROUPS)"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MetricsErrorEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '504':
+          description: Timeout consultando Mongo (QUERY_TIMEOUT)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MetricsErrorEnvelope' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/dashboards/metrics/catalog:
+    get:
+      tags: [DashboardMetrics]
+      summary: Listar los aasPaths disponibles para una máquina
+      description: Requiere `perm_metrics_view`. Sujeto al mismo rate limit que `/query`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: machineId, in: query, required: true, schema: { type: string } }
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Catálogo de métricas disponibles
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MetricsCatalogResponse' }
+        '400':
+          description: X-Tenant-ID ausente/inválido o machineId ausente (INVALID_PARAMS)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MetricsErrorEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/dashboards/metrics/query/batch:
+    post:
+      tags: [DashboardMetrics]
+      summary: Consultar métricas de varias máquinas/consultas en un solo request
+      description: >
+        Requiere `perm_metrics_view`. Hasta `MaxBatchQueries` (50) consultas
+        por batch, cada una con su propio `id`. Los errores de una consulta
+        individual no abortan el resto del batch.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: X-Tenant-ID
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MetricsBatchRequest' }
+      responses:
+        '200':
+          description: Resultados del batch (por ítem, ver `MetricsBatchResultItem.success`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MetricsBatchResponse' }
+        '400':
+          description: "Parámetros inválidos a nivel batch (ej. ids duplicados, más de MaxBatchQueries consultas)"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MetricsErrorEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  ########################
+  # Edge Devices — núcleo
+  # 403 puede llegar con el shape estándar JWTError (JWTAuth/RBACCheck) o
+  # como EdgeDeviceErrorEnvelope {success:false, error:"tenant access denied"}
+  # (chequeo de membership del tenant, ResolveTenantAndCheckMembership).
+  ########################
+  /api/v1/tenants/{tenantId}/edge-devices:
+    parameters:
+      - { name: tenantId, in: path, required: true, description: "Subdominio (slug) del tenant, no su UUID — se resuelve contra tenants.subdomain.", schema: { type: string } }
+    get:
+      tags: [EdgeDevices]
+      summary: Listar dispositivos edge del tenant
+      description: Requiere `perm_edge_devices_view`. Tenant resuelto desde el path, no desde `X-Tenant-ID`.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Lista de dispositivos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceListEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Tenant no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+    post:
+      tags: [EdgeDevices]
+      summary: Crear un dispositivo edge
+      description: Requiere `perm_edge_devices_create`.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EdgeDeviceCreate' }
+      responses:
+        '201':
+          description: Dispositivo creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceEnvelope' }
+        '400':
+          description: Body inválido
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Tenant no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+        '409':
+          description: "machineId ya existe en el tenant"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+
+  /api/v1/tenants/{tenantId}/edge-devices/{deviceId}:
+    parameters:
+      - { name: tenantId, in: path, required: true, description: "Subdominio (slug) del tenant, no su UUID — se resuelve contra tenants.subdomain.", schema: { type: string } }
+      - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [EdgeDevices]
+      summary: Obtener un dispositivo edge por ID
+      description: Requiere `perm_edge_devices_view`.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Dispositivo encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Dispositivo no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+    put:
+      tags: [EdgeDevices]
+      summary: Actualizar un dispositivo edge
+      description: Requiere `perm_edge_devices_manage`. `machineId` y `edgeType` son inmutables (se ignoran si se envían).
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EdgeDeviceUpdate' }
+      responses:
+        '200':
+          description: Dispositivo actualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceEnvelope' }
+        '400':
+          description: "Nombre vacío o raspberryBaseUrl inválida"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Dispositivo no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+
+  /api/v1/tenants/{tenantId}/edge-devices/{deviceId}/enable:
+    post:
+      tags: [EdgeDevices]
+      summary: Habilitar un dispositivo edge
+      description: Requiere `perm_edge_devices_manage`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, description: "Subdominio (slug) del tenant, no su UUID — se resuelve contra tenants.subdomain.", schema: { type: string } }
+        - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: "Dispositivo habilitado (status pasa a ACTIVE)"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Dispositivo no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+
+  /api/v1/tenants/{tenantId}/edge-devices/{deviceId}/disable:
+    post:
+      tags: [EdgeDevices]
+      summary: Deshabilitar un dispositivo edge
+      description: Requiere `perm_edge_devices_manage`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, description: "Subdominio (slug) del tenant, no su UUID — se resuelve contra tenants.subdomain.", schema: { type: string } }
+        - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: "Dispositivo deshabilitado (status pasa a DISABLED)"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Dispositivo no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+
+  ########################
+  # Edge Devices — operacional
+  ########################
+  /api/v1/tenants/{tenantId}/edge-devices/{deviceId}/status:
+    post:
+      tags: [EdgeDevices]
+      summary: Disparar un chequeo de status contra el dispositivo
+      description: Requiere `perm_edge_devices_check`. Queda registrado en el audit trail (`userId`/`userEmail` del JWT).
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, description: "Subdominio (slug) del tenant, no su UUID — se resuelve contra tenants.subdomain.", schema: { type: string } }
+        - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Resultado del chequeo
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceCheckResultEnvelope' }
+        '400':
+          description: "Dispositivo deshabilitado (EDGE_DEVICE_DISABLED)"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Dispositivo no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+
+  /api/v1/tenants/{tenantId}/edge-devices/{deviceId}/health-check:
+    post:
+      tags: [EdgeDevices]
+      summary: Disparar un health check contra el dispositivo
+      description: Requiere `perm_edge_devices_check`. Igual contrato que `/status`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, description: "Subdominio (slug) del tenant, no su UUID — se resuelve contra tenants.subdomain.", schema: { type: string } }
+        - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Resultado del chequeo
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceCheckResultEnvelope' }
+        '400':
+          description: "Dispositivo deshabilitado (EDGE_DEVICE_DISABLED)"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Dispositivo no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+
+  /api/v1/tenants/{tenantId}/edge-devices/{deviceId}/telemetry:
+    get:
+      tags: [EdgeDevices]
+      summary: Obtener telemetría actual del dispositivo
+      description: Requiere `perm_edge_devices_view`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, description: "Subdominio (slug) del tenant, no su UUID — se resuelve contra tenants.subdomain.", schema: { type: string } }
+        - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Telemetría del dispositivo
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceTelemetryEnvelope' }
+        '400':
+          description: "Dispositivo deshabilitado (EDGE_DEVICE_DISABLED)"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Dispositivo no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+
+  /api/v1/tenants/{tenantId}/edge-devices/{deviceId}/events:
+    get:
+      tags: [EdgeDevices]
+      summary: Listar el historial de chequeos (status/health-check) del dispositivo
+      description: Requiere `perm_edge_devices_view`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, description: "Subdominio (slug) del tenant, no su UUID — se resuelve contra tenants.subdomain.", schema: { type: string } }
+        - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Historial de eventos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceEventListEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Dispositivo no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+
+  /api/v1/tenants/{tenantId}/edge-devices/{deviceId}/api-keys:
+    parameters:
+      - { name: tenantId, in: path, required: true, description: "Subdominio (slug) del tenant, no su UUID — se resuelve contra tenants.subdomain.", schema: { type: string } }
+      - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [EdgeDevices]
+      summary: Listar API keys del dispositivo
+      description: Requiere `perm_edge_devices_view`. No expone secretos, solo metadata.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Lista de API keys
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceAPIKeyListEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Dispositivo no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+    post:
+      tags: [EdgeDevices]
+      summary: Emitir una nueva API key para el dispositivo
+      description: >
+        Requiere `perm_edge_devices_manage`. El secreto en texto plano solo se
+        devuelve en esta respuesta — nunca vuelve a exponerse (ver GET, que
+        solo devuelve metadata).
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EdgeDeviceAPIKeyCreate' }
+      responses:
+        '201':
+          description: API key creada (incluye el secreto en texto plano una única vez)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceAPIKeyEnvelope' }
+        '400':
+          description: Body malformado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Dispositivo no encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+
+  /api/v1/tenants/{tenantId}/edge-devices/{deviceId}/api-keys/{keyId}:
+    delete:
+      tags: [EdgeDevices]
+      summary: Revocar una API key del dispositivo
+      description: Requiere `perm_edge_devices_manage`. Idempotente.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: tenantId, in: path, required: true, description: "Subdominio (slug) del tenant, no su UUID — se resuelve contra tenants.subdomain.", schema: { type: string } }
+        - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: keyId, in: path, required: true, description: "El campo id de EdgeDeviceAPIKey (la PK), no su campo keyId.", schema: { type: string, format: uuid } }
+      responses:
+        '204':
+          description: API key revocada
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: "API key no encontrada"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EdgeDeviceErrorEnvelope' }
+
 components:
   ########################
   # Security
@@ -1444,6 +2527,562 @@ components:
       required: [retention_days]
       properties:
         retention_days: { type: integer, minimum: 1, maximum: 3650 }
+
+    LoginRequest:
+      type: object
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+      required: [email, password]
+
+    SupabaseAuthResponse:
+      type: object
+      description: Passthrough del body de Supabase Auth — no es un contrato propio de esta API.
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, example: bearer }
+        expires_in: { type: integer }
+        refresh_token: { type: string }
+        user: { type: object, additionalProperties: true }
+      additionalProperties: true
+
+    PendingUserList:
+      type: object
+      required: [data, total]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/User' }
+        total: { type: integer }
+
+    Permission:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        section: { type: string }
+        description: { type: string }
+        isSystemPermission: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, name, section, description, isSystemPermission]
+
+    PermissionCreate:
+      type: object
+      properties:
+        name: { type: string }
+        section: { type: string }
+        description: { type: string }
+      required: [name, section, description]
+
+    PermissionError:
+      type: object
+      properties:
+        error: { type: string }
+      required: [error]
+
+    PermissionValidationError:
+      type: object
+      properties:
+        error: { type: string, example: "Validation failed" }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              path: { type: string }
+              message: { type: string }
+      required: [error, errors]
+
+    ErrorResponse:
+      type: object
+      description: Formato de error de dominio compartido por Roles, Alarm Rules y Dashboard Layouts — no confundir con JWTError (401/403 de middleware).
+      properties:
+        error: { type: string, description: "Código de error, ej. ROLE_NOT_FOUND" }
+        message: { type: string }
+        status: { type: integer }
+      required: [error, message, status]
+
+    Role:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        permissions:
+          type: array
+          items: { type: string }
+        isSystemRole: { type: boolean }
+        isGlobal: { type: boolean }
+        tenantId: { type: string, format: uuid, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, name, permissions, isSystemRole, isGlobal, createdAt, updatedAt]
+
+    RoleWrite:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+        permissions:
+          type: array
+          items: { type: string }
+      required: [name]
+
+    AlarmRule:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        metric: { type: string }
+        operator: { type: string, enum: [gt, lt, gte, lte, eq] }
+        threshold: { type: number }
+        severity: { type: string, enum: [info, warning, critical] }
+        enabled: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, tenantId, name, metric, operator, threshold, severity, enabled, createdAt, updatedAt]
+
+    AlarmRuleCreate:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+        metric: { type: string }
+        operator: { type: string, enum: [gt, lt, gte, lte, eq] }
+        threshold: { type: number }
+        severity: { type: string, enum: [info, warning, critical] }
+        enabled: { type: boolean, default: true }
+      required: [name, metric, operator, threshold, severity]
+
+    AlarmRuleUpdate:
+      type: object
+      description: Todos los campos opcionales (actualización parcial).
+      properties:
+        name: { type: string }
+        description: { type: string }
+        metric: { type: string }
+        operator: { type: string, enum: [gt, lt, gte, lte, eq] }
+        threshold: { type: number }
+        severity: { type: string, enum: [info, warning, critical] }
+        enabled: { type: boolean }
+      minProperties: 1
+
+    LayoutWidgetPosition:
+      type: object
+      properties:
+        x: { type: integer }
+        y: { type: integer }
+        w: { type: integer }
+        h: { type: integer }
+        i: { type: string }
+      required: [x, y, w, h, i]
+
+    LayoutWidget:
+      type: object
+      properties:
+        id: { type: string }
+        type: { type: string }
+        name: { type: string }
+        title: { type: string }
+        description: { type: string }
+        category: { type: string }
+        icon: { type: string }
+        position: { $ref: '#/components/schemas/LayoutWidgetPosition' }
+      required: [id, type, position]
+
+    DashboardLayout:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        widgets:
+          type: array
+          items: { $ref: '#/components/schemas/LayoutWidget' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, name, widgets, createdAt, updatedAt]
+
+    DashboardLayoutWrite:
+      type: object
+      properties:
+        name: { type: string }
+        widgets:
+          type: array
+          items: { $ref: '#/components/schemas/LayoutWidget' }
+      required: [name]
+
+    DashboardLayoutList:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/DashboardLayout' }
+        meta:
+          type: object
+          properties:
+            total: { type: integer }
+            limit: { type: integer, description: "Hardcodeado a 3 hoy — no es un query param configurable." }
+          required: [total, limit]
+      required: [data, meta]
+
+    MetricSpec:
+      type: object
+      properties:
+        aasPath: { type: string }
+        agg: { type: string, enum: [avg, sum, min, max, last, count, delta, raw] }
+      required: [aasPath, agg]
+
+    MetricsQueryRequest:
+      type: object
+      properties:
+        machineId: { type: string }
+        range: { type: string, enum: ["15m", "30m", "1h", "8h", "24h", "7d", "30d"] }
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        bucket: { type: string, enum: ["1m", "5m", "15m", "1h", "6h", "1d"] }
+        metrics:
+          type: array
+          items: { $ref: '#/components/schemas/MetricSpec' }
+          minItems: 1
+          maxItems: 10
+        groupBy: { type: string }
+        filter:
+          type: object
+          properties:
+            valueEquals: {}
+        maxPoints: { type: integer }
+      required: [machineId, metrics]
+
+    MetricPoint:
+      type: object
+      properties:
+        ts: { type: string, format: date-time }
+        value: {}
+      required: [ts, value]
+
+    MetricScalarResult:
+      type: object
+      properties:
+        aasPath: { type: string }
+        agg: { type: string }
+        value: { type: number }
+        sampleCount: { type: integer }
+      required: [aasPath, agg, value, sampleCount]
+
+    MetricSeriesPoint:
+      type: object
+      properties:
+        ts: { type: string, format: date-time }
+        results:
+          type: array
+          items: { $ref: '#/components/schemas/MetricScalarResult' }
+      required: [ts, results]
+
+    MetricGroupResult:
+      type: object
+      properties:
+        key: { type: string }
+        value: { type: number }
+      required: [key, value]
+
+    MetricsQueryResponse:
+      type: object
+      description: >
+        Forma discriminada por `mode`: `scalar` usa `results`, `series` usa
+        `series`, `raw` usa `points`, `grouped` usa `groups`. Los campos no
+        aplicables al modo actual se omiten.
+      properties:
+        mode: { type: string, enum: [scalar, series, raw, grouped] }
+        machineId: { type: string }
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        dataAsOf: { type: string, format: date-time, nullable: true }
+        bucket: { type: string }
+        results:
+          type: array
+          items: { $ref: '#/components/schemas/MetricScalarResult' }
+        series:
+          type: array
+          items: { $ref: '#/components/schemas/MetricSeriesPoint' }
+        aasPath: { type: string }
+        points:
+          type: array
+          items: { $ref: '#/components/schemas/MetricPoint' }
+        agg: { type: string }
+        groupBy: { type: string }
+        groups:
+          type: array
+          items: { $ref: '#/components/schemas/MetricGroupResult' }
+      required: [mode, machineId, from, to]
+
+    MetricsQueryEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data: { $ref: '#/components/schemas/MetricsQueryResponse' }
+      required: [success, data]
+
+    MetricsErrorEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        error: { type: string }
+        code: { type: string, enum: [INVALID_PARAMS, TOO_MANY_METRICS, RAW_MODE_CONFLICT, GROUP_BY_CONFLICT, RANGE_TOO_WIDE, TOO_MANY_GROUPS, TOO_MANY_QUERIES, QUERY_TIMEOUT] }
+      required: [success, error, code]
+
+    MetricsCatalogResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          type: object
+          properties:
+            machineId: { type: string }
+            aasPaths:
+              type: array
+              items: { type: string }
+          required: [machineId, aasPaths]
+      required: [success, data]
+
+    MetricsBatchQueryItem:
+      allOf:
+        - $ref: '#/components/schemas/MetricsQueryRequest'
+        - type: object
+          properties:
+            id: { type: string }
+          required: [id]
+
+    MetricsBatchRequest:
+      type: object
+      properties:
+        queries:
+          type: array
+          items: { $ref: '#/components/schemas/MetricsBatchQueryItem' }
+          minItems: 1
+          maxItems: 50
+      required: [queries]
+
+    MetricsBatchResultItem:
+      type: object
+      description: Los errores por ítem no abortan el batch — solo errores a nivel batch (ej. ids duplicados) devuelven un envelope de error top-level.
+      properties:
+        id: { type: string }
+        success: { type: boolean }
+        data: { $ref: '#/components/schemas/MetricsQueryResponse' }
+        error: { type: string }
+        code: { type: string }
+      required: [id, success]
+
+    MetricsBatchResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          type: object
+          properties:
+            results:
+              type: array
+              items: { $ref: '#/components/schemas/MetricsBatchResultItem' }
+          required: [results]
+      required: [success, data]
+
+    EdgeDevice:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        machineId: { type: string }
+        edgeType: { type: string, enum: [RASPBERRY_PLC] }
+        raspberryBaseUrl: { type: string }
+        plcAddress: { type: string, nullable: true }
+        status: { type: string, enum: [ACTIVE, DISABLED] }
+        lastSeenAt: { type: string, format: date-time, nullable: true }
+        lastHealthCheckAt: { type: string, format: date-time, nullable: true }
+        lastHealthStatus: { type: string, enum: [OK, DEGRADED, ERROR, UNKNOWN] }
+        lastHealthSummary: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, tenantId, name, machineId, edgeType, raspberryBaseUrl, status, lastHealthStatus, createdAt, updatedAt]
+
+    EdgeDeviceCreate:
+      type: object
+      properties:
+        name: { type: string }
+        machineId: { type: string }
+        edgeType: { type: string, enum: [RASPBERRY_PLC] }
+        raspberryBaseUrl: { type: string }
+        description: { type: string, nullable: true }
+        plcAddress: { type: string, nullable: true }
+      required: [name, machineId, edgeType, raspberryBaseUrl]
+
+    EdgeDeviceUpdate:
+      type: object
+      description: machineId y edgeType son inmutables — no se aceptan en este body.
+      properties:
+        name: { type: string, nullable: true }
+        description: { type: string, nullable: true }
+        raspberryBaseUrl: { type: string, nullable: true }
+        plcAddress: { type: string, nullable: true }
+
+    EdgeDeviceEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data: { $ref: '#/components/schemas/EdgeDevice' }
+      required: [success, data]
+
+    EdgeDeviceListEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/EdgeDevice' }
+      required: [success, data]
+
+    EdgeDeviceErrorEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        error: { type: string }
+      required: [success, error]
+
+    EdgeDeviceCheckResult:
+      type: object
+      properties:
+        checkType: { type: string, enum: [STATUS, HEALTH_CHECK] }
+        checkedAt: { type: string, format: date-time }
+        overallStatus: { type: string, enum: [OK, DEGRADED, ERROR, UNKNOWN] }
+        summary: { type: string }
+        details:
+          type: object
+          additionalProperties: true
+      required: [checkType, checkedAt, overallStatus, summary]
+
+    EdgeDeviceCheckResultEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data: { $ref: '#/components/schemas/EdgeDeviceCheckResult' }
+      required: [success, data]
+
+    EdgeDeviceTelemetry:
+      type: object
+      properties:
+        capturedAt: { type: string, format: date-time }
+        cpu:
+          type: object
+          nullable: true
+          properties:
+            usagePercent: { type: number, nullable: true }
+        ram:
+          type: object
+          nullable: true
+          properties:
+            usedPercent: { type: number }
+            usedMb: { type: number }
+            totalMb: { type: number }
+        disk:
+          type: object
+          nullable: true
+          properties:
+            usedPercent: { type: number }
+            usedGb: { type: number }
+            totalGb: { type: integer }
+        temperatureCelsius: { type: number, nullable: true }
+        uptimeSeconds: { type: integer, nullable: true }
+        plc:
+          type: object
+          nullable: true
+          properties:
+            reachable: { type: boolean }
+            latencyMs: { type: integer, nullable: true }
+            lastHeartbeatAt: { type: string, format: date-time, nullable: true }
+      required: [capturedAt]
+
+    EdgeDeviceTelemetryEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data: { $ref: '#/components/schemas/EdgeDeviceTelemetry' }
+      required: [success, data]
+
+    EdgeDeviceEvent:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        deviceId: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        checkType: { type: string, enum: [STATUS, HEALTH_CHECK] }
+        checkedAt: { type: string, format: date-time }
+        overallStatus: { type: string, enum: [OK, DEGRADED, ERROR, UNKNOWN] }
+        summary: { type: string, nullable: true }
+        details:
+          type: object
+          additionalProperties: true
+        userId: { type: string, format: uuid }
+        userEmail: { type: string, format: email }
+      required: [id, deviceId, tenantId, checkType, checkedAt, overallStatus, userId, userEmail]
+
+    EdgeDeviceEventListEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/EdgeDeviceEvent' }
+      required: [success, data]
+
+    EdgeDeviceAPIKey:
+      type: object
+      description: Nunca incluye el secreto en texto plano — eso solo aparece en la respuesta de creación (ver `EdgeDeviceAPIKeyCreated`).
+      properties:
+        id: { type: string }
+        keyId: { type: string }
+        name: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time, nullable: true }
+        revokedAt: { type: string, format: date-time, nullable: true }
+        lastUsedAt: { type: string, format: date-time, nullable: true }
+        active: { type: boolean }
+        deviceStatus: { type: string, enum: [ACTIVE, DISABLED] }
+      required: [id, keyId, createdAt, active, deviceStatus]
+
+    EdgeDeviceAPIKeyCreate:
+      type: object
+      properties:
+        name: { type: string, nullable: true }
+        expiresAt: { type: string, format: date-time, nullable: true }
+
+    EdgeDeviceAPIKeyCreated:
+      description: Igual a `EdgeDeviceAPIKey` más el secreto en texto plano — se muestra una única vez, en esta respuesta.
+      allOf:
+        - $ref: '#/components/schemas/EdgeDeviceAPIKey'
+        - type: object
+          properties:
+            key: { type: string }
+          required: [key]
+
+    EdgeDeviceAPIKeyEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data: { $ref: '#/components/schemas/EdgeDeviceAPIKeyCreated' }
+      required: [success, data]
+
+    EdgeDeviceAPIKeyListEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/EdgeDeviceAPIKey' }
+      required: [success, data]
 
   ########################
   # Standard responses

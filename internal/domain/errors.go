@@ -11,6 +11,8 @@ var ErrForbidden = errors.New("forbidden")
 var ErrNotFound = errors.New("not found")
 
 // ErrUserAlreadyHasActiveRole is returned when a user already has an active role in a tenant.
+//
+//nolint:staticcheck // texto expuesto tal cual en la respuesta HTTP (err.Error()); no cambiar el wording sin coordinar con el frontend.
 var ErrUserAlreadyHasActiveRole = errors.New("User already has an active role in this tenant. Use PUT to update.")
 
 // ErrAssignmentNotFound is returned when a user-role assignment does not exist.

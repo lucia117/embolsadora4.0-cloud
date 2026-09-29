@@ -32,7 +32,7 @@ func TestUpsertBySupabaseID_Idempotency(t *testing.T) {
 	const email = "idempotency@test.example.com"
 
 	// Cleanup before test
-	db.Exec(ctx, "DELETE FROM users WHERE supabase_user_id = $1", supabaseID)
+	_, _ = db.Exec(ctx, "DELETE FROM users WHERE supabase_user_id = $1", supabaseID)
 
 	const goroutines = 10
 	var wg sync.WaitGroup
@@ -53,5 +53,5 @@ func TestUpsertBySupabaseID_Idempotency(t *testing.T) {
 	assert.Equal(t, 1, count, "concurrent upserts should produce exactly one record")
 
 	// Cleanup
-	db.Exec(ctx, "DELETE FROM users WHERE supabase_user_id = $1", supabaseID)
+	_, _ = db.Exec(ctx, "DELETE FROM users WHERE supabase_user_id = $1", supabaseID)
 }

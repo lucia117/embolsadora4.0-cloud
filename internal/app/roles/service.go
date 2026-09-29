@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"go.uber.org/zap"
 	"github.com/tu-org/embolsadora-api/internal/domain"
 	rolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/roles"
+	"go.uber.org/zap"
 )
 
 // Service contiene la lógica de negocio para gestión de roles.

@@ -36,8 +36,8 @@ func TestGetByIDWithRolesCrossTenantTrueEncuentraUsuarioDeOtroTenant(t *testing.
 
 	uwr, err := repo.GetByIDWithRoles(ctx, tenantA, userInB, true, false)
 	require.NoError(t, err)
-	require.Equal(t, userInB, uwr.User.ID)
-	require.Equal(t, tenantB, uwr.User.TenantID, "el tenant_id debe ser el real del target")
+	require.Equal(t, userInB, uwr.ID)
+	require.Equal(t, tenantB, uwr.TenantID, "el tenant_id debe ser el real del target")
 	require.Len(t, uwr.Roles, 1)
 	require.Equal(t, "cliente_operario", uwr.Roles[0].ID)
 }

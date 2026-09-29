@@ -3,13 +3,18 @@ package middleware
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/tu-org/embolsadora-api/internal/platform"
 )
 
 func TestParseDashboardBucketReply(t *testing.T) {
@@ -73,4 +78,72 @@ func TestDashboardRateLimiter_DeniesSecondCallOverBurst(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, allowed2, "el segundo consumo inmediato debe ser denegado (burst agotado)")
 	assert.Greater(t, retryAfter2, 0)
+}
+
+func TestDashboardRateLimit_NoSupabaseSubInContext_CallsNextWithoutLimiting(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	// rdb nil ya abriría (fail-open) igual, pero esto prueba la rama explícita
+	// de "sin sub no hay a quién limitar" antes de siquiera llamar a Allow.
+	r.Use(DashboardRateLimit(NewDashboardRateLimiter(nil, 15.0/60.0, 5)))
+	r.GET("/probe", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	req := httptest.NewRequest(http.MethodGet, "/probe", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestDashboardRateLimit_RedisNil_FailsOpenAndCallsNext(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Request = c.Request.WithContext(platform.WithSupabaseSub(c.Request.Context(), "user-1"))
+		c.Next()
+	})
+	r.Use(DashboardRateLimit(NewDashboardRateLimiter(nil, 15.0/60.0, 5)))
+	r.GET("/probe", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	req := httptest.NewRequest(http.MethodGet, "/probe", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Empty(t, w.Header().Get("Retry-After"))
+}
+
+// TestDashboardRateLimit_Denied_Returns429WithRetryAfter cubre la rama 429 del
+// handler (no solo de Allow, ya cubierto arriba) contra Redis real -- mismo
+// gate por REDIS_URL que TestDashboardRateLimiter_DeniesSecondCallOverBurst.
+func TestDashboardRateLimit_Denied_Returns429WithRetryAfter(t *testing.T) {
+	url := os.Getenv("REDIS_URL")
+	if url == "" {
+		t.Skip("REDIS_URL no seteada; se omite el test de rate limit contra Redis real")
+	}
+	opt, err := redis.ParseURL(url)
+	require.NoError(t, err)
+	rdb := redis.NewClient(opt)
+	t.Cleanup(func() { _ = rdb.Close() })
+
+	key := fmt.Sprintf("%s-%d", t.Name(), time.Now().UnixNano())
+	limiter := NewDashboardRateLimiter(rdb, 0.01, 1) // rps bajo: el token no se recarga durante el test
+
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Request = c.Request.WithContext(platform.WithSupabaseSub(c.Request.Context(), key))
+		c.Next()
+	})
+	r.Use(DashboardRateLimit(limiter))
+	r.GET("/probe", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	w1 := httptest.NewRecorder()
+	r.ServeHTTP(w1, httptest.NewRequest(http.MethodGet, "/probe", nil))
+	require.Equal(t, http.StatusOK, w1.Code, "el primer request debe pasar (burst=1)")
+
+	w2 := httptest.NewRecorder()
+	r.ServeHTTP(w2, httptest.NewRequest(http.MethodGet, "/probe", nil))
+	assert.Equal(t, http.StatusTooManyRequests, w2.Code)
+	assert.NotEmpty(t, w2.Header().Get("Retry-After"))
 }

@@ -26,7 +26,7 @@ func (m *mockRepo) FindBySubdomain(ctx context.Context, subdomain string) (*doma
 	return nil, nil
 }
 func (m *mockRepo) Update(ctx context.Context, tenant *domain.Tenant) error { return nil }
-func (m *mockRepo) Delete(ctx context.Context, id uuid.UUID) error         { return nil }
+func (m *mockRepo) Delete(ctx context.Context, id uuid.UUID) error          { return nil }
 
 func withActorContext(req *http.Request, role, tenantID string) *http.Request {
 	// Los 4 archivos de test de este paquete solo ejercitan "super_admin" (global)

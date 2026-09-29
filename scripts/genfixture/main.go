@@ -36,7 +36,7 @@ func computeEventID(machineID, aasPath string, ts time.Time) string {
 	h.Write([]byte("|"))
 	h.Write([]byte(aasPath))
 	h.Write([]byte("|"))
-	h.Write([]byte(fmt.Sprintf("%d", ts.UnixNano())))
+	_, _ = fmt.Fprintf(h, "%d", ts.UnixNano())
 	return hex.EncodeToString(h.Sum(nil))
 }
 
@@ -82,5 +82,5 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	os.Stdout.Write(append(out, '\n'))
+	_, _ = os.Stdout.Write(append(out, '\n'))
 }

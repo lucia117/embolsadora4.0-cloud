@@ -4,8 +4,8 @@ import "time"
 
 // ListUsersResponse represents the paginated list response
 type ListUsersResponse struct {
-	Data       []UserResponse    `json:"data"`
-	Pagination PaginationMeta    `json:"pagination"`
+	Data       []UserResponse `json:"data"`
+	Pagination PaginationMeta `json:"pagination"`
 }
 
 // PaginationMeta contains pagination metadata
