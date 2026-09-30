@@ -8,7 +8,7 @@ owner: Federico Degiovanni
 date: 2026-07-29
 repos: [embolsadora4.0-cloud, embolsadora-frontend]
 origin: superpowers
-issues: []
+issues: [95]
 prs: [53]
 adrs: [CLOUD-ADR-005]
 traducido: 2026-09-29

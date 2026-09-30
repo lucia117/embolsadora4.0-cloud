@@ -9,7 +9,7 @@ owner: Lucia Scharff
 date: 2026-03-01
 repos: [embolsadora4.0-cloud]
 origin: speckit
-issues: []
+issues: [91, 92]
 prs: [15]
 adrs: [CLOUD-ADR-016]
 traducido: 2026-09-29

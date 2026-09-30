@@ -126,6 +126,8 @@ Logs: Zap en modo desarrollo en todos los ambientes, con `request_id` por reques
 
 ## Pasos manuales pendientes
 
+Seguimiento en el issue #95, que junta todos los `> Pendiente` de este documento.
+
 - **Admin MRG.** Crear el usuario en Supabase Auth y asignarle `super_admin` en el tenant
   MRG (`11b36b85-033d-4bb3-9e31-4c92161887c0`). Procedimiento en
   [`migrations/README.md`](../migrations/README.md#activación-del-admin-mrg-post-deploy).

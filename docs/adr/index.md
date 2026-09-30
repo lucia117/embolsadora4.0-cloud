@@ -54,6 +54,9 @@ Detalles desactualizados que no cambian la decisión, así que no justifican un 
 
 ## Candidatos a ADR
 
+Decisiones abiertas con issue: generación del OpenAPI con swag (#100) y versionado con
+release-please frente a la constitution (#101).
+
 - Deploy en Google Cloud Run con Workload Identity Federation (reemplazó a Koyeb; la razón
   no está documentada).
 - Permisos dinámicos leídos de `roles.permissions` en cada request (migración `000011`).

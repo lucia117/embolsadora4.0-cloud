@@ -93,7 +93,16 @@ esta rama, sin push.
 
 ## Fuera de este repo o con decisión pendiente
 
-- Issues de `DEUDA-TECNICA.md` vigentes (graceful shutdown, RBAC de lectura en
-  `GET /users`) y labels del estándar: requieren OK para crear en GitHub.
-- Release-please / `CHANGELOG.md`: en conflicto con la sección "Versionado en Release" de
-  la constitution (ver auditoría).
+- [x] Labels del estándar creados (2026-09-30): `feature`, `tech-debt`, `risk`, `docs`,
+      `docs-user`, `contract-change`, `breaking`.
+- [x] Issues creados (2026-09-30):
+      #90 graceful shutdown · #91 RBAC de lectura en `GET /users` · #92 `PATCH /users`
+      ignora campos inmutables · #93 validar permisos de roles custom · #94 fijar RS256 ·
+      #95 configuración de producción pendiente · #96 cold start de Cloud Run ·
+      #97 convención de respuesta · #98 layouts por usuario o por tenant · #99 redocly lint ·
+      #100 swag · #101 release-please frente a la constitution.
+- Sin issue a propósito: el motor de evaluación de alarmas y el productor de logs y
+  notificaciones. La decisión fue "objetivo no cumplido" (veredicto C), registrada en la
+  bitácora de alcance.
+- Issues #33 y #34 (RBAC super-admin / cross-tenant): parecen resueltos por CLOUD-ADR-015 y
+  la migración `000011`. Verificar y cerrar.

@@ -8,7 +8,7 @@ owner: Federico Degiovanni
 date: 2026-03-06
 repos: [embolsadora4.0-cloud, embolsadora-frontend]
 origin: speckit
-issues: []
+issues: [94]
 prs: [16, 43]
 adrs: [CLOUD-ADR-005, CLOUD-ADR-015, CLOUD-ADR-016]
 traducido: 2026-09-29

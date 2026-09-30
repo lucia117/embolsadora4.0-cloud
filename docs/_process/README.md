@@ -16,6 +16,6 @@ Documentos históricos o de trabajo. Quedan versionados como evidencia del méto
 | [`estandar/plan-harness-2026-09-29.md`](estandar/plan-harness-2026-09-29.md) | Fases de aplicación del harness documental en este repo | En curso |
 | [`bitacora-de-alcance.md`](bitacora-de-alcance.md) | Specs no construidas o construidas distinto, objetivos no cumplidos | Vigente hasta que exista el hub |
 | `plans/` | Planes de superpowers sin diseño propio en este repo (fixes de UAT, OpenAPI, Postman, cobertura de tests) | Archivados el 2026-09-29; front-matter con el PR asociado |
-| [`DEUDA-TECNICA.md`](DEUDA-TECNICA.md) | Registro de deuda técnica | **Snapshot congelado al 2026-09-29.** Los ítems vigentes pasan a issues con label `tech-debt` (pendiente) |
+| [`DEUDA-TECNICA.md`](DEUDA-TECNICA.md) | Registro de deuda técnica | **Snapshot congelado al 2026-09-29.** Los ítems vigentes pasaron a issues: #90 (graceful shutdown) y #91 (RBAC de lectura en `GET /users`) |
 | [`PACTS_ANALYSIS.md`](PACTS_ANALYSIS.md) | Análisis de cobertura de los pacts del frontend | Archivado; los pacts no se verifican en CI |
 | [`EMAIL_SETUP.md`](EMAIL_SETUP.md) | Runbook de DNS, Resend y SMTP de Supabase | Ejecutado; candidato al hub (cruza frontend y backend) |

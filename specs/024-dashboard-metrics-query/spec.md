@@ -8,7 +8,7 @@ owner: Lucia Scharff
 date: 2026-09-07
 repos: [embolsadora4.0-cloud, embolsadora-frontend]
 origin: superpowers
-issues: []
+issues: [97]
 prs: [78]
 adrs: [CLOUD-ADR-017]
 traducido: 2026-09-29
