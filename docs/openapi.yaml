@@ -4,7 +4,7 @@ info:
   version: 2.0.0-alpha
   description: >
     Superficies separadas:
-    - **/api/v1/**: ABM (JWT RS256 via Supabase JWKS + X-Tenant-ID + RBAC)
+    - **/api/v1/**: ABM (JWT ES256 via Supabase JWKS + X-Tenant-ID + RBAC)
     - **/api/v1/consumers/**: Ingesta batch (API Key + idempotencia)
     - **/api/v1/public/**: Lectura sin autenticación (branding/routing de tenant)
 
@@ -2144,7 +2144,7 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: >
-        JWT RS256 emitido por Supabase Auth. El tenant se resuelve desde el header `X-Tenant-ID` validando membresía activa en `user_tenant_roles`.
+        JWT emitido por Supabase Auth, firmado con ES256 (se acepta también RS256 para tolerar una rotación de claves). El tenant se resuelve desde el header `X-Tenant-ID` validando membresía activa en `user_tenant_roles`.
     apiKeyAuth:
       type: apiKey
       in: header

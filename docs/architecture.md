@@ -93,7 +93,9 @@ y `POST /api/v1/consumers/heartbeat`.
 
 ### Autenticación y auto-provisioning
 
-`JWTAuth` valida el token RS256 contra el JWKS de Supabase (`security.NewJWKSVerifier`).
+`JWTAuth` valida la firma del token contra el JWKS de Supabase (`security.NewJWKSVerifier`).
+El proyecto firma con **ES256** (clave EC P-256); el verificador acepta solo ES256 y RS256
+y rechaza HS256 y `none` (PR del issue #94).
 En cada request autenticado llama a `AuthUsecase.ProvisionUser()`, que hace upsert
 idempotente del usuario local (`ON CONFLICT (supabase_user_id)`), y activa invitaciones
 pendientes del usuario. Si el JWKS no responde, `Verify` devuelve el sentinel

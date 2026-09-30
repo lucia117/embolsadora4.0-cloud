@@ -175,15 +175,17 @@ SC-003 (p95 de `/me` menor a 300 ms) **no tiene medición**: no se traslada como
 | Decisión | Por qué | Fuente |
 |---|---|---|
 | Supabase Auth en vez de auth propio | Menos mantenimiento y superficie de seguridad; OAuth y rotación de claves gratis | CLOUD-ADR-005 |
-| RS256 por JWKS, sin secreto compartido | Rotación automática; migrar a self-hosted solo cambia configuración | design (FR-001) |
+| Firma asimétrica por JWKS, sin secreto compartido | Rotación automática; migrar a self-hosted solo cambia configuración | design (FR-001; decía RS256, hoy el proyecto usa ES256) |
 | Tenant por header y no por claim | Un usuario puede ser miembro de varios tenants | CLOUD-ADR-016 |
 | 503 si el JWKS no responde | Distinguir proveedor caído de token inválido | derivado |
 
 ## Riesgos y preguntas abiertas
 
-- **Algoritmo de firma:** el verificador no fija `WithValidMethods`, así que confía en
-  que `keyfunc` rechace un `alg` que no coincide con la clave del JWKS. Conviene fijar
-  RS256 explícitamente.
+- **Algoritmo de firma** (issue #94): el verificador no fijaba `WithValidMethods` y
+  dependía de que el JWKS publicara `alg`. El fix acepta solo ES256 y RS256. Ojo: el
+  proyecto de Supabase firma con **ES256** (JWKS público, `kty: EC`, `crv: P-256`), no con
+  RS256 como decían la spec original y CLOUD-ADR-005; fijar solo RS256 habría rechazado
+  todos los tokens.
 - **Invitaciones con roles de plataforma en tenants cliente:** ver la nota de la
   migración `000010` en `migrations/README.md`.
 - **Latencia de `/me`** (SC-003 original): sin verificar.

@@ -18,7 +18,7 @@ enlazan acá.
 | API | Google Cloud Run, servicio `embolsadora-api`, región `us-east1`, proyecto `embolsadora` | `.github/workflows/deploy-cloud-run.yml` |
 | Imagen | Artifact Registry `us-east1-docker.pkg.dev/embolsadora/cloud-run-source-deploy/embolsadora-api` | ídem |
 | PostgreSQL | Supabase (Postgres administrado) | configuración del servicio (fuera del repo) |
-| Auth | Supabase Auth (JWKS RS256, Admin API para invitaciones y recovery) | `internal/security/jwt.go`, `internal/platform/supabase` |
+| Auth | Supabase Auth (JWKS con clave EC, ES256; Admin API para invitaciones y recovery) | `internal/security/jwt.go`, `internal/platform/supabase` |
 | MongoDB | `MONGO_URI` del servicio | > Pendiente: documentar proveedor y confirmar que la variable está seteada en Cloud Run |
 | Redis | `REDIS_URL` del servicio (opcional) | > Pendiente: confirmar si producción tiene Redis |
 
