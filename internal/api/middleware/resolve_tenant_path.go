@@ -94,6 +94,7 @@ func ResolveTenantAndCheckMembership(db *pgxpool.Pool) gin.HandlerFunc {
 				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"success": false, "error": "tenant access denied"})
 				return
 			}
+			auditCrossTenantGrant(c, user.ID, roleID, tenantIDStr)
 		default:
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"success": false, "error": "internal server error"})
 			return
