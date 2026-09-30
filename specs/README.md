@@ -81,8 +81,8 @@ alcance. El objetivo específico #5 (alertas automáticas) no se cumple; ver la
   ahora `004-aas-server/research.md`.
 - **015** es la spec rescatada del PR #30 en el PR #76. Toma el número `015` porque es el
   que usaba el #76 y el que le corresponde por fecha.
-- **001** tiene `spec.md` y `spec.es.md` (duplicado bilingüe). Se unifica en un solo
-  idioma en la pasada de traducción.
+- **001** tenía `spec.md` y `spec.es.md` (duplicado bilingüe). Al traducirla (2026-09-29)
+  se conservó el original en inglés como `design.md` y se eliminó la copia en español.
 - **016 a 024** vienen de `docs/superpowers/` (diseño → `spec.md`, plan → `plan.md`),
   incorporados el 2026-09-29 y numerados por la fecha del diseño. Su veredicto A es por
   presencia en el código, igual que el resto. Aún no tienen `RF-NNN`.
@@ -98,9 +98,9 @@ conserva al lado (`design.md`) o en otro repo (`spec_externa`).
 
 | Estado | Specs |
 |---|---|
-| Traducidas | 002a, 002b, 013, 021, 022, 024 |
+| Traducidas | 001, 002a, 002b, 006, 007, 011, 013, 017, 018, 019, 020, 021, 022, 024 |
 | No requieren traducción (veredicto C o B reemplazada; el cuerpo se conserva como evidencia) | 004, 005b, 015 |
-| Pendientes | 001, 003, 005a, 006, 007, 008, 009, 010, 011, 014, 016, 017, 018, 019, 020, 023 |
+| Pendientes | 003, 005a, 008, 009, 010, 014, 016, 023 |
 
 ## Material asociado y archivado
 

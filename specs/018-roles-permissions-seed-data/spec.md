@@ -1,7 +1,7 @@
 ---
 id: 018
-title: "Roles & Permissions seed data fix (permissions + translation)"
-tier: feature
+title: "Seed de roles y permisos: traducción y asignación de permisos a roles"
+tier: change
 status: done
 veredicto: A
 owner: Federico Degiovanni
@@ -11,128 +11,74 @@ origin: superpowers
 issues: []
 prs: [46]
 adrs: []
-former_file: docs/superpowers/specs/2026-07-21-roles-permissions-seed-data-design.md
+traducido: 2026-09-29
 last_reviewed: 2026-09-29
 ---
 
-# Roles & Permissions seed data fix (permissions + translation)
+# 018 — Seed de roles y permisos: traducción y asignación de permisos a roles
 
-**Date**: 2026-07-21
-**Status**: Approved, pending implementation plan
+> **Procedencia.** `origen: original` viene del diseño aprobado del 2026-07-21, en
+> [`design.md`](design.md). `origen: derivado` se reconstruyó de las migraciones
+> posteriores. **Verificado contra `develop` el 2026-09-29.** Es `tier: change`: corrige
+> datos sembrados, sin funcionalidad nueva.
 
-## Context
+## Contexto y problema
 
-Integration testing against the frontend (tracked in `~/Develop/UTN/issues-20-07-2026.md`)
-found that the `/roles` and `/permissions` pages show all 6 seeded system roles
-with 0 permissions, and that permission names/descriptions are in English. Most
-of the other `/roles` and `/permissions` page issues (tenants column in the
-tables, header tenant selector, custom-role routing bug, no tenant field when
-creating a permission) live entirely in `embolsadora-frontend` and are out of
-scope for this backend-only cycle — this spec covers only what
-`embolsadora4.0-cloud` owns: the seed data itself.
+Las páginas `/roles` y `/permissions` del frontend mostraban los 6 roles del sistema
+**con cero permisos** y el catálogo de permisos en inglés. Eran problemas de datos, no del
+frontend: la migración `000002` sembraba `roles.permissions` vacío y los nombres del
+catálogo en inglés (§Problem).
 
-## Problem
+## Alcance
 
-`migrations/000002_seed_essentials.up.sql` seeds the 6 system roles
-(`super_admin`, `tenant_manager`, `admin`, `operario`, `cliente_admin`,
-`cliente_operario`) with `permissions: '[]'::jsonb`, and seeds the 17 system
-permissions with English `name`/`description`.
+**Entra:**
+- Traducir al español nombre y descripción de los 17 permisos del sistema.
+- Cargar `roles.permissions` de los 6 roles del sistema.
 
-- `embolsadora-frontend`'s `/roles` and `/permissions` pages render
-  `roles.permissions` and `permissions.name`/`description` directly from the
-  backend (confirmed: `src/app/s/[tenantId]/(dashboard)/permissions/page.tsx`
-  maps `p.name`/`p.description` straight from the `GET /api/v1/permissions`
-  response) — so both bugs are pure data problems, not frontend bugs.
-- This `permissions` jsonb column is a separate vocabulary from
-  `internal/security/rbac.go`'s `rolePermissions` map (`"resource:action"`
-  strings like `"tenants:read"`, used for actual backend authorization). The
-  `roles.permissions` column instead uses the `perm_*` catalog IDs from the
-  `permissions` table, matching what `embolsadora-frontend/src/lib/permissions.ts`
-  and `role-registry.ts` expect for UI gating and display. This spec only
-  touches the UI-facing catalog; `rbac.go`'s enforcement map is untouched and
-  unaffected.
+**No entra** (§Non-goals):
+- La autorización del backend, que entonces era un mapa fijo en Go.
+- Cambios en el frontend.
+- Renombrar ids del catálogo.
 
-## Non-goals
+## Requisitos
 
-- `internal/security/rbac.go`'s `rolePermissions` map (backend authorization
-  enforcement) — not touched, not affected by this fix.
-- Any `embolsadora-frontend` change (tenants column in roles/permissions
-  tables, header tenant selector, custom-role view/edit routing bug, tenant
-  field on permission creation) — separate spec, different repo.
-- Renaming/restructuring the `permissions` table or its 17 system IDs.
+- **RF-001** `origen: original` (§Design 1) — Los cambios DEBEN ir en una migración nueva
+  con `UPDATE` idempotentes y su `down`, no editando `000002`: esa migración ya estaba
+  aplicada en producción y sus `INSERT … ON CONFLICT DO NOTHING` no cambiarían nada.
+  → `migrations/000005_translate_permissions_and_seed_role_permissions.{up,down}.sql`.
+- **RF-002** `origen: original` (§Design 3) — Nombre y descripción de los 17 permisos del
+  sistema DEBEN quedar en español.
+  → `000005`.
+- **RF-003** `origen: original` (§Design 2) — `roles.permissions` de los 6 roles del
+  sistema DEBE cargarse según la tabla de mapeo del diseño.
+  → `000005`.
+- **RF-004** `origen: derivado` — **Reemplazado después.** El mapeo de RF-003 ya no es el
+  estado vigente. Lo modificaron:
+  - `000008`, que eliminó `perm_all_tenants`;
+  - `000009`, que dio `perm_logs_view` a `admin`;
+  - `000011`, que resembró los 7 roles con el catálogo fino y reemplazó `perm_users` y
+    `perm_tenants`;
+  - `000013` y `000015`.
 
-## Design
+  El estado vigente está verificado por `TestSeedPermissionsMatchDesign` (ver
+  [011](../011-permissions-management/spec.md)).
 
-### 1. New migration, not an edit to `000002`
+## Criterios de éxito
 
-`000002_seed_essentials` has already been applied against the live database
-(Supabase Postgres, migrated from the old Koyeb-hosted Postgres on
-2026-07-16 — see `~/.claude/.../memory/embolsadora-stack.md`). Its inserts use
-`ON CONFLICT DO NOTHING`, so editing the file's literal values would only
-affect a fresh, never-migrated database — it would silently do nothing against
-the already-seeded Supabase database. Per the project's own convention
-(`migrations/README.md`: "Crear una nueva migración"), this needs a new
-migration: `000005_translate_permissions_and_seed_role_permissions`, using
-idempotent `UPDATE` statements (safe to re-run) with a `.down.sql` that
-reverts both changes.
-
-### 2. Permission-to-role mapping
-
-Populate `roles.permissions` for the 6 system roles using the `perm_*` catalog
-IDs, mirroring `embolsadora-frontend/src/lib/role-registry.ts`'s
-`PREDEFINED_ROLES` fallback data where a role has a direct equivalent there
-(`super_admin`, `tenant_manager`, `admin`, `operario`). `cliente_admin` and
-`cliente_operario` have no frontend fallback equivalent, so their sets mirror
-their existing `rbac.go` `rolePermissions` entries instead (read-mostly,
-narrower than `admin`/`operario`):
-
-| Role | Permissions |
-|---|---|
-| `super_admin` | all 17: `perm_dashboard`, `perm_alerts`, `perm_reports`, `perm_users`, `perm_tenants`, `perm_settings`, `perm_maintenance`, `perm_analytics`, `perm_all_tenants`, `perm_logs_view`, `perm_logs_export`, `perm_logs_admin`, `perm_edge_devices_view`, `perm_edge_devices_manage`, `perm_edge_devices_check`, `perm_reports_view`, `perm_reports_manage` |
-| `tenant_manager` | `perm_all_tenants`, `perm_dashboard`, `perm_alerts`, `perm_reports`, `perm_reports_view`, `perm_users`, `perm_edge_devices_view`, `perm_edge_devices_check` |
-| `admin` | `perm_dashboard`, `perm_alerts`, `perm_reports`, `perm_reports_view`, `perm_reports_manage`, `perm_users`, `perm_tenants`, `perm_settings`, `perm_maintenance`, `perm_analytics`, `perm_edge_devices_view`, `perm_edge_devices_manage` |
-| `operario` | `perm_dashboard`, `perm_alerts`, `perm_reports_view`, `perm_edge_devices_view`, `perm_edge_devices_check` |
-| `cliente_admin` | `perm_dashboard`, `perm_alerts`, `perm_reports_view`, `perm_users`, `perm_edge_devices_view` |
-| `cliente_operario` | `perm_dashboard`, `perm_edge_devices_view` |
-
-### 3. Translation
-
-Translate all 17 `permissions.name`/`description` rows to Spanish:
-
-| id | name (es) | description (es) |
+| CE | Criterio | Evidencia |
 |---|---|---|
-| `perm_dashboard` | Ver Panel | Acceso al panel principal y widgets |
-| `perm_alerts` | Ver Alertas | Acceso al centro de alertas y notificaciones |
-| `perm_reports` | Ver Reportes | Acceso a reportes y analítica |
-| `perm_users` | Gestionar Usuarios | Crear, editar y eliminar usuarios |
-| `perm_tenants` | Gestionar Tenants | Acceso a la gestión de tenants |
-| `perm_settings` | Gestionar Configuración | Acceso a la configuración del sistema |
-| `perm_maintenance` | Ver Mantenimiento | Acceso al módulo de mantenimiento |
-| `perm_analytics` | Ver Analítica | Acceso a paneles de analítica avanzada |
-| `perm_all_tenants` | Acceso a Todos los Tenants | Acceso cross-tenant (solo Super Admin) |
-| `perm_logs_view` | Ver Logs | Acceso al visor de logs |
-| `perm_logs_export` | Exportar Logs | Exportar datos de logs a archivo |
-| `perm_logs_admin` | Gestionar Configuración de Logs | Gestionar retención y configuración de logs |
-| `perm_edge_devices_view` | Ver Dispositivos Edge | Ver el listado y estado de dispositivos edge |
-| `perm_edge_devices_manage` | Gestionar Dispositivos Edge | Crear, editar, habilitar y deshabilitar dispositivos edge |
-| `perm_edge_devices_check` | Ejecutar Chequeos Edge | Ejecutar chequeos de estado y salud en dispositivos edge |
-| `perm_reports_view` | Ver Reportes | Acceso al historial de reportes y descargas |
-| `perm_reports_manage` | Gestionar Reportes | Generar reportes, gestionar programaciones y retención |
+| **CE-001** | Después de migrar, los roles del sistema tienen permisos y el catálogo está en español | `000005` aplicada; estado actual verificado por `internal/repo/pg/roles/seed_test.go` |
+| **CE-002** | La migración es reversible | `000005_…down.sql` |
 
-### Down migration
+## Decisiones
 
-Reverts both changes: sets `permissions` back to `'[]'::jsonb` for the 6
-roles, and restores the original English `name`/`description` for the 17
-permissions (values as currently seeded in `000002_seed_essentials.up.sql`).
+| Decisión | Alternativa descartada | Por qué |
+|---|---|---|
+| Migración nueva con `UPDATE` | Editar `000002` | `000002` ya estaba aplicada y usa `ON CONFLICT DO NOTHING` |
+| Mapeo de `super_admin`, `tenant_manager`, `admin` y `operario` desde el fallback del frontend; `cliente_*` desde el mapa Go | Inventar un mapeo nuevo | Mantener coherencia con lo que ya mostraba la UI y con lo que se autorizaba |
 
-## Testing
+## Riesgos y preguntas abiertas
 
-- Add a focused test in `internal/platform/dbmigrate/runner_test.go` that
-  runs all migrations against a test database and then asserts: each of the
-  6 system roles has a non-empty `permissions` array matching the table
-  above, and each of the 17 permissions has the translated Spanish
-  `name`/`description`.
-- Verify `down` then `up` round-trips cleanly (existing pattern used for the
-  other migrations in this project).
-- No Go application code changes, so no handler/usecase tests are needed —
-  this is a data-only migration.
+- Ninguno vigente. La premisa del diseño ("la autorización del backend no se toca") dejó de
+  valer con [011](../011-permissions-management/spec.md): desde el PR #62, lo que hay en
+  `roles.permissions` **sí** autoriza.

@@ -1,7 +1,7 @@
 ---
 id: 017
-title: "Tenant-ownership scoping on Tenant CRUD endpoints"
-tier: feature
+title: "Scoping de tenant en el CRUD de tenants"
+tier: change
 status: done
 veredicto: A
 owner: Federico Degiovanni
@@ -10,112 +10,74 @@ repos: [embolsadora4.0-cloud]
 origin: superpowers
 issues: []
 prs: [45]
-adrs: [CLOUD-ADR-015]
-former_file: docs/superpowers/specs/2026-07-20-tenant-ownership-scoping-design.md
+adrs: [CLOUD-ADR-015, CLOUD-ADR-016]
+traducido: 2026-09-29
 last_reviewed: 2026-09-29
 ---
 
-# Tenant-ownership scoping on Tenant CRUD endpoints
+# 017 — Scoping de tenant en el CRUD de tenants
 
-**Date**: 2026-07-20
-**Status**: Approved, pending implementation plan
+> **Procedencia.** `origen: original` viene del diseño aprobado del 2026-07-20, en
+> [`design.md`](design.md), citado por sección. `origen: derivado` se reconstruyó del
+> código. **Verificado contra `develop` el 2026-09-29.** Es `tier: change`: corrige un
+> hueco de autorización sin agregar funcionalidad.
 
-## Context
+## Contexto y problema
 
-Integration testing against the frontend (`embolsadora-frontend`) surfaced a set of
-bugs across `/tenants`, `/users`, `/roles`, `/permissions`, `/settings` and
-`/account` (tracked separately in `~/Develop/UTN/issues-20-07-2026.md`). While
-investigating one of those bugs — and a related finding from the `embolsadora-frontend`
-PR #46 code review about a possibly-incorrect `x-tenant-id` header on tenant
-requests — this spec surfaced a deeper, unrelated backend authorization gap that
-needs to be fixed on its own, ahead of the page-by-page bug fixes.
+`GET/PATCH/DELETE /api/v1/tenants/:tenantId` y `GET /api/v1/tenants` autorizaban solo por
+el nombre del permiso, sin verificar que el tenant pedido fuera el del usuario. Un `admin`
+de un tenant cliente podía **leer cualquier otro tenant por UUID**, y lo habría podido
+modificar si algún día su rol recibía el permiso de escritura. El hueco apareció en las
+pruebas de integración con el frontend (§Problem).
 
-## Problem
+## Alcance
 
-`GET/PATCH/DELETE /api/v1/tenants/:tenantId` and `GET /api/v1/tenants` authorize
-purely by permission name (`tenants:read` / `tenants:write` via
-`internal/security/rbac.go`), with no check that the tenant being read or
-mutated belongs to the acting user.
+**Entra:** el chequeo de pertenencia en los cuatro endpoints de tenants.
 
-Concretely:
-- `get_tenant.go` (`internal/api/handler/tenants/get_tenant/get_tenant.go:24`)
-  parses the `:tenantId` path param and fetches that tenant directly — the use
-  case (`internal/api/usecases/tenants/get_tenant/get_tenant.go:24`) never
-  receives or checks the actor's own tenant.
-- `update_tenant.go` and `delete_tenant.go` follow the same pattern.
-- `get_all_tenants.go` returns every tenant in the database unconditionally.
-- The `admin` role (tenant-scoped, non-global) has `tenants:read` in
-  `rolePermissions` (`internal/security/rbac.go:36`) — so any tenant's plain
-  admin can read (and, if the role map ever grants `tenants:write` to a
-  tenant-scoped role, mutate) **any other tenant's record** by UUID.
+**No entra** (§Non-goals):
+- El header `x-tenant-id` del proxy del frontend.
+- La separación entre "gestión de tenants de plataforma" y "configuración propia del
+  tenant".
 
-Roles that legitimately act cross-tenant today — `super_admin`, `tenant_manager`,
-and the effective `platform_admin` role granted to MRG-tenant admins by
-`TenantFromHeader` (see ADR-015) — are unaffected by this problem; the gap only
-matters for tenant-scoped roles (`admin` and friends) reaching outside their own
-tenant.
+## Requisitos
 
-## Non-goals
+- **RF-001** `origen: original` (§Design 2) — Un rol no global que pide `GET`, `PATCH` o
+  `DELETE` sobre un tenant distinto del suyo DEBE recibir 403 `FORBIDDEN`, exista o no el
+  tenant destino (así no se pueden enumerar tenants).
+  → `get_tenant.go`, `update_tenant.go`, `delete_tenant.go`
+  (`!IsCrossTenantRole && !TenantMatches`).
+- **RF-002** `origen: original` (§Design 3) — `GET /tenants` para un rol no global DEBE
+  devolver una lista con un solo elemento, su propio tenant, en vez de todos.
+  → `get_all_tenants` (usecase con `scopeToTenantID`).
+- **RF-003** `origen: original` (§Design 4) — Los roles cross-tenant (`super_admin`,
+  `tenant_manager`, `platform_admin`) DEBEN mantener el acceso sin restricción
+  (CLOUD-ADR-015).
+- **RF-004** `origen: original` (§Design 1), **mecanismo cambiado** — El diseño definía
+  los roles cross-tenant con una lista fija en Go. **Derivado (PR #62):**
+  `IsCrossTenantRole` lee `is_global` del rol efectivo, cargado de la base. El efecto es
+  el mismo, porque los tres roles tienen `is_global = TRUE` (migración `000011`).
+  → `security.IsCrossTenantRole`.
 
-- The `x-tenant-id` header derivation in `embolsadora-frontend/src/proxy.ts`
-  (flagged in PR #46's review) is not addressed here. Static reading of the
-  proxy code was inconclusive on whether it actually misroutes the header in
-  practice for the plain `/api/tenants/:id` case; it needs live verification.
-  It is not blocking: once this spec's backend fix lands, the worst case of a
-  wrong header value is a 403, never a cross-tenant data leak.
-- The conceptual overlap between "platform tenant management" (this CRUD,
-  meant for platform operators) and "self-service tenant settings" (what the
-  frontend `/settings` page should really be calling) is left for the
-  `/settings` + `/account` spec.
+## Criterios de éxito
 
-## Design
+Vienen de la sección Testing del diseño.
 
-Reuse the context `TenantFromHeader` middleware already populates on every
-`/api/v1` request: `platform.TenantID(ctx)` (the actor's validated tenant UUID)
-and `security.RoleFromContext(ctx)` (the actor's effective role, already
-upgraded to `platform_admin` for MRG-tenant admins per ADR-015).
+| CE | Criterio | Evidencia |
+|---|---|---|
+| **CE-001** | Un `admin` del tenant A recibe 403 en `GET`, `PATCH` y `DELETE /tenants/{B}` | `delete_tenant_test.go` (`…ForeignTenant_NonGlobalRole_Forbidden`), tests análogos en `get_tenant` y `update_tenant` |
+| **CE-002** | Un `admin` del tenant A puede leer y modificar `/tenants/{A}` | `…OwnTenant_NonGlobalRole_Allowed` |
+| **CE-003** | Los roles cross-tenant no tienen restricción | `…CrossTenantRole_Allowed`, `TestGetAllTenants_CrossTenantRole_ReturnsFullList` |
+| **CE-004** | `GET /tenants` para un `admin` devuelve solo su tenant | `TestGetAllTenants_NonGlobalRole_ReturnsOnlyOwnTenant` |
 
-1. **`internal/security/rbac.go`** — add a small allowlist and helper:
-   ```go
-   var crossTenantRoles = map[string]bool{"super_admin": true, "tenant_manager": true, "platform_admin": true}
+## Decisiones
 
-   func IsCrossTenantRole(roleName string) bool { return crossTenantRoles[roleName] }
-   ```
+| Decisión | Alternativa descartada | Por qué |
+|---|---|---|
+| 403 genérico, exista o no el tenant | 404 si no existe | Evitar enumerar tenants, igual que `resolve_tenant_path.go` |
+| `GET /tenants` devuelve el propio tenant | 403 total | No romper a un consumidor legítimo que lista para autoservicio |
+| Reusar el contexto de `TenantFromHeader` | Una consulta nueva | El tenant y el rol ya están validados en el contexto |
 
-2. **`GetTenant` / `UpdateTenant` / `DeleteTenant` handlers** — immediately
-   after parsing `:tenantId` from the path, before invoking the use case:
-   ```go
-   role := security.RoleFromContext(c.Request.Context())
-   if !security.IsCrossTenantRole(role) && platform.TenantID(c.Request.Context()) != id.String() {
-       c.JSON(http.StatusForbidden, tenantserrors.ErrorResponse{
-           Error: "FORBIDDEN", Message: "No tenés acceso a este tenant", Status: http.StatusForbidden,
-       })
-       return
-   }
-   ```
-   Returns a generic 403 regardless of whether the target tenant exists,
-   matching the existing enumeration-avoidance convention in
-   `resolve_tenant_path.go` ("same 403 to avoid enumeration").
+## Riesgos y preguntas abiertas
 
-3. **`GetAllTenants` (handler + use case)** — if the actor's role is not a
-   cross-tenant role, the use case returns a single-element list containing
-   only the actor's own tenant (`repo.FindByID(actorTenantID)`) instead of
-   `repo.FindAll()`. This keeps the endpoint usable for tenant-scoped
-   self-service callers without exposing other tenants, and avoids an
-   all-or-nothing 403 that could break an existing legitimate caller.
-
-4. Cross-tenant roles (`super_admin`, `tenant_manager`, `platform_admin`)
-   keep today's unrestricted behavior — this is intentional per ADR-015 and
-   out of scope to change.
-
-## Testing
-
-Add unit/integration coverage (pattern already exists in
-`update_tenant_test.go`) for:
-- Tenant-scoped `admin` of tenant A gets 403 on `GET/PATCH/DELETE
-  /tenants/{B}`.
-- Tenant-scoped `admin` of tenant A can still `GET/PATCH` `/tenants/{A}`.
-- `super_admin`, `tenant_manager`, and `platform_admin` (MRG admin acting
-  cross-tenant) remain unrestricted on all four endpoints.
-- `GET /tenants` for a tenant-scoped `admin` returns exactly one tenant (their
-  own); for cross-tenant roles it returns the full list as today.
+- El chequeo vive en cada handler, no en un middleware. Un endpoint de tenants nuevo tiene
+  que acordarse de repetirlo.
