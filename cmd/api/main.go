@@ -2,9 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -102,8 +106,24 @@ func main() {
 		IdleTimeout:       120 * time.Second,
 	}
 
-	log.Printf("Starting server on :%s", cfg.HTTP.Port)
-	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	// Apagado ordenado: Cloud Run manda SIGTERM antes de matar la instancia
+	// (escalado a cero, deploy). serve deja terminar las requests en curso
+	// durante hasta shutdownTimeout; ver serve.go.
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	ln, err := net.Listen("tcp", srv.Addr)
+	if err != nil {
 		log.Fatalf("Server error: %v", err)
+	}
+	log.Printf("Starting server on :%s", cfg.HTTP.Port)
+	if err := serve(ctx, srv, ln, shutdownTimeout); err != nil && !errors.Is(err, context.DeadlineExceeded) {
+		log.Fatalf("Server error: %v", err)
+	}
+
+	if redisClient != nil {
+		if err := redisClient.Close(); err != nil {
+			log.Printf("error cerrando Redis: %v", err)
+		}
 	}
 }
