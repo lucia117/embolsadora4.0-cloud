@@ -139,5 +139,5 @@ El plan de permisos dinámicos (PR #62) unificó los dos mundos: la autorizació
 - **Orden de deploy:** cambiar ids del catálogo obliga a coordinar con el frontend (ver
   el incidente del 2026-08-18 en `docs/operations.md`).
 - **Una consulta extra por request** para cargar los permisos del rol, sin caché.
-- **Borrar un permiso custom no lo quita de `roles.permissions`** de los roles que lo
-  tenían. No hay un chequeo explícito de esto; verificarlo.
+- **Borrar un permiso custom lo quita de `roles.permissions`** de los roles del mismo
+  tenant, en la misma transacción (issue #93).
