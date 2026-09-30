@@ -14,7 +14,7 @@ acá: vive en el hub de documentación.
 ## Estilo
 
 Monolito modular en Go con capas hexagonales
-([ADR-001](adr/ADR-001.md)):
+([CLOUD-ADR-001](adr/CLOUD-ADR-001-monolito-modular-superficies.md)):
 
 ```text
 transport (handler) → app (usecase) → domain ← infra (repo / platform / security)
@@ -107,7 +107,7 @@ pendientes del usuario. Si el JWKS no responde, `Verify` devuelve el sentinel
 - Un `admin` del tenant plataforma asciende a `platform_admin` (`security.EffectiveRole`).
 - Operadores de plataforma (roles globales o `admin` del tenant plataforma) pueden actuar
   sobre cualquier tenant existente sin membresía directa
-  ([ADR-015](adr/ADR-015-plataforma-cross-tenant.md)). Tenant inexistente → 404; sin
+  ([CLOUD-ADR-015](adr/CLOUD-ADR-015-plataforma-cross-tenant.md)). Tenant inexistente → 404; sin
   acceso → 403.
 - Los permisos (`perm_*`) se leen de `roles.permissions` en Postgres en cada request y
   viajan en `security.RoleContext`. `RBACCheck(perm)` → `security.Can()`. Agregar o
@@ -149,9 +149,9 @@ Los tipos de respuesta de `GET /me` viven en `internal/api/usecases` (no en
 | MongoDB 7 | Mediciones de la ingesta (`measurements`) y agregaciones de métricas | índices creados en código al arrancar (`EnsureIndexes`) |
 | Redis 7 | Rate limit (token bucket), caché de API keys | efímero |
 
-> ⚠️ **Desactualizado:** [ADR-003](adr/ADR-003.md) dice que los eventos se guardan en
-> Postgres (`machine_events`). El código guarda las mediciones en MongoDB. Falta el ADR que
-> lo reemplace.
+Decisiones: [CLOUD-ADR-017](adr/CLOUD-ADR-017-mediciones-en-mongodb.md) (mediciones en
+MongoDB, reemplaza a CLOUD-ADR-003) y [CLOUD-ADR-018](adr/CLOUD-ADR-018-ingesta-http-batch.md)
+(contrato y límites de la ingesta).
 
 ## Observabilidad
 
