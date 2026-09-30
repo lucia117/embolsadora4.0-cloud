@@ -112,9 +112,10 @@ Los CE-001 a CE-005 originales eran umbrales de latencia sin medición: no se tr
 
 ## Riesgos y preguntas abiertas
 
-- **Permisos sin validar:** un rol custom puede guardar un `perm_*` que no existe en el
-  catálogo. Hoy es inofensivo (no otorga nada), pero ahora que los permisos se aplican de
-  verdad, conviene validarlos contra `permissions`.
+- **Permisos validados contra el catálogo** (issue #93): crear o actualizar un rol con un
+  id que no existe en el catálogo del tenant (sistema + custom propios) responde 400
+  `UNKNOWN_PERMISSIONS`. Queda abierto un punto distinto: quien crea un rol puede darle
+  permisos que él mismo no tiene (ver el issue #93).
 - **RF-013** no rompe al frontend: el BFF (`src/app/api/roles/[id]/route.ts` en
   `embolsadora-frontend`, `origin/develop`) recibe el rol plano y lo envuelve él mismo en
   `{success, data}`. Conviene actualizar el contrato del lado de la spec y no del código.

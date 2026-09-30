@@ -78,14 +78,14 @@ func TestListRoles(t *testing.T) {
 	t.Run("feliz", func(t *testing.T) {
 		want := []*domain.Role{{ID: "admin"}}
 		repo := &fakeRolesRepo{listResult: want}
-		svc := appRoles.NewService(repo, zap.NewNop())
+		svc := appRoles.NewService(repo, allPermissionsKnown{}, zap.NewNop())
 		got, err := svc.ListRoles(context.Background(), uuid.New(), false)
 		require.NoError(t, err)
 		require.Equal(t, want, got)
 	})
 	t.Run("error de repo", func(t *testing.T) {
 		repo := &fakeRolesRepo{listErr: errors.New("db down")}
-		svc := appRoles.NewService(repo, zap.NewNop())
+		svc := appRoles.NewService(repo, allPermissionsKnown{}, zap.NewNop())
 		_, err := svc.ListRoles(context.Background(), uuid.New(), false)
 		require.Error(t, err)
 	})
@@ -94,14 +94,14 @@ func TestListRoles(t *testing.T) {
 func TestGetRole(t *testing.T) {
 	t.Run("feliz", func(t *testing.T) {
 		repo := &fakeRolesRepo{role: &domain.Role{ID: "admin"}}
-		svc := appRoles.NewService(repo, zap.NewNop())
+		svc := appRoles.NewService(repo, allPermissionsKnown{}, zap.NewNop())
 		got, err := svc.GetRole(context.Background(), "admin", uuid.New(), false)
 		require.NoError(t, err)
 		require.Equal(t, "admin", got.ID)
 	})
 	t.Run("no encontrado (oculto)", func(t *testing.T) {
 		repo := &fakeRolesRepo{hidden: true}
-		svc := appRoles.NewService(repo, zap.NewNop())
+		svc := appRoles.NewService(repo, allPermissionsKnown{}, zap.NewNop())
 		_, err := svc.GetRole(context.Background(), "super_admin", uuid.New(), false)
 		require.ErrorIs(t, err, domain.ErrRoleNotFound)
 	})
@@ -112,20 +112,20 @@ func TestCreateRole(t *testing.T) {
 
 	t.Run("limite de roles custom alcanzado", func(t *testing.T) {
 		repo := &fakeRolesRepo{countCustomResult: domain.MaxCustomRolesPerTenant}
-		svc := appRoles.NewService(repo, zap.NewNop())
+		svc := appRoles.NewService(repo, allPermissionsKnown{}, zap.NewNop())
 		_, err := svc.CreateRole(context.Background(), tenantID, "Nuevo", "desc", nil)
 		require.ErrorIs(t, err, domain.ErrRoleLimitReached)
 		require.Empty(t, repo.createCalls)
 	})
 	t.Run("error contando roles custom", func(t *testing.T) {
 		repo := &fakeRolesRepo{countCustomErr: errors.New("db down")}
-		svc := appRoles.NewService(repo, zap.NewNop())
+		svc := appRoles.NewService(repo, allPermissionsKnown{}, zap.NewNop())
 		_, err := svc.CreateRole(context.Background(), tenantID, "Nuevo", "desc", nil)
 		require.Error(t, err)
 	})
 	t.Run("dedup y sort de permisos", func(t *testing.T) {
 		repo := &fakeRolesRepo{}
-		svc := appRoles.NewService(repo, zap.NewNop())
+		svc := appRoles.NewService(repo, allPermissionsKnown{}, zap.NewNop())
 		got, err := svc.CreateRole(context.Background(), tenantID, "Nuevo", "desc",
 			[]string{"perm_b", " perm_a ", "perm_a", "", "perm_b"})
 		require.NoError(t, err)
@@ -134,7 +134,7 @@ func TestCreateRole(t *testing.T) {
 	})
 	t.Run("nombre duplicado propaga sin loguear como error", func(t *testing.T) {
 		repo := &fakeRolesRepo{createErr: domain.ErrRoleDuplicateName}
-		svc := appRoles.NewService(repo, zap.NewNop())
+		svc := appRoles.NewService(repo, allPermissionsKnown{}, zap.NewNop())
 		_, err := svc.CreateRole(context.Background(), tenantID, "Dup", "desc", nil)
 		require.ErrorIs(t, err, domain.ErrRoleDuplicateName)
 	})
@@ -142,7 +142,7 @@ func TestCreateRole(t *testing.T) {
 
 func TestCountActiveAssignments(t *testing.T) {
 	repo := &fakeRolesRepo{countActiveResult: 3}
-	svc := appRoles.NewService(repo, zap.NewNop())
+	svc := appRoles.NewService(repo, allPermissionsKnown{}, zap.NewNop())
 	got, err := svc.CountActiveAssignments(context.Background(), "admin")
 	require.NoError(t, err)
 	require.Equal(t, 3, got)
@@ -150,7 +150,7 @@ func TestCountActiveAssignments(t *testing.T) {
 
 func TestUpdateRoleHappyPathAplicaDedupDePermisos(t *testing.T) {
 	repo := &fakeRolesRepo{role: &domain.Role{ID: "custom_abc", IsSystemRole: false}}
-	svc := appRoles.NewService(repo, zap.NewNop())
+	svc := appRoles.NewService(repo, allPermissionsKnown{}, zap.NewNop())
 	got, err := svc.UpdateRole(context.Background(), "custom_abc", uuid.New(), false, "Nuevo nombre", "desc", []string{"p2", "p1", "p1"})
 	require.NoError(t, err)
 	require.Equal(t, "Nuevo nombre", got.Name)
@@ -159,14 +159,14 @@ func TestUpdateRoleHappyPathAplicaDedupDePermisos(t *testing.T) {
 
 func TestUpdateRoleNombreDuplicado(t *testing.T) {
 	repo := &fakeRolesRepo{role: &domain.Role{ID: "custom_abc"}, updateErr: domain.ErrRoleDuplicateName}
-	svc := appRoles.NewService(repo, zap.NewNop())
+	svc := appRoles.NewService(repo, allPermissionsKnown{}, zap.NewNop())
 	_, err := svc.UpdateRole(context.Background(), "custom_abc", uuid.New(), false, "x", "y", nil)
 	require.ErrorIs(t, err, domain.ErrRoleDuplicateName)
 }
 
 func TestDeleteRoleHappyPath(t *testing.T) {
 	repo := &fakeRolesRepo{role: &domain.Role{ID: "custom_abc", IsSystemRole: false}}
-	svc := appRoles.NewService(repo, zap.NewNop())
+	svc := appRoles.NewService(repo, allPermissionsKnown{}, zap.NewNop())
 	err := svc.DeleteRole(context.Background(), "custom_abc", uuid.New(), false)
 	require.NoError(t, err)
 	require.Equal(t, []string{"custom_abc"}, repo.softDeleteCalls)
@@ -174,7 +174,7 @@ func TestDeleteRoleHappyPath(t *testing.T) {
 
 func TestDeleteRoleConAsignacionesActivasFalla(t *testing.T) {
 	repo := &fakeRolesRepo{role: &domain.Role{ID: "custom_abc", IsSystemRole: false}, countActiveResult: 2}
-	svc := appRoles.NewService(repo, zap.NewNop())
+	svc := appRoles.NewService(repo, allPermissionsKnown{}, zap.NewNop())
 	err := svc.DeleteRole(context.Background(), "custom_abc", uuid.New(), false)
 	require.ErrorIs(t, err, domain.ErrRoleHasAssignments)
 	require.Empty(t, repo.softDeleteCalls, "no debe borrar si hay asignaciones activas")
@@ -182,7 +182,7 @@ func TestDeleteRoleConAsignacionesActivasFalla(t *testing.T) {
 
 func TestDeleteRoleErrorContandoAsignaciones(t *testing.T) {
 	repo := &fakeRolesRepo{role: &domain.Role{ID: "custom_abc"}, countActiveErr: errors.New("db down")}
-	svc := appRoles.NewService(repo, zap.NewNop())
+	svc := appRoles.NewService(repo, allPermissionsKnown{}, zap.NewNop())
 	err := svc.DeleteRole(context.Background(), "custom_abc", uuid.New(), false)
 	require.Error(t, err)
 }
@@ -193,7 +193,7 @@ func TestDeleteRoleErrorContandoAsignaciones(t *testing.T) {
 // ErrRoleIsSystemRole — ese último confirmaría que el rol existe.
 func TestUpdateRoleRolGlobalOcultoDevuelveNotFoundNoSystemRole(t *testing.T) {
 	repo := &fakeRolesRepo{hidden: true}
-	svc := appRoles.NewService(repo, zap.NewNop())
+	svc := appRoles.NewService(repo, allPermissionsKnown{}, zap.NewNop())
 
 	_, err := svc.UpdateRole(context.Background(), "super_admin", uuid.New(), false, "x", "y", nil)
 	require.ErrorIs(t, err, domain.ErrRoleNotFound)
@@ -204,7 +204,7 @@ func TestUpdateRoleRolGlobalOcultoDevuelveNotFoundNoSystemRole(t *testing.T) {
 // regression test para DeleteRole.
 func TestDeleteRoleRolGlobalOcultoDevuelveNotFoundNoSystemRole(t *testing.T) {
 	repo := &fakeRolesRepo{hidden: true}
-	svc := appRoles.NewService(repo, zap.NewNop())
+	svc := appRoles.NewService(repo, allPermissionsKnown{}, zap.NewNop())
 
 	err := svc.DeleteRole(context.Background(), "super_admin", uuid.New(), false)
 	require.ErrorIs(t, err, domain.ErrRoleNotFound)
@@ -218,7 +218,7 @@ func TestDeleteRoleRolGlobalOcultoDevuelveNotFoundNoSystemRole(t *testing.T) {
 // visibilidad no puede convertir esos 403 legítimos en 404.
 func TestUpdateRoleRolDeSistemaVisibleDevuelveSystemRole(t *testing.T) {
 	repo := &fakeRolesRepo{role: &domain.Role{ID: "admin", IsSystemRole: true}}
-	svc := appRoles.NewService(repo, zap.NewNop())
+	svc := appRoles.NewService(repo, allPermissionsKnown{}, zap.NewNop())
 
 	_, err := svc.UpdateRole(context.Background(), "admin", uuid.New(), false, "x", "y", nil)
 	require.ErrorIs(t, err, domain.ErrRoleIsSystemRole)
@@ -228,7 +228,7 @@ func TestUpdateRoleRolDeSistemaVisibleDevuelveSystemRole(t *testing.T) {
 // para DeleteRole.
 func TestDeleteRoleRolDeSistemaVisibleDevuelveSystemRole(t *testing.T) {
 	repo := &fakeRolesRepo{role: &domain.Role{ID: "admin", IsSystemRole: true}}
-	svc := appRoles.NewService(repo, zap.NewNop())
+	svc := appRoles.NewService(repo, allPermissionsKnown{}, zap.NewNop())
 
 	err := svc.DeleteRole(context.Background(), "admin", uuid.New(), false)
 	require.ErrorIs(t, err, domain.ErrRoleIsSystemRole)
