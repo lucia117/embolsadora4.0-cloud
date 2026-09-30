@@ -1,80 +1,109 @@
 ---
 id: 013
-title: "POST /users con Asignación de Rol Inicial"
+title: "POST /users con asignación de rol inicial"
 tier: feature
 status: done
 veredicto: A
 owner: Lucia Scharff
 date: 2026-04-11
-repos: [embolsadora4.0-cloud]
+repos: [embolsadora4.0-cloud, embolsadora-frontend]
 origin: speckit
 issues: []
 prs: [29]
 adrs: []
+traducido: 2026-09-29
 last_reviewed: 2026-09-29
 ---
 
-# Feature Specification: POST /users con Asignación de Rol Inicial
+# 013 — POST /users con asignación de rol inicial
 
-**Feature Branch**: `develop`  
-**Created**: 2026-04-11  
-**Status**: Aprobado  
-**Input**: Completar la interacción Pact pendiente `user-service-api-roles-extension` — POST /api/v1/users con rol inicial activo
+> **Procedencia.** Esta feature tiene dos documentos de origen del mismo día
+> (2026-04-11):
+> - [`design-speckit.md`](design-speckit.md), la spec de speckit, que ya numeraba sus
+>   requisitos como `RF-001` a `RF-007`; acá se conserva esa numeración.
+> - [`design.md`](design.md), el diseño de superpowers, con sus decisiones D1 a D5.
+>
+> `origen: derivado` se reconstruyó del código, incluidos los fixes de seguridad
+> posteriores. **Verificado contra `develop` el 2026-09-29.**
 
----
+## Contexto y problema
 
-## Escenarios de Usuario y Testing
+`POST /api/v1/users` creaba el usuario pero no su asignación en `user_tenant_roles`: el
+usuario quedaba sin acceso hasta una segunda llamada a `POST /user-roles`. Era además la
+única interacción pendiente del pact `user-service-api-roles-extension` del frontend. La
+feature hace que el alta cree el usuario **y** su rol activo en una sola operación
+atómica.
 
-### Historia de Usuario 1 — Crear usuario con rol asignado desde el inicio (Prioridad: P1)
+## Alcance
 
-Un administrador necesita crear un usuario nuevo en el tenant y asignarle un rol en una sola operación. Hoy el endpoint crea el usuario pero no crea la asignación en `user_tenant_roles`, dejando al usuario sin acceso operativo hasta que se haga una segunda llamada a `POST /user-roles`.
+**Entra:** la creación atómica de usuario y rol en `POST /api/v1/users`, la validación
+del rol y el mapeo de errores.
 
-**Por qué esta prioridad**: Es el único Pact pendiente de `user-service-api-roles-extension`. Sin esto, el frontend no puede completar el flujo de alta de usuario.
-
-**Test independiente**: Puede verificarse haciendo `POST /api/v1/users` con un `role` válido y comprobando que el usuario creado tiene una entrada activa en `user_tenant_roles` con `status = 'active'`.
-
-**Escenarios de aceptación**:
-
-1. **Dado** un admin autenticado con un tenant válido, **Cuando** hace `POST /api/v1/users` con `firstName`, `lastName`, `email`, `role` válido, **Entonces** retorna 201 con el usuario creado y queda registrado un UTR activo.
-2. **Dado** un `role` que no existe en la tabla `roles`, **Cuando** se crea el usuario, **Entonces** retorna 400 con código `INVALID_ROLE`.
-3. **Dado** un email ya usado en el tenant, **Cuando** se intenta crear otro usuario con el mismo email, **Entonces** retorna 409 con código `EMAIL_TAKEN`.
-4. **Dado** que la creación del usuario falla a mitad de la transacción, **Cuando** el INSERT en `user_tenant_roles` falla, **Entonces** el usuario tampoco queda creado (rollback).
-5. **Dado** un request sin token JWT, **Cuando** se intenta crear el usuario, **Entonces** retorna 401 `UNAUTHORIZED`.
-
----
-
-### Casos Borde
-
-- ¿Qué pasa si el `role` tiene formato UUID y pertenece a otro tenant? La FK lo rechaza → 400 INVALID_ROLE.
-- ¿Puede pasarse un `role` de sistema (`"admin"`) junto con un `role` custom de UUID? Sí — la validación es por FK, no por tipo.
-- ¿El usuario ya existente en `users` (otro tenant) puede recibir el mismo `POST`? El email es único por tenant (constraint compuesto), no globalmente. Si el email ya existe en ese tenant → 409. Si es otro tenant → 201 con un nuevo UTR.
-
----
+**No entra:**
+- Cambios de esquema.
+- Cambios en la forma de la respuesta.
+- Otros endpoints de usuarios, que están en [002a](../002a-user-management/spec.md).
 
 ## Requisitos
 
-### Requisitos Funcionales
+- **RF-001** `origen: original` — El sistema DEBE crear el usuario y su asignación de rol
+  en una única transacción.
+  → `PostgresRepository.CreateWithRole` (`db.Begin` y `defer tx.Rollback`).
+- **RF-002** `origen: original` — La asignación DEBE crearse con `status = 'active'` y
+  `assigned_at = NOW()`: el alta directa por un administrador no pasa por el flujo de
+  invitaciones (D2).
+- **RF-003** `origen: original`, **restringido después** — `role` DEBE aceptar el `id` de
+  un rol de sistema o de un rol custom del tenant. **Derivado:** además, el rol tiene que
+  ser *asignable* por quien crea. Existencia, pertenencia al tenant y visibilidad se
+  validan con el mismo lookup "cloakeado" que usan `GET /roles` e invitaciones, de modo
+  que un administrador del tenant plataforma no puede crear un `super_admin`.
+  → `appRoles.EnsureAssignable` (`internal/app/roles/assignable.go`).
+- **RF-004** `origen: original` — Si el rol no existe (o, por el cambio de RF-003, no es
+  asignable), DEBE responder 400 `INVALID_ROLE`. La respuesta es la misma en los tres
+  casos para no revelar la existencia de roles de plataforma.
+  → `domain.ErrInvalidRoleID`, `internal/api/handler/users/errors.go`.
+- **RF-005** `origen: original` — El `assigned_by` de la asignación DEBE ser el
+  administrador autenticado, tomado del contexto del JWT (D4).
+  → `Handler.CreateUser` (`AssignedBy: callerUUID`).
+- **RF-006** `origen: original` — La respuesta DEBE ser el mismo `UserResponse` de
+  antes, sin campo `roles` (D5). Los roles se consultan con `GET /users/:id?include=roles`.
+- **RF-007** `origen: original` — Si falla cualquier parte de la transacción, NINGÚN
+  registro DEBE persistir.
+  → rollback en `CreateWithRole`, verificado por `TestCreateWithRole_RoleIDInexistente`.
+- **RF-008** `origen: original`, **código cambiado** — Un email repetido en el tenant
+  DEBE responder 409. La spec y el diseño pedían el código `EMAIL_TAKEN`; el código real
+  es **`DUPLICATE_EMAIL`**.
+  → `users.ErrEmailTaken` (violación `23505`), `errors.go`.
+- **RF-009** `origen: derivado` — Crear el usuario exige `perm_users_manage`.
+  → `internal/api/router.go`.
 
-- **RF-001**: El sistema DEBE crear el usuario y su UTR activo en una única transacción atómica.
-- **RF-002**: El UTR creado DEBE tener `status = 'active'` y `assigned_at = NOW()`.
-- **RF-003**: El campo `role` DEBE aceptar cualquier `roles.id` válido (roles del sistema o custom del tenant).
-- **RF-004**: Si el `role` no existe en la tabla `roles`, el sistema DEBE retornar 400 con código `INVALID_ROLE`.
-- **RF-005**: El `assigned_by` del UTR DEBE ser el UUID del admin autenticado (extraído del JWT).
-- **RF-006**: El response DEBE ser idéntico al actual `UserResponse` (backward compatible — sin campo `roles`).
-- **RF-007**: Si falla cualquier parte de la transacción, NINGÚN registro debe persistir (atomicidad total).
+## Criterios de éxito
 
-### Entidades Clave
+| CE | Criterio | Origen | Evidencia |
+|---|---|---|---|
+| **CE-001** | Con un rol válido responde 201 y crea un usuario y una asignación activa | original (SC-001) | `internal/repo/pg/users/create_test.go` (`TestCreateWithRole_HappyPath`) |
+| **CE-002** | Con un rol inválido responde 400 y no crea nada | original (SC-002) | `TestCreateWithRole_RoleIDInexistente` |
+| **CE-003** | Un email duplicado en el mismo tenant se rechaza | original (escenario 3) | `TestCreateWithRole_EmailDuplicadoEnElMismoTenant` |
+| **CE-004** | Un administrador del tenant plataforma no puede crear un usuario con rol global; `super_admin` sí | derivado | `internal/app/users/service_test.go` (`TestCreateUserConRolGlobal*`) |
 
-- **User**: Registro en tabla `users` (sin cambios en schema).
-- **UserTenantRole (UTR)**: Entrada en `user_tenant_roles` con `status='active'`, `role_id`, `assigned_by`, `assigned_at`.
+- SC-003 (el pact del frontend pasa) **no se verifica en este repo**: los pacts no corren
+  en su CI (ver `docs/_process/PACTS_ANALYSIS.md`).
+- SC-004 (sin regresiones en los otros endpoints) no tiene un criterio propio; lo cubren
+  los tests de [002a](../002a-user-management/spec.md).
 
----
+## Decisiones
 
-## Criterios de Éxito
+| Decisión | Alternativa descartada | Por qué | Fuente |
+|---|---|---|---|
+| Transacción en el repositorio | Dos operaciones desde el servicio | Si falla el segundo INSERT, el usuario queda sin rol y sin recuperación automática | D3 |
+| Reutilizar el campo `role` como `role_id` | Un campo nuevo | El campo ya existía; es compatible hacia atrás | D1 |
+| Validar asignabilidad en el backend | Confiar solo en la FK (D1 original) | La FK no impedía crear usuarios con roles de plataforma: era una escalada de privilegios | derivado (`assignable.go`) |
 
-### Resultados Medibles
+## Riesgos y preguntas abiertas
 
-- **SC-001**: `POST /api/v1/users` con `role` válido retorna 201 y crea exactamente 1 fila en `users` + 1 fila en `user_tenant_roles` con `status='active'`.
-- **SC-002**: `POST /api/v1/users` con `role` inválido retorna 400 sin crear ninguna fila.
-- **SC-003**: La interacción Pact `user-service-api-roles-extension — POST /users con rol inicial` pasa al 100%.
-- **SC-004**: Los 5 endpoints existentes de `POST/GET/PATCH/DELETE /users` no presentan regresiones.
+- **Código de error distinto al acordado** (`DUPLICATE_EMAIL` en vez de `EMAIL_TAKEN`).
+  Hoy no rompe nada: `embolsadora-frontend` (`origin/develop`, 2026-09-29) no referencia
+  ninguno de los dos códigos. Conviene alinear la spec o el código antes de que alguien
+  empiece a depender de uno.
+- **`ErrUserAlreadyHasActiveRole`** no está mapeado en el handler de usuarios y
+  terminaría en 500. En la práctica no ocurre, porque el usuario es nuevo.

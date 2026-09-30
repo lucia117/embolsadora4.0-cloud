@@ -71,7 +71,7 @@ esta rama, sin push.
 
 - [ ] Traducir los `spec.md` al formato unificado (`RF-NNN` con procedencia `original` o
       `derivado`, `CE-NNN`), verificando requisito por requisito contra el código.
-      Hechas: 022, 024. Sin traducción: 004, 005b, 015 (C o B reemplazada). Resto pendiente;
+      Hechas: 002a, 002b, 013, 021, 022, 024. Sin traducción: 004, 005b, 015 (C o B reemplazada). Resto pendiente;
       ver la tabla de progreso en `specs/README.md`.
 - [ ] Unificar `001` (`spec.md` + `spec.es.md`) en un solo idioma.
 - [ ] Observación de 016: conviven dos convenciones de respuesta (`{"success":...}` y
