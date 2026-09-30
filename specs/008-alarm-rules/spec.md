@@ -1,3 +1,19 @@
+---
+id: 008
+title: "Alarm Rules Service API"
+tier: feature
+status: done
+veredicto: A
+owner: Lucia Scharff
+date: 2026-04-06
+repos: [embolsadora4.0-cloud]
+origin: speckit
+issues: []
+prs: [25]
+adrs: []
+last_reviewed: 2026-09-29
+---
+
 # Feature Specification: Alarm Rules Service API
 
 **Feature Branch**: `008-alarm-rules`  

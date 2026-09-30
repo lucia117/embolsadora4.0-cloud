@@ -1,3 +1,19 @@
+---
+id: 001
+title: "User Role Assignment Management"
+tier: feature
+status: done
+veredicto: A
+owner: Lucia Scharff
+date: 2026-02-27
+repos: [embolsadora4.0-cloud]
+origin: speckit
+issues: []
+prs: [11, 13]
+adrs: []
+last_reviewed: 2026-09-29
+---
+
 # Feature Specification: User Role Assignment Management
 
 **Feature Branch**: `001-user-role-assignments`

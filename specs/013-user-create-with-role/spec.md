@@ -1,3 +1,19 @@
+---
+id: 013
+title: "POST /users con Asignación de Rol Inicial"
+tier: feature
+status: done
+veredicto: A
+owner: Lucia Scharff
+date: 2026-04-11
+repos: [embolsadora4.0-cloud]
+origin: speckit
+issues: []
+prs: [29]
+adrs: []
+last_reviewed: 2026-09-29
+---
+
 # Feature Specification: POST /users con Asignación de Rol Inicial
 
 **Feature Branch**: `develop`  

@@ -1,3 +1,19 @@
+---
+id: 002a
+title: "User Management API"
+tier: feature
+status: done
+veredicto: A
+owner: Lucia Scharff
+date: 2026-03-01
+repos: [embolsadora4.0-cloud]
+origin: speckit
+issues: []
+prs: [15]
+adrs: []
+last_reviewed: 2026-09-29
+---
+
 # Feature Specification: User Management API
 
 **Feature Branch**: `002-user-management`

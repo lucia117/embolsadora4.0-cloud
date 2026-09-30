@@ -1,3 +1,11 @@
+---
+id: 005a
+spec: ./spec.md
+status: done
+origin: speckit
+last_reviewed: 2026-09-29
+---
+
 # Implementation Plan: Dashboard Layouts API
 
 **Branch**: `005-dashboard-layouts` | **Date**: 2026-03-24 | **Spec**: [spec.md](./spec.md)

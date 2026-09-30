@@ -1,3 +1,19 @@
+---
+id: 002b
+title: "Supabase Auth — Backend"
+tier: feature
+status: done
+veredicto: A
+owner: Federico Degiovanni
+date: 2026-03-06
+repos: [embolsadora4.0-cloud]
+origin: speckit
+issues: []
+prs: [16]
+adrs: [CLOUD-ADR-005]
+last_reviewed: 2026-09-29
+---
+
 # Feature Specification: Supabase Auth — Backend
 
 **Feature Branch**: `002-supabase-auth-backend`

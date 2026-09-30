@@ -1,3 +1,11 @@
+---
+id: 002a
+spec: ./spec.md
+status: done
+origin: speckit
+last_reviewed: 2026-09-29
+---
+
 # Implementation Plan: User Management API
 
 **Feature**: 002-user-management

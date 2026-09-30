@@ -1,3 +1,19 @@
+---
+id: 006
+title: "API de Gestión de Roles"
+tier: feature
+status: done
+veredicto: A
+owner: Lucia Scharff
+date: 2026-04-03
+repos: [embolsadora4.0-cloud]
+origin: speckit
+issues: []
+prs: [22]
+adrs: []
+last_reviewed: 2026-09-29
+---
+
 # Especificación de Feature: API de Gestión de Roles
 
 **Rama**: `006-roles-management`

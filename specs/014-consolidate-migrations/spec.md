@@ -1,3 +1,19 @@
+---
+id: 014
+title: "Consolidación de migraciones para deploy en Koyeb"
+tier: feature
+status: done
+veredicto: A
+owner: Federico Degiovanni
+date: 2026-05-08
+repos: [embolsadora4.0-cloud]
+origin: speckit
+issues: []
+prs: [36]
+adrs: [CLOUD-ADR-014]
+last_reviewed: 2026-09-29
+---
+
 # Feature Specification: Consolidación de migraciones para deploy en Koyeb
 
 **Feature Branch**: `014-consolidate-migrations`

@@ -1,3 +1,19 @@
+---
+id: 009
+title: "Log Service API"
+tier: feature
+status: done
+veredicto: A
+owner: Lucia Scharff
+date: 2026-04-07
+repos: [embolsadora4.0-cloud]
+origin: speckit
+issues: []
+prs: [26]
+adrs: []
+last_reviewed: 2026-09-29
+---
+
 # Feature Specification: Log Service API
 
 **Feature Branch**: `009-log-service`  

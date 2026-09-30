@@ -1,3 +1,19 @@
+---
+id: 011
+title: "Permissions Management API"
+tier: feature
+status: done
+veredicto: A
+owner: Lucia Scharff
+date: 2026-04-10
+repos: [embolsadora4.0-cloud]
+origin: speckit
+issues: []
+prs: [28, 62]
+adrs: []
+last_reviewed: 2026-09-29
+---
+
 # Feature Specification: Permissions Management API
 
 **Feature Branch**: `011-permissions-management`  

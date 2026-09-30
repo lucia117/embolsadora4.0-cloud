@@ -1,3 +1,19 @@
+---
+id: 010
+title: "Notification Service API"
+tier: feature
+status: done
+veredicto: A
+owner: Lucia Scharff
+date: 2026-04-10
+repos: [embolsadora4.0-cloud]
+origin: speckit
+issues: []
+prs: [27]
+adrs: []
+last_reviewed: 2026-09-29
+---
+
 # Feature Specification: Notification Service API
 
 **Feature Branch**: `010-notification-service`  

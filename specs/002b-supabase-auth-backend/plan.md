@@ -1,3 +1,11 @@
+---
+id: 002b
+spec: ./spec.md
+status: done
+origin: speckit
+last_reviewed: 2026-09-29
+---
+
 # Implementation Plan: Supabase Auth — Backend
 
 **Branch**: `002-supabase-auth-backend` | **Date**: 2026-03-06 | **Spec**: [spec.md](./spec.md)

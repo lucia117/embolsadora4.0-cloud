@@ -1,3 +1,19 @@
+---
+id: 003
+title: "Edge Device Management API"
+tier: feature
+status: done
+veredicto: A
+owner: Lucia Scharff
+date: 2026-03-09
+repos: [embolsadora4.0-cloud]
+origin: speckit
+issues: []
+prs: [17, 18]
+adrs: [CLOUD-ADR-016]
+last_reviewed: 2026-09-29
+---
+
 # Feature Specification: Edge Device Management API
 
 **Feature Branch**: `003-edge-device-management`

@@ -1,3 +1,19 @@
+---
+id: 005a
+title: "Dashboard Layouts API"
+tier: feature
+status: done
+veredicto: A
+owner: Lucia Scharff
+date: 2026-03-24
+repos: [embolsadora4.0-cloud]
+origin: speckit
+issues: []
+prs: [20]
+adrs: []
+last_reviewed: 2026-09-29
+---
+
 # Feature Specification: Dashboard Layouts API
 
 **Feature Branch**: `005-dashboard-layouts`
