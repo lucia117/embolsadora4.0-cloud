@@ -75,3 +75,20 @@ Cada entrada dice qué se pidió, qué hay hoy, la evidencia y la decisión.
   especificó.
 - **Decisión (2026-09-29, Lucia Scharff):** **objetivo no cumplido.** El motor de
   evaluación no se implementa antes de la entrega.
+
+## Logs y notificaciones sin productor
+
+- **Qué se pidió:** [009](../../specs/009-log-service/spec.md) y
+  [010](../../specs/010-notification-service/spec.md) definieron servicios de **consulta**
+  y dejaron la generación a "otros servicios/workers" y a "un worker/trigger interno
+  futuro".
+- **Qué hay:** existe la interfaz `logwriter.LogWriter`, implementada por
+  `logs.Service.Write`, pero ningún componente la llama. Ningún código inserta en
+  `notifications`. En producción, las dos tablas solo tienen datos cargados a mano o por
+  seed.
+- **Además:** la política de retención de logs se guarda pero ningún proceso borra los
+  logs vencidos.
+- **Relación:** es el mismo hueco que el objetivo #5. Un motor de eventos que evalúe las
+  mediciones de la ingesta sería el productor natural de ambos.
+- **Decisión:** ninguna explícita. Queda registrado como parte del objetivo #5 no cumplido.
+

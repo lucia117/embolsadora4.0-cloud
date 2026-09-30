@@ -69,10 +69,10 @@ esta rama, sin push.
 
 ### 3c — Reconciliación y traducción
 
-- [ ] Traducir los `spec.md` al formato unificado (`RF-NNN` con procedencia `original` o
+- [x] Traducir los `spec.md` al formato unificado (`RF-NNN` con procedencia `original` o
       `derivado`, `CE-NNN`), verificando requisito por requisito contra el código.
-      Hechas: 001, 002a, 002b, 006, 007, 011, 013, 017-022, 024. Sin traducción: 004, 005b, 015 (C o B reemplazada). Resto pendiente;
-      ver la tabla de progreso en `specs/README.md`.
+      Completo (2026-09-29): 22 specs traducidas; 004, 005b y 015 sin traducción (C o B
+      reemplazada). Originales conservados como `design.md`.
 - [x] Unificar `001` (`spec.md` + `spec.es.md`) en un solo idioma.
 - [ ] Observación de 016: conviven dos convenciones de respuesta (`{"success":...}` y
       struct directo). Decidir si se completa la estandarización.

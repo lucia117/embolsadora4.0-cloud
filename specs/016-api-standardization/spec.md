@@ -1,100 +1,75 @@
 ---
 id: 016
-title: "P1 API Standardization — Design Spec"
-tier: feature
+title: "Estandarización de errores y respuestas (P1)"
+tier: change
 status: done
 veredicto: A
 owner: Lucia Scharff
 date: 2026-04-16
-repos: [embolsadora4.0-cloud]
+repos: [embolsadora4.0-cloud, embolsadora-frontend]
 origin: superpowers
 issues: []
 prs: [32]
 adrs: []
-former_file: docs/superpowers/specs/2026-04-16-p1-api-standardization-design.md
+traducido: 2026-09-29
 last_reviewed: 2026-09-29
 ---
 
-# P1 API Standardization — Design Spec
+# 016 — Estandarización de errores y respuestas (P1)
 
-**Fecha:** 2026-04-16
-**Rama:** `fix/copilot-review-pr31`
-**Referencia:** `docs/audit/api-standardization-audit.md`, `docs/superpowers/plans/2026-04-11-p1-error-response-standardization.md`
+> **Procedencia.** `origen: original` viene del diseño del 2026-04-16, en
+> [`design.md`](design.md). El plan de ejecución está en [`plan.md`](plan.md).
+> **Verificado contra `develop` el 2026-09-29.**
 
----
+## Contexto y problema
 
-## Objetivo
+Cada módulo de la API respondía los errores con una forma distinta, y algunos envolvían el
+éxito en `{"success": true, "data": …}` y otros no. Los pacts del frontend esperaban una
+forma concreta por módulo. La estandarización fijó un patrón único **para los módulos de
+su alcance**.
 
-Estandarizar el manejo de errores HTTP y el formato de respuesta JSON en todos los módulos de la API para que sean compatibles con los Pact contracts del frontend.
+## Alcance
 
----
+**Entra:** `alarm_rules`, `roles`, `dashboard_layouts`, `notifications`, `logs`,
+`permissions`, `tenants` y `users`.
 
-## Patrón estándar
+**No entra:**
+- La lógica de negocio.
+- Las firmas de servicio.
+- Los módulos creados después: `edge_devices`, `user_roles`, `dashboards` e ingesta.
 
-### Error responses
+## Requisitos
 
-Cada módulo define su propio `errors.go` con:
+- **RF-001** `origen: original` (Patrón estándar) — Cada módulo DEBE tener su
+  `errors.go`, con `ErrorResponse{error, message, status}` y un `HandleError` que traduzca
+  los errores de dominio a HTTP, con códigos en SCREAMING_SNAKE_CASE.
+  → `internal/api/handler/{alarm_rules,roles,dashboard_layouts,notifications,logs,users}/errors.go`;
+  `tenants/errors/`.
+- **RF-002** `origen: original` (Success responses) — Las respuestas exitosas DEBEN ser el
+  struct directo (o un array en los listados), sin `{"success": true, "data": …}`.
+- **RF-003** `origen: original` (excepción logs) — `logs` mantiene el campo `data` porque
+  el pact lo pide, pero sin `success`.
+- **RF-004** `origen: original` (tabla por módulo, `permissions`) — `permissions` DEBE
+  alinear su manejo de errores al struct tipado. **Derivado:** usa su propio
+  `errorResponse{error}` en `handler.go`, sin `errors.go`; sigue siendo la forma que pide
+  su pact.
+- **RF-005** `origen: original` (tabla por módulo, `users`) — `users` DEBE tomar el tenant
+  de `platform.TenantID` y no de `c.GetString`.
 
-```go
-type ErrorResponse struct {
-    Error   string `json:"error"`
-    Message string `json:"message"`
-    Status  int    `json:"status"`
-}
+## Criterios de éxito
 
-func HandleError(c *gin.Context, err error) { /* domain error → HTTP */ }
-func invalidTenantResponse(c *gin.Context)  { /* 400 INVALID_TENANT */ }
-func invalidIDResponse(c *gin.Context)      { /* 400 INVALID_ID */ }
-```
+| CE | Criterio | Evidencia |
+|---|---|---|
+| **CE-001** | Ningún módulo del alcance envuelve el éxito en `success` | búsqueda de `"success"` en `internal/api/handler/{alarm_rules,roles,dashboard_layouts,notifications,logs,tenants,users}` (sin resultados). Única excepción: el `DELETE` de `permissions` responde `{success: true}` porque lo exige su pact (`deleteSuccessResponse`) |
+| **CE-002** | El build pasa después de cada módulo | restricción del diseño; `go build ./...` |
 
-Referencia implementada: `internal/api/handler/users/errors.go`
-Piloto disponible: `internal/api/handler/alarm_rules/errors.go` (rama `audit/api-standardization`)
+## Riesgos y preguntas abiertas
 
-### Success responses
-
-Struct directo, sin wrapper `{"success": true, "data": ...}`:
-
-```go
-c.JSON(http.StatusOK, dto.FromDomain(item))   // single resource
-c.JSON(http.StatusOK, items)                   // list (plain array)
-```
-
-**Excepción — logs:** El Pact espera `{"data": [...], ...}`. Se mantiene el campo `data` pero se elimina `success`.
-
----
-
-## Cambios por módulo
-
-| Módulo | Errors | Success responses | Observación |
-|--------|--------|-------------------|-------------|
-| `alarm_rules` | cherry-pick piloto | array directo | Piloto ya listo en rama audit |
-| `roles` | crear `errors.go` | array directo | |
-| `dashboard_layouts` | crear `errors.go` | struct directo sin wrapper | |
-| `notifications` | crear `errors.go`, fix `code`→`error` | sin cambios | Success ya es correcto |
-| `logs` | crear `errors.go` | mantener `data:[]`, quitar `success` | Pact requiere campo `data` |
-| `permissions` | alinear `handlePermissionError` al struct tipado | sin cambios | Success ya es correcto |
-| `tenants` | `httperr.WriteError` → `ErrorResponse` SCREAMING_SNAKE_CASE | sin cambios | |
-| `users` | sin cambios | sin cambios | Solo fix tenant ID: `c.GetString` → `platform.TenantID` |
-
----
-
-## Orden de ejecución
-
-1. `alarm_rules` — cherry-pick + compilar
-2. `roles` — errors.go + reescribir handlers + compilar
-3. `dashboard_layouts` — errors.go + reescribir handlers + compilar
-4. `notifications` — errors.go + fix error fields + compilar
-5. `logs` — errors.go + quitar `success` de list responses + compilar
-6. `permissions` — alinear error handler + compilar
-7. `tenants` — reemplazar httperr + compilar
-8. `users` — fix tenant ID extraction + compilar
-9. Build completo final
-
----
-
-## Constraints
-
-- Compilar después de cada módulo
-- No tocar lógica de negocio ni signatures de servicio
-- No cambiar campos de success responses que el Pact ya valida como correctos
-- Mantener `data` field en logs (Pact lo requiere)
+- **Hoy conviven dos convenciones.** Los módulos posteriores a esta estandarización
+  (`edge_devices`, `user_roles`, `dashboards`) y los middlewares (`JWTAuth`,
+  `TenantFromHeader`) responden `{"success": …, "error": …}`. La ingesta tiene un
+  contrato propio (`{"data": …}`, ver [022](../022-cloud-ingest-endpoint/spec.md)). Un
+  cliente tiene que conocer las dos formas. Queda por decidir si se completa la
+  estandarización.
+- Las specs escritas antes que esta (006 y 005a) exigían el envelope y quedaron con ese
+  requisito incumplido (`rf_incumplidos`).

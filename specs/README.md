@@ -41,9 +41,9 @@ al formato unificado.
 | 005b | [PLC Events Ingestion & Query API](005b-plc-events/spec.md) | ↻ superseded → 022 | B | 2026-03-24 | (#56) | CLOUD-ADR-017, 018 |
 | 006 | [API de Gestión de Roles](006-roles-management/spec.md) | done | A | 2026-04-03 | #22 | — |
 | 007 | [Extensión de Gestión de Usuarios](007-user-roles-status/spec.md) | done | A | 2026-04-03 | #24 | — |
-| 008 | [Alarm Rules Service API](008-alarm-rules/spec.md) | done | A¹ | 2026-04-06 | #25 | — |
-| 009 | [Log Service API](009-log-service/spec.md) | done | A | 2026-04-07 | #26 | — |
-| 010 | [Notification Service API](010-notification-service/spec.md) | done | A¹ | 2026-04-10 | #27 | — |
+| 008 | [Reglas de alarma (CRUD)](008-alarm-rules/spec.md) | done | A¹ | 2026-04-06 | #25 | — |
+| 009 | [Servicio de logs](009-log-service/spec.md) | done | A¹ | 2026-04-07 | #26 | — |
+| 010 | [Servicio de notificaciones](010-notification-service/spec.md) | done | A¹ | 2026-04-10 | #27 | — |
 | 011 | [Permissions Management API](011-permissions-management/spec.md) | done | A | 2026-04-10 | #28, #62 | — |
 | 013 | [POST /users con asignación de rol inicial](013-user-create-with-role/spec.md) | done | A | 2026-04-11 | #29 | — |
 | 014 | [Consolidación de migraciones](014-consolidate-migrations/spec.md) | done | A | 2026-05-08 | #36 | CLOUD-ADR-014 |
@@ -63,9 +63,9 @@ notifications, logs, permissions, tenants, users). `edge_devices`, `user_roles`,
 `dashboards` y el middleware todavía usan el envelope `{"success":...}`: hoy conviven dos
 convenciones de respuesta.
 
-¹ Las specs 008 y 010 se cumplen, pero **el motor que evalúa reglas y genera
-notificaciones nunca se especificó ni se implementó**: las dos lo dejaron fuera de
-alcance. El objetivo específico #5 (alertas automáticas) no se cumple; ver la
+¹ Las specs 008, 009 y 010 se cumplen, pero **nada produce los datos que consultan**:
+no hay motor que evalúe reglas, ni código que escriba logs o notificaciones. Las tres
+lo dejaron fuera de alcance. El objetivo específico #5 (alertas automáticas) no se cumple; ver la
 [bitácora](../docs/_process/bitacora-de-alcance.md#objetivo-específico-5-alertas-automáticas).
 
 ## Notas
@@ -98,9 +98,8 @@ conserva al lado (`design.md`) o en otro repo (`spec_externa`).
 
 | Estado | Specs |
 |---|---|
-| Traducidas | 001, 002a, 002b, 006, 007, 011, 013, 017, 018, 019, 020, 021, 022, 024 |
+| Traducidas | todas las vigentes (22): 001, 002a, 002b, 003, 005a, 006, 007, 008, 009, 010, 011, 013, 014, 016, 017, 018, 019, 020, 021, 022, 023, 024 |
 | No requieren traducción (veredicto C o B reemplazada; el cuerpo se conserva como evidencia) | 004, 005b, 015 |
-| Pendientes | 003, 005a, 008, 009, 010, 014, 016, 023 |
 
 ## Material asociado y archivado
 
