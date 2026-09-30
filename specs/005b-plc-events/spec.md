@@ -12,6 +12,7 @@ issues: []
 prs: [56]
 adrs: [CLOUD-ADR-017, CLOUD-ADR-018]
 divergencia: docs/_process/bitacora-de-alcance.md#005b-plc-events
+superseded_by: [022]
 last_reviewed: 2026-09-29
 ---
 
