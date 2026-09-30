@@ -89,6 +89,18 @@ alcance. El objetivo específico #5 (alertas automáticas) no se cumple; ver la
 - **022** no tiene diseño en este repo: el diseño aprobado vive en `embolsadora-edge`
   (`spec_externa` en el front-matter). Su `spec.md` lo resume y enlaza.
 
+## Progreso de la traducción al formato unificado (fase 3c)
+
+Una spec traducida tiene `traducido:` en el front-matter y `RF-NNN`/`CE-NNN` verificados
+contra el código, con procedencia `original` o `derivado`. El documento de origen se
+conserva al lado (`design.md`) o en otro repo (`spec_externa`).
+
+| Estado | Specs |
+|---|---|
+| Traducidas | 022, 024 |
+| No requieren traducción (veredicto C o B reemplazada; el cuerpo se conserva como evidencia) | 004, 005b, 015 |
+| Pendientes | 001, 002a, 002b, 003, 005a, 006, 007, 008, 009, 010, 011, 013, 014, 016, 017, 018, 019, 020, 021, 023 |
+
 ## Material asociado y archivado
 
 | Archivo original | Destino | Por qué |
