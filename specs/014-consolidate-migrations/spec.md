@@ -35,6 +35,7 @@ Supabase (ver `docs/operations.md`). La plataforma no cambia la decisión.
 ## Alcance
 
 **Entra:**
+
 - Esquema inicial único, seeds esenciales y seeds opcionales fuera del flujo.
 - Documentación del procedimiento.
 

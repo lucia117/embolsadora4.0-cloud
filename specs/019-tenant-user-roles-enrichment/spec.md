@@ -25,6 +25,7 @@ last_reviewed: 2026-09-29
 La pestaña "Usuarios y roles" de un tenant en el frontend mostraba el `roleId` crudo y, a
 veces, un placeholder `Usuario a1b2c3d4…` en lugar del usuario. La causa estaba en el
 backend:
+
 - `GET /user-roles?tenantId=` devolvía solo `roleId`.
 - Para completar los datos, el frontend hacía un segundo fetch a `GET /users?tenantId=`,
   que filtraba por `users.tenant_id`.
@@ -39,6 +40,7 @@ no `users.tenant_id` (§Problem).
 **Entra:** la consulta, el tipo de dominio y la respuesta de `list_user_roles`.
 
 **No entra:**
+
 - `GET /users`.
 - Los demás endpoints de `user_roles`.
 - Cambios en el frontend.

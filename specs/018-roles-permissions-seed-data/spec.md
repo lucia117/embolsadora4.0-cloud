@@ -32,10 +32,12 @@ catálogo en inglés (§Problem).
 ## Alcance
 
 **Entra:**
+
 - Traducir al español nombre y descripción de los 17 permisos del sistema.
 - Cargar `roles.permissions` de los 6 roles del sistema.
 
 **No entra** (§Non-goals):
+
 - La autorización del backend, que entonces era un mapa fijo en Go.
 - Cambios en el frontend.
 - Renombrar ids del catálogo.

@@ -36,6 +36,7 @@ forzar cambios de contraseña.
 ## Alcance
 
 **Entra:**
+
 - Validación de JWT por JWKS y auto-provisioning.
 - `GET /api/v1/me`.
 - Resolución de tenant por `X-Tenant-ID`.
@@ -44,6 +45,7 @@ forzar cambios de contraseña.
 - Eliminación del auth propio.
 
 **No entra:**
+
 - El login de usuarios: lo hace el frontend contra Supabase. El backend solo expone un
   proxy público, ver RF-017.
 - El contenido de los mails, que cubre [021](../021-auth-emails/spec.md).

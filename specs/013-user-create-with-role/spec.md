@@ -19,6 +19,7 @@ last_reviewed: 2026-09-29
 
 > **Procedencia.** Esta feature tiene dos documentos de origen del mismo día
 > (2026-04-11):
+>
 > - [`design-speckit.md`](design-speckit.md), la spec de speckit, que ya numeraba sus
 >   requisitos como `RF-001` a `RF-007`; acá se conserva esa numeración.
 > - [`design.md`](design.md), el diseño de superpowers, con sus decisiones D1 a D5.
@@ -40,6 +41,7 @@ atómica.
 del rol y el mapeo de errores.
 
 **No entra:**
+
 - Cambios de esquema.
 - Cambios en la forma de la respuesta.
 - Otros endpoints de usuarios, que están en [002a](../002a-user-management/spec.md).

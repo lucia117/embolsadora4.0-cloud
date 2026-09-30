@@ -43,6 +43,7 @@ genera el link pero no manda el mail. Se confirmó contra el proyecto real (`fol
 ## Alcance
 
 **Entra (backend):**
+
 - Resolución del origin del frontend por request, con allow-list.
 - Metadata del invite para personalizar la plantilla.
 - Las cuatro plantillas versionadas y el script que las publica.
@@ -50,6 +51,7 @@ genera el link pero no manda el mail. Se confirmó contra el proyecto real (`fol
 - Logs de error en el handler de invitaciones.
 
 **No entra:**
+
 - Branding por tenant (decisión de diseño) y mails en más de un idioma.
 - Cambiar el vencimiento de 7 días de la invitación en la base.
 - Reemplazar a Supabase como emisor.

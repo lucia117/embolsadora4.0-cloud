@@ -18,6 +18,7 @@ last_reviewed: 2026-09-29
 # 011 — Gestión de permisos y permisos dinámicos
 
 > **Procedencia.** `origen: original` viene de dos documentos:
+>
 > - la spec de speckit del 2026-04-10 (CRUD del catálogo), conservada en
 >   [`design.md`](design.md), con su número `FR-NNN`;
 > - el plan de permisos dinámicos del 2026-08-17 (PR #62), en
@@ -42,11 +43,13 @@ El plan de permisos dinámicos (PR #62) unificó los dos mundos: la autorizació
 ## Alcance
 
 **Entra:**
+
 - El CRUD del catálogo de permisos.
 - El modelo de autorización por permisos leídos de la base.
 - El catálogo fino `perm_*_view` / `perm_*_manage`.
 
 **No entra:**
+
 - El CRUD de roles, que está en [006](../006-roles-management/spec.md).
 - La traducción del catálogo, que está en [018](../018-roles-permissions-seed-data/spec.md).
 

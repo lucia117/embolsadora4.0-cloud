@@ -34,6 +34,7 @@ su alcance**.
 `permissions`, `tenants` y `users`.
 
 **No entra:**
+
 - La lógica de negocio.
 - Las firmas de servicio.
 - Los módulos creados después: `edge_devices`, `user_roles`, `dashboards` e ingesta.

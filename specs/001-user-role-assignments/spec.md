@@ -32,11 +32,13 @@ el historial y con la garantía de un solo rol activo por usuario y tenant.
 ## Alcance
 
 **Entra:**
+
 - `POST /api/v1/user-roles`, `GET /api/v1/user-roles`, `PUT /api/v1/user-roles/:id`,
   `DELETE /api/v1/user-roles/:id` y `POST /api/v1/user-roles/bulk`.
 - `GET /api/v1/users/:id/roles`.
 
 **No entra:**
+
 - Crear usuario y rol a la vez: está en [013](../013-user-create-with-role/spec.md).
 - El estado de la membresía expuesto como estado del usuario: está en
   [007](../007-user-roles-status/spec.md).

@@ -54,6 +54,7 @@ invariantes I-1 a I-4 del diseño) existen para impedirlo.
 ## Alcance
 
 **Entra:**
+
 - El endpoint `POST /api/v1/consumers/events` completo.
 - Autenticación por API key: tabla, hash, rotación y revocación (migración `000014`), y
   los endpoints del ABM para gestionarlas.
@@ -62,6 +63,7 @@ invariantes I-1 a I-4 del diseño) existen para impedirlo.
 - Provisioning de MongoDB: driver, configuración y servicio de desarrollo.
 
 **No entra** (§2):
+
 - Endpoints de lectura para el frontend. Los resuelve la spec [024](../024-dashboard-metrics-query/spec.md).
 - **Motor de evaluación de reglas de alarma.** El diseño lo excluye explícitamente; ver la
   [bitácora de alcance](../../docs/_process/bitacora-de-alcance.md#objetivo-específico-5-alertas-automáticas).

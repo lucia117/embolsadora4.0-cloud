@@ -96,6 +96,21 @@ scripts/ci-check.sh     # build + vet + lint + test, mismo orden que CI
 
 `make lint` corre además `redocly lint docs/openapi.yaml` si `redocly` está instalado.
 
+## Chequeos de documentación
+
+Los corre `.github/workflows/docs.yml` en cada PR. Para correrlos en local:
+
+```bash
+scripts/harness-check.sh          # layout, prohibiciones, front-matter, ADRs, índice de specs
+npx markdownlint-cli2@0.18.1      # reglas y archivos en .markdownlint-cli2.jsonc
+scripts/docs-freshness.sh         # documentos con last_reviewed de más de 120 días
+go test ./internal/routes/ -run TestOpenAPIMatchesRouter   # rutas del router vs docs/openapi.yaml
+```
+
+El drift de OpenAPI es un test de Go y corre también con `go test ./...`. Una ruta nueva
+sin documentar lo hace fallar; las excepciones deliberadas (`/ping`, `/health`,
+`/metrics`) están listadas con su motivo en `internal/routes/openapi_drift_test.go`.
+
 ## Migraciones
 
 ```bash
@@ -112,7 +127,7 @@ permisos, revisá las secciones "⚠️ Orden de deploy" de
 
 | Artefacto | Cómo se actualiza |
 |---|---|
-| `docs/openapi.yaml` | A mano, en el mismo PR que cambia la ruta. |
+| `docs/openapi.yaml` | A mano, en el mismo PR que cambia la ruta. `TestOpenAPIMatchesRouter` falla si una ruta registrada no está documentada o si un path documentado no existe. |
 | Catálogo de permisos `perm_*` | Migración SQL (se lee de `roles.permissions` en runtime). |
 | Plantillas de mail de Supabase | `emails/*.html` → `go run ./cmd/renderemails` (vista previa en `tmp/emails/`); publicación con `scripts/publish-email-templates.sh`. Ver [`emails/README.md`](../emails/README.md). |
 | Colección Postman | `postman/Embolsadora-API-Complete.postman_collection.json`; guía en [`postman/POSTMAN-GUIDE.md`](../postman/POSTMAN-GUIDE.md). |

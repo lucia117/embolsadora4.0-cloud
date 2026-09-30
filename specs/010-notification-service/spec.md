@@ -20,7 +20,7 @@ last_reviewed: 2026-09-29
 > **Procedencia.** `origen: original` viene de la spec de speckit del 2026-04-10, en
 > [`design.md`](design.md), con su número `FR-NNN`/`SC-NNN`. **Verificado contra `develop`
 > el 2026-09-29.**
-
+>
 > ⚠️ **Nada crea notificaciones.** La spec dice: "La creación de notificaciones será
 > responsabilidad de un worker/trigger interno futuro; para validación se sembrará datos
 > directamente en la BD" (design, *Assumptions*). Ese worker no existe: ningún código

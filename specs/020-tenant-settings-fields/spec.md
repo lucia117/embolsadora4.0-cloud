@@ -34,6 +34,7 @@ funcionalidad nunca implementada (§Contexto).
 defaults al crear un tenant.
 
 **No entra** (§Non-goals):
+
 - Cambios en el frontend.
 - Consolidar los 4 `TenantResponse` duplicados.
 - Generar `tenants.json` automáticamente.

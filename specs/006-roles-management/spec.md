@@ -41,6 +41,7 @@ rol custom otorga acceso real.
 `DELETE /roles/:id`.
 
 **No entra:**
+
 - La asignación de roles a usuarios, que está en [001](../001-user-role-assignments/spec.md).
 - El catálogo de permisos, que está en [011](../011-permissions-management/spec.md).
 

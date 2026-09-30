@@ -79,9 +79,17 @@ esta rama, sin push.
 
 ## Fase 4 — CI del harness
 
-- [ ] `harness-layout`, `markdownlint`, `links` (lychee), `docs-freshness`.
-- [ ] `openapi-drift` (swag + diff, copiado del edge) y agregar
-      `PATCH /api/v1/users/{id}/status` al contrato mientras tanto.
+- [x] `harness-layout` (`scripts/harness-check.sh`), `markdownlint`
+      (`.markdownlint-cli2.jsonc`), `links` (lychee offline) y `docs-freshness` (semanal,
+      abre un issue) en `.github/workflows/docs.yml`.
+- [x] Drift de OpenAPI como test de Go (`internal/routes/openapi_drift_test.go`): compara
+      las rutas del router con los paths de `docs/openapi.yaml`. Se agregó
+      `PATCH /api/v1/users/{userId}/status`, la única ruta sin documentar.
+- [ ] **Decisión pendiente:** migrar el OpenAPI a generación con `swag`, como el edge.
+      Hoy son unas 83 rutas y un 3.1 escrito a mano con el contrato congelado de la
+      ingesta; el test de drift cubre la presencia de rutas, no los schemas.
+- [ ] **Pendiente:** `redocly lint docs/openapi.yaml` reporta 48 errores previos; no se
+      suma a CI hasta limpiarlos.
 
 ## Fuera de este repo o con decisión pendiente
 

@@ -20,7 +20,7 @@ last_reviewed: 2026-09-29
 > **Procedencia.** `origen: original` viene de la spec de speckit del 2026-04-06, en
 > [`design.md`](design.md), con su número `FR-NNN`/`SC-NNN`. **Verificado contra `develop`
 > el 2026-09-29.**
-
+>
 > ⚠️ **Esta spec se cumple, pero el objetivo que la motivaba no.** La spec cubre solo la
 > **configuración** de reglas. El motor que las evalúa contra las mediciones y genera
 > alertas quedó fuera de alcance como "feature futura" y nunca se especificó ni se
@@ -39,6 +39,7 @@ futura)" (design, *Assumptions*).
 **Entra:** el CRUD de `/api/v1/alarm-rules`.
 
 **No entra:**
+
 - Evaluar las reglas.
 - Generar alarmas o notificaciones.
 - Paginación y borrado lógico (MVP).

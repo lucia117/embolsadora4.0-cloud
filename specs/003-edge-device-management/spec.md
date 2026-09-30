@@ -33,11 +33,13 @@ El cloud consulta al Edge Pi por HTTP con su `raspberryBaseUrl`.
 ## Alcance
 
 **Entra:**
+
 - CRUD de devices, habilitar y deshabilitar.
 - Chequeos a demanda y telemetría.
 - Historial de chequeos.
 
 **No entra:**
+
 - La autenticación del Pi hacia el cloud con API keys y la gestión de esas keys, que están
   en [022](../022-cloud-ingest-endpoint/spec.md) (RF-024).
 - Las mediciones de la ingesta.

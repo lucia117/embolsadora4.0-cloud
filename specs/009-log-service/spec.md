@@ -20,7 +20,7 @@ last_reviewed: 2026-09-29
 > **Procedencia.** `origen: original` viene de la spec de speckit del 2026-04-07, en
 > [`design.md`](design.md), con su número `FR-NNN`/`SC-NNN`. `origen: derivado` se
 > reconstruyó del código. **Verificado contra `develop` el 2026-09-29.**
-
+>
 > ⚠️ **Nada escribe logs.** La spec define un servicio "de **consulta**, no de ingesta":
 > supone que "los logs son generados por otros servicios/workers" (design,
 > *Assumptions*). Existe el punto de escritura (`logwriter.LogWriter`, implementado por

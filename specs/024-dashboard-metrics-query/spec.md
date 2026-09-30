@@ -29,6 +29,7 @@ last_reviewed: 2026-09-29
 La ingesta ([022](../022-cloud-ingest-endpoint/spec.md)) guarda las mediciones del Edge en
 MongoDB, pero no había forma de leerlas. El frontend necesitaba alimentar los widgets de
 los dashboards ([005a](../005a-dashboard-layouts/spec.md)) con datos reales:
+
 - valores agregados ("gramos promedio por bolsa en las últimas 8 h");
 - series de tiempo para gráficos de barras o líneas;
 - puntos crudos;
@@ -44,12 +45,14 @@ del Edge es consultable el mismo día, sin tocar el backend.
 ## Alcance
 
 **Entra:**
+
 - Consulta estructurada (`POST …/query`) con cuatro modos de respuesta.
 - Catálogo de `aasPath` observados (`GET …/catalog`).
 - Consulta en lote para resolver un dashboard entero en un request (`POST …/query/batch`).
 - Permiso `perm_metrics_view` y rate limit por usuario.
 
 **No entra:**
+
 - Correlación exacta por bolsa: no existe un identificador de ciclo compartido entre
   eventos.
 - Agregación entre máquinas: `machineId` es obligatorio.

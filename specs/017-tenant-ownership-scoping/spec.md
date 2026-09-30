@@ -35,6 +35,7 @@ pruebas de integración con el frontend (§Problem).
 **Entra:** el chequeo de pertenencia en los cuatro endpoints de tenants.
 
 **No entra** (§Non-goals):
+
 - El header `x-tenant-id` del proxy del frontend.
 - La separación entre "gestión de tenants de plataforma" y "configuración propia del
   tenant".

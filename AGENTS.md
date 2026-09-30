@@ -51,7 +51,7 @@ migrate -path migrations/ -database "$DATABASE_URL" up      # aplicar migracione
   deploy: leé las secciones "⚠️ Orden de deploy" de [`migrations/README.md`](migrations/README.md)
   antes de mergear.
 - `docs/openapi.yaml` se mantiene a mano: toda ruta nueva o modificada se refleja ahí en
-  el mismo PR.
+  el mismo PR. `TestOpenAPIMatchesRouter` (`internal/routes`) falla si no.
 
 ## Specs
 
@@ -64,7 +64,8 @@ migrate -path migrations/ -database "$DATABASE_URL" up      # aplicar migracione
 ## Documentación
 
 - Un documento nuevo en `docs/` lleva front-matter `title`, `status`, `owner` y
-  `last_reviewed`.
+  `last_reviewed`. Antes de terminar un cambio de documentación, corré
+  `scripts/harness-check.sh` y `npx markdownlint-cli2@0.18.1`.
 - En la raíz solo van `README.md`, `AGENTS.md`, `CLAUDE.md`, `CHANGELOG.md` y `LICENSE`.
   Material de proceso (planes, auditorías, análisis cerrados) va a `docs/_process/`.
 - Las decisiones difíciles de revertir (contratos, persistencia, seguridad, despliegue)

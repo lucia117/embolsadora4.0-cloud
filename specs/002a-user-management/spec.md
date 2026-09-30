@@ -31,6 +31,7 @@ baja, con aislamiento entre tenants y control de acceso para las escrituras.
 
 Desde que se escribió la spec cambiaron tres cosas que cambian la lectura de sus
 requisitos:
+
 1. **La identidad pasó a Supabase** ([002b](../002b-supabase-auth-backend/spec.md),
    CLOUD-ADR-005). El tenant ya no sale de claims del JWT sino del header `X-Tenant-ID`,
    validado contra membresías ([CLOUD-ADR-016](../../docs/adr/CLOUD-ADR-016-resolucion-de-tenant.md)).
@@ -45,6 +46,7 @@ requisitos:
 `PATCH /api/v1/users/:id` y `DELETE /api/v1/users/:id`.
 
 **No entra** (lo cubren otras specs):
+
 - `?include=roles`, `PATCH /users/:id/status` y `GET /users/pending`, en
   [007](../007-user-roles-status/spec.md).
 - La asignación de rol inicial en `POST /users`, en

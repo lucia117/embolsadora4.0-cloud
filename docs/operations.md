@@ -118,7 +118,7 @@ hay que revertir también la migración (`migrate ... down 1`), en el orden que 
 | Endpoint | Qué expone |
 |---|---|
 | `GET /ping` | Liveness: `pong`. Lo usa el smoke test del deploy. |
-| `GET /health` | `{"status":"ok|degraded","checks":{"postgres","mongo","redis"}}`. 503 si Postgres o Mongo fallan; Redis degradado no cambia el estado. |
+| `GET /health` | `{"status": "ok"}` o `{"status": "degraded"}`, con `checks` para `postgres`, `mongo` y `redis`. 503 si Postgres o Mongo fallan; Redis degradado no cambia el estado. |
 | `GET /metrics` | Métricas Prometheus (`internal/telemetry`): `auth_*`, `invitations_*`, `ingest_*` (incluido `ingest_mongo_up`), `log_*`, `notification_*`, `permissions_*`, `dashboard_*`. |
 
 Logs: Zap en modo desarrollo en todos los ambientes, con `request_id` por request
