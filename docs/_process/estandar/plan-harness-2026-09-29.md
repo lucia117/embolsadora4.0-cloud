@@ -59,16 +59,21 @@ esta rama, sin push.
 
 ### 3b — Absorber `docs/superpowers/`
 
-- [ ] 9 diseños → `specs/016…/spec.md`, con su plan como `plan.md`.
-- [ ] Planes sin diseño: asociar a una spec existente o archivar en `docs/_process/`.
-- [ ] Borrar `docs/superpowers/` y actualizar las referencias (el contrato congelado de la
-      ingesta pasa a la spec correspondiente).
+- [x] Diseños y planes → `specs/016…024/`. El diseño de `create-user-with-initial-role`
+      pasa a `013/design.md`; la ingesta (022) tiene su diseño en `embolsadora-edge`.
+- [x] Planes sin diseño: 5 asociados (011, 021) y 8 archivados en `docs/_process/plans/`.
+- [x] `docs/superpowers/` eliminado. Referencias vivas (README, arquitectura, Postman,
+      comentarios Go) actualizadas; tabla de rutas anteriores en `specs/README.md` para
+      migraciones y planes históricos, que no se editan.
+- [x] PR #76 cerrado como reemplazado por `015-aas-shells` y CLOUD-ADR-019.
 
 ### 3c — Reconciliación y traducción
 
 - [ ] Traducir los `spec.md` al formato unificado (`RF-NNN` con procedencia `original` o
       `derivado`, `CE-NNN`), verificando requisito por requisito contra el código.
 - [ ] Unificar `001` (`spec.md` + `spec.es.md`) en un solo idioma.
+- [ ] Observación de 016: conviven dos convenciones de respuesta (`{"success":...}` y
+      struct directo). Decidir si se completa la estandarización.
 
 ## Fase 4 — CI del harness
 

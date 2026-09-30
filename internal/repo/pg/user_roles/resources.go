@@ -1,6 +1,6 @@
 package user_roles
 
-// Cloaking en este dominio (ver docs/superpowers/specs/2026-08-04-platform-operator-rbac-design.md §2):
+// Cloaking en este dominio (ver embolsadora-frontend/docs/superpowers/specs/2026-08-04-platform-operator-rbac-design.md §2):
 // una asignación cuyo rol es is_global (super_admin, tenant_manager) tiene que ser
 // indistinguible de inexistente para un caller que no sea super_admin. El predicado
 // viaja siempre como parámetro booleano explícito (includeGlobal) decidido por el
@@ -13,7 +13,7 @@ package user_roles
 const (
 	// FindByTenantQuery retrieves all UTR assignments for a tenant, ordered by creation date.
 	// Joins users on the real membership relation (user_id, not users.tenant_id — see
-	// docs/superpowers/specs/2026-07-21-tenant-user-roles-enrichment-design.md) so
+	// specs/019-tenant-user-roles-enrichment/spec.md) so
 	// auto-provisioned users (users.tenant_id IS NULL) resolve correctly. Joins roles
 	// (LEFT, since role_id is nullable for pending assignments) for the display name.
 	//

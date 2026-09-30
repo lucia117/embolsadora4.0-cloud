@@ -84,7 +84,7 @@ exigen `X-Tenant-ID` ni pasan por `PasswordChangeGuard` (`isExemptFromTenant`,
 El contrato de todas las rutas es [`openapi.yaml`](openapi.yaml). La superficie de ingesta
 tiene además un **contrato congelado** con el Edge Pi Service: sin envelope
 `{"success":...}` y con `errors[].code` fijos, definido en
-[`superpowers/plans/2026-08-05-cloud-ingest-endpoint.md`](superpowers/plans/2026-08-05-cloud-ingest-endpoint.md).
+la spec [`022`](../specs/022-cloud-ingest-endpoint/spec.md) y [CLOUD-ADR-018](adr/CLOUD-ADR-018-ingesta-http-batch.md).
 
 Rutas registradas que todavía responden `501 Not Implemented`: `GET/POST /api/v1/machines`
 y `POST /api/v1/consumers/heartbeat`.

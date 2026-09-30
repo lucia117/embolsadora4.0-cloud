@@ -200,7 +200,7 @@ Notes:
 
 ## 📚 Additional Resources
 
-- **Ingest contract**: `docs/superpowers/plans/2026-08-05-cloud-ingest-endpoint.md`
+- **Ingest contract**: `specs/022-cloud-ingest-endpoint/plan.md`
 - **Edge Device Management spec**: `specs/003-edge-device-management/spec.md`
 - **Dashboard Layout spec**: `specs/005a-dashboard-layouts` (see `specs/`)
 - **OpenAPI Contract**: `docs/openapi.yaml`

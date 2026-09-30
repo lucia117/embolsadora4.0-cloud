@@ -43,7 +43,7 @@ Detalle en [`docs/architecture.md`](docs/architecture.md); decisiones en [`docs/
 - **Expone:** API HTTP descripta en [`docs/openapi.yaml`](docs/openapi.yaml) (OpenAPI 3.1,
   mantenido a mano). La ingesta `POST /api/v1/consumers/events` tiene un contrato
   congelado con el Edge Pi Service, en
-  [`docs/superpowers/plans/2026-08-05-cloud-ingest-endpoint.md`](docs/superpowers/plans/2026-08-05-cloud-ingest-endpoint.md).
+  la spec [`022`](specs/022-cloud-ingest-endpoint/spec.md) y [CLOUD-ADR-018](docs/adr/CLOUD-ADR-018-ingesta-http-batch.md).
 - **Consume:** Supabase Auth (JWKS y Admin API) y la API HTTP del Edge Pi Service
   (`/status`, `/health`, `/telemetry`, repo `embolsadora-edge`).
 
