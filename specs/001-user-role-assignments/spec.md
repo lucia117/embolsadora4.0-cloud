@@ -87,6 +87,9 @@ el historial y con la garantía de un solo rol activo por usuario y tenant.
   aplicación.
   → migraciones `000004` y `000010`, `checkRoleAllowedForTenant`,
   `TestTriggerRechaza*` en `repository_test.go`.
+- **RF-013** `origen: derivado` (issue #107) — Un usuario NO DEBE poder cambiar el rol de
+  su propia asignación con `PUT /user-roles/:id` (403).
+  → `update_user_role` (compara con `platform.UserID`), `role_escalation_test.go`.
 - **RF-012** `origen: derivado` — Las asignaciones de roles globales DEBEN quedar ocultas
   para quien no es `super_admin` (cloaking), y no pueden revocarse ni suspenderse desde
   fuera.

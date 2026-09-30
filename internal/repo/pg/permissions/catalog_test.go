@@ -82,3 +82,17 @@ func TestDeleteQuitaElPermisoDeLosRolesDelTenant(t *testing.T) {
 	require.Equal(t, []string{"perm_dashboard"}, rolePermissions(t, pool, rolA))
 	require.Equal(t, []string{p.ID}, rolePermissions(t, pool, rolB))
 }
+
+func TestSystemPermissionIDs(t *testing.T) {
+	pool := newPool(t)
+	repo := permissions.NewPostgresRepository(pool)
+	ctx := context.Background()
+
+	tenantID := seedTenant(t, pool)
+	custom := newCustomPermission(tenantID)
+	require.NoError(t, repo.Create(ctx, custom))
+
+	system, err := repo.SystemPermissionIDs(ctx, []string{"perm_tenants_manage", custom.ID, "perm_no_existe"})
+	require.NoError(t, err)
+	require.Equal(t, []string{"perm_tenants_manage"}, system)
+}

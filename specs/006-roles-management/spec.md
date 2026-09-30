@@ -114,8 +114,11 @@ Los CE-001 a CE-005 originales eran umbrales de latencia sin medición: no se tr
 
 - **Permisos validados contra el catálogo** (issue #93): crear o actualizar un rol con un
   id que no existe en el catálogo del tenant (sistema + custom propios) responde 400
-  `UNKNOWN_PERMISSIONS`. Queda abierto un punto distinto: quien crea un rol puede darle
-  permisos que él mismo no tiene (ver el issue #93).
+  `UNKNOWN_PERMISSIONS`.
+- **Escalada por roles custom, cerrada** (issue #107): quien crea o edita un rol no puede
+  agregarle permisos de sistema que él no tiene (403 `PERMISSION_NOT_HELD`; `super_admin`
+  exento), y nadie puede cambiar su propio rol con `PUT /user-roles/:id`. Regresión en
+  `internal/api/role_escalation_test.go`.
 - **RF-013** no rompe al frontend: el BFF (`src/app/api/roles/[id]/route.ts` en
   `embolsadora-frontend`, `origin/develop`) recibe el rol plano y lo envuelve él mismo en
   `{success, data}`. Conviene actualizar el contrato del lado de la spec y no del código.
