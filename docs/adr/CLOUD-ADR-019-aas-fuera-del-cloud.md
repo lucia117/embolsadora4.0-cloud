@@ -1,7 +1,7 @@
 ---
 id: CLOUD-ADR-019
 title: "El Asset Administration Shell no se implementa en el cloud"
-status: propuesta
+status: aceptada
 date: 2026-09-29
 owner: Lucia Scharff
 last_reviewed: 2026-09-29

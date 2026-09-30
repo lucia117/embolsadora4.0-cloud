@@ -24,10 +24,10 @@ internos reversibles en un PR, tareas y bugs.
 | [CLOUD-ADR-005](CLOUD-ADR-005-supabase-auth.md) | Reemplazar el auth propio con Supabase Auth | aceptada | 2026-03-07 | — |
 | [CLOUD-ADR-014](CLOUD-ADR-014-consolidar-migraciones.md) | Consolidación de migraciones para el primer deploy | aceptada | 2026-05-08 | — |
 | [CLOUD-ADR-015](CLOUD-ADR-015-plataforma-cross-tenant.md) | Acceso cross-tenant para operadores del tenant plataforma | aceptada | 2026-07-14 | — |
-| [CLOUD-ADR-016](CLOUD-ADR-016-resolucion-de-tenant.md) | Resolución de tenant por header, path y API key | propuesta | 2026-09-29 | reemplaza 002 |
-| [CLOUD-ADR-017](CLOUD-ADR-017-mediciones-en-mongodb.md) | Mediciones en MongoDB; identidad en Postgres | propuesta | 2026-09-29 | reemplaza 003 |
-| [CLOUD-ADR-018](CLOUD-ADR-018-ingesta-http-batch.md) | Ingesta HTTP batch con contrato congelado del Edge | propuesta | 2026-09-29 | reemplaza 004 |
-| [CLOUD-ADR-019](CLOUD-ADR-019-aas-fuera-del-cloud.md) | El AAS no se implementa en el cloud | propuesta | 2026-09-29 | — |
+| [CLOUD-ADR-016](CLOUD-ADR-016-resolucion-de-tenant.md) | Resolución de tenant por header, path y API key | aceptada | 2026-09-29 | reemplaza 002 |
+| [CLOUD-ADR-017](CLOUD-ADR-017-mediciones-en-mongodb.md) | Mediciones en MongoDB; identidad en Postgres | aceptada | 2026-09-29 | reemplaza 003 |
+| [CLOUD-ADR-018](CLOUD-ADR-018-ingesta-http-batch.md) | Ingesta HTTP batch con contrato congelado del Edge | aceptada | 2026-09-29 | reemplaza 004 |
+| [CLOUD-ADR-019](CLOUD-ADR-019-aas-fuera-del-cloud.md) | El AAS no se implementa en el cloud | aceptada | 2026-09-29 | — |
 
 ## Notas de numeración y renombres
 

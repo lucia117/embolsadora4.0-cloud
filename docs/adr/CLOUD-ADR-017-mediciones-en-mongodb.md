@@ -1,7 +1,7 @@
 ---
 id: CLOUD-ADR-017
 title: "Mediciones de la ingesta en MongoDB; identidad en Postgres"
-status: propuesta
+status: aceptada
 date: 2026-09-29
 owner: Lucia Scharff
 last_reviewed: 2026-09-29

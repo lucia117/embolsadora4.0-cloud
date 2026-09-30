@@ -1,7 +1,7 @@
 ---
 id: CLOUD-ADR-018
 title: "Ingesta HTTP batch con contrato congelado del Edge, límites y rate limit por API key"
-status: propuesta
+status: aceptada
 date: 2026-09-29
 owner: Lucia Scharff
 last_reviewed: 2026-09-29

@@ -34,7 +34,7 @@ Referencias: `harness-documental.md` (spec del harness, 2026-09-29) y
 - [x] Renombrar a `docs/adr/CLOUD-ADR-NNN-slug.md` y resolver la colisión de `002`
       (`002-replace-auth-system` → `CLOUD-ADR-005`; se conservan los números, huecos 006–013).
 - [x] Front-matter MADR sin tocar el cuerpo; `docs/adr/index.md` y plantilla.
-- [x] ADRs de reemplazo (estado `Propuesta`) para ADR-002 (tenant por header),
+- [x] ADRs de reemplazo (aceptados el 2026-09-29) para ADR-002 (tenant por header),
       ADR-003 (mediciones en MongoDB) y la parte contradicha de ADR-004; marcar
       `superseded_by`.
 - [x] ADR de `004-aas-server` (AAS resuelto por FA³ST en el edge).

@@ -1,7 +1,7 @@
 ---
 id: CLOUD-ADR-016
 title: "Resolución de tenant por header, path y API key según la superficie"
-status: propuesta
+status: aceptada
 date: 2026-09-29
 owner: Lucia Scharff
 last_reviewed: 2026-09-29
