@@ -104,5 +104,6 @@ esta rama, sin push.
 - Sin issue a propósito: el motor de evaluación de alarmas y el productor de logs y
   notificaciones. La decisión fue "objetivo no cumplido" (veredicto C), registrada en la
   bitácora de alcance.
-- Issues #33 y #34 (RBAC super-admin / cross-tenant): parecen resueltos por CLOUD-ADR-015 y
-  la migración `000011`. Verificar y cerrar.
+- [x] Issues #33 y #34 (RBAC super-admin / cross-tenant) verificados y cerrados el
+      2026-09-30: resueltos por CLOUD-ADR-015 y los PRs #55, #62 y #73. La auditoría de los
+      accesos cross-tenant concedidos, único punto sin implementar del #34, pasó a #102.
