@@ -110,7 +110,9 @@ pendientes del usuario. Si el JWKS no responde, `Verify` devuelve el sentinel
 - Operadores de plataforma (roles globales o `admin` del tenant plataforma) pueden actuar
   sobre cualquier tenant existente sin membresía directa
   ([CLOUD-ADR-015](adr/CLOUD-ADR-015-plataforma-cross-tenant.md)). Tenant inexistente → 404; sin
-  acceso → 403.
+  acceso → 403. Cada acceso cross-tenant concedido se registra: log `info`
+  `cross-tenant access granted` (usuario, rol efectivo, tenant destino, método, ruta) y la
+  métrica `auth_cross_tenant_grants_total{role}`.
 - Los permisos (`perm_*`) se leen de `roles.permissions` en Postgres en cada request y
   viajan en `security.RoleContext`. `RBACCheck(perm)` → `security.Can()`. Agregar o
   cambiar permisos es una migración, no un cambio en Go.

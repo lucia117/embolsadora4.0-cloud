@@ -18,6 +18,14 @@ var (
 		Help: "Total number of tenant access violations",
 	})
 
+	// AuthCrossTenantGrantsTotal counts accesses granted to platform operators
+	// (global roles, or admin of the platform tenant) on a tenant where they
+	// have no direct membership, by effective role. See CLOUD-ADR-015.
+	AuthCrossTenantGrantsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "auth_cross_tenant_grants_total",
+		Help: "Total number of cross-tenant accesses granted to platform operators, by effective role",
+	}, []string{"role"})
+
 	// InvitationsSentTotal counts invitations created and sent.
 	InvitationsSentTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "invitations_sent_total",
