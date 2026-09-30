@@ -22,7 +22,7 @@ enlazan acá.
 | MongoDB | `MONGO_URI` del servicio | > Pendiente: documentar proveedor y confirmar que la variable está seteada en Cloud Run |
 | Redis | `REDIS_URL` del servicio (opcional) | > Pendiente: confirmar si producción tiene Redis |
 
-> Documentos viejos (ADR-014, versiones previas de este repo) mencionan **Koyeb**. El
+> Documentos viejos (CLOUD-ADR-014, versiones previas de este repo) mencionan **Koyeb**. El
 > deploy real es Cloud Run.
 
 ## Deploy

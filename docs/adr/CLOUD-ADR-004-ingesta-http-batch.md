@@ -1,3 +1,15 @@
+---
+id: CLOUD-ADR-004
+title: "Ingesta HTTP batch con idempotencia y rate-limit"
+status: reemplazada
+date: 2025-10-17
+owner: Lucia Scharff
+last_reviewed: 2026-09-29
+former_file: 'ADR-004.md'
+supersedes: []
+superseded_by: [CLOUD-ADR-018]
+---
+
 # ADR-004 – Ingesta HTTP Batch con idempotencia y rate-limit
 
 **ID:** ADR-004  

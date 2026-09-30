@@ -1,3 +1,15 @@
+---
+id: CLOUD-ADR-014
+title: "Consolidación de migraciones para el primer deploy"
+status: aceptada
+date: 2026-05-08
+owner: Lucia Scharff
+last_reviewed: 2026-09-29
+former_file: 'ADR-014-consolidate-migrations.md'
+supersedes: []
+superseded_by: []
+---
+
 # ADR-014: Consolidación de migraciones para deploy en Koyeb
 
 **Status**: Accepted

@@ -1,3 +1,15 @@
+---
+id: CLOUD-ADR-001
+title: "Monolito modular con superficies separadas (ABM vs Consumers)"
+status: aceptada
+date: 2025-10-17
+owner: Lucia Scharff
+last_reviewed: 2026-09-29
+former_file: 'ADR-001.md'
+supersedes: []
+superseded_by: []
+---
+
 # ADR-001 – Monolito modular con superficies separadas (ABM vs Consumers)
 
 **ID:** ADR-001  

@@ -1,3 +1,15 @@
+---
+id: CLOUD-ADR-015
+title: "Acceso cross-tenant para operadores del tenant plataforma"
+status: aceptada
+date: 2026-07-14
+owner: Lucia Scharff
+last_reviewed: 2026-09-29
+former_file: 'ADR-015-plataforma-cross-tenant.md'
+supersedes: []
+superseded_by: []
+---
+
 # ADR-015: Acceso cross-tenant para operadores del tenant plataforma
 
 **Status**: Accepted

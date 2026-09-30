@@ -1,3 +1,15 @@
+---
+id: CLOUD-ADR-002
+title: "Identidad de tenant vía artefactos autenticados (JWT y API Key)"
+status: reemplazada
+date: 2025-10-17
+owner: Lucia Scharff
+last_reviewed: 2026-09-29
+former_file: 'ADR-002.md'
+supersedes: []
+superseded_by: [CLOUD-ADR-016]
+---
+
 # ADR-002 – Identidad de tenant vía artefactos autenticados (JWT y API Key)
 
 **ID:** ADR-002  

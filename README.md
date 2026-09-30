@@ -36,7 +36,7 @@ Tests, lint, variables y datos de prueba: [`docs/development.md`](docs/developme
 Capas hexagonales `handler → usecase → domain ← repo/platform/security`, cableadas en
 `internal/routes/url_mappings.go`. Tres superficies HTTP: ABM con JWT + RBAC por tenant,
 edge devices con tenant por path, e ingesta con API key.
-Detalle en [`docs/architecture.md`](docs/architecture.md); decisiones en [`docs/adr/`](docs/adr/).
+Detalle en [`docs/architecture.md`](docs/architecture.md); decisiones en [`docs/adr/`](docs/adr/index.md).
 
 ## Contratos
 

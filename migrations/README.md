@@ -1,6 +1,6 @@
 # Database Migrations
 
-Este directorio contiene las migraciones de base de datos del proyecto. Tras la consolidación de mayo 2026 (ver [`ADR-014`](../docs/adr/ADR-014-consolidate-migrations.md)) el historial fue colapsado a dos migraciones (`000001`, `000002`); las que siguen (`000003`–`000015`) se agregaron después, incrementalmente.
+Este directorio contiene las migraciones de base de datos del proyecto. Tras la consolidación de mayo 2026 (ver [`CLOUD-ADR-014`](../docs/adr/CLOUD-ADR-014-consolidar-migraciones.md)) el historial fue colapsado a dos migraciones (`000001`, `000002`); las que siguen (`000003`–`000015`) se agregaron después, incrementalmente.
 
 ## Requisitos
 
@@ -202,4 +202,4 @@ migrate -path migrations/ -database "$DATABASE_URL" force <version>
 
 ## Historial
 
-El historial granular previo (20 migraciones del periodo enero–mayo 2026) está en `git log` y `git show HEAD~N:migrations/…`. Ver `ADR-014` para el contexto completo de la consolidación.
+El historial granular previo (20 migraciones del periodo enero–mayo 2026) está en `git log` y `git show HEAD~N:migrations/…`. Ver `CLOUD-ADR-014` para el contexto completo de la consolidación.

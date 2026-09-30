@@ -1,3 +1,15 @@
+---
+id: CLOUD-ADR-003
+title: "Almacenamiento de eventos en Postgres (JSONB + particionado) con retención"
+status: reemplazada
+date: 2025-10-17
+owner: Lucia Scharff
+last_reviewed: 2026-09-29
+former_file: 'ADR-003.md'
+supersedes: []
+superseded_by: [CLOUD-ADR-017]
+---
+
 # ADR-003 – Almacenamiento de eventos en Postgres (JSONB + particionado) con retención
 
 **ID:** ADR-003  

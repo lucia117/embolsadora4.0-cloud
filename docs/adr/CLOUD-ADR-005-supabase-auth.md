@@ -1,3 +1,15 @@
+---
+id: CLOUD-ADR-005
+title: "Reemplazar el sistema de auth propio con Supabase Auth"
+status: aceptada
+date: 2026-03-07
+owner: Lucia Scharff
+last_reviewed: 2026-09-29
+former_file: '002-replace-auth-system.md ("ADR 002", colisionaba con ADR-002)'
+supersedes: []
+superseded_by: []
+---
+
 # ADR 002: Reemplazar sistema de auth propio con Supabase Auth
 
 **Date**: 2026-03-07
