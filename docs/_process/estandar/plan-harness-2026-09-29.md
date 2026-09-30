@@ -41,12 +41,34 @@ Referencias: `harness-documental.md` (spec del harness, 2026-09-29) y
 
 ## Fase 3 — Specs
 
-- [ ] Reconciliación de las 15 specs (veredictos §6.3) y traducción al formato unificado.
-- [ ] Colisiones `002a`/`002b`, `005a`/`005b`.
-- [ ] `specs/README.md` como índice curado.
-- [ ] Mover `docs/superpowers/` a `specs/NNN-slug/`.
-- [ ] `004-aas-server` y `005-plc-events` hoy están en `.gitignore` (solo locales):
-      decidir si se versionan con su veredicto (C y B).
+Decisiones (2026-09-29): los planes solo reciben front-matter, sin traducirse a `T-NNN`.
+Los planes de superpowers sin diseño se asocian a una spec existente o se archivan en
+`docs/_process/`. El motor de alarmas se registra como **objetivo no cumplido**. Todo en
+esta rama, sin push.
+
+### 3a — Índice y orden
+
+- [x] Colisiones: `002a`/`002b`, `005a`/`005b`.
+- [x] `004-aas-server` y `005b-plc-events` recuperadas de `origin/docs/nosql-aas-plc-specs`
+      y sacadas de `.gitignore`; `015-aas-shells` incorporada desde el PR #76.
+- [x] Front-matter en todos los `spec.md` (con `veredicto`) y `plan.md`.
+- [x] `specs/README.md` y `docs/_process/bitacora-de-alcance.md`.
+- [x] Veredictos corregidos respecto del harness: 008 y 010 son **A**, porque las dos specs
+      dejaron el motor fuera de alcance; el hueco se registra como objetivo #5 no cumplido.
+      005b pedía MongoDB, no Postgres; sigue siendo **B** por la forma de la ingesta.
+
+### 3b — Absorber `docs/superpowers/`
+
+- [ ] 9 diseños → `specs/016…/spec.md`, con su plan como `plan.md`.
+- [ ] Planes sin diseño: asociar a una spec existente o archivar en `docs/_process/`.
+- [ ] Borrar `docs/superpowers/` y actualizar las referencias (el contrato congelado de la
+      ingesta pasa a la spec correspondiente).
+
+### 3c — Reconciliación y traducción
+
+- [ ] Traducir los `spec.md` al formato unificado (`RF-NNN` con procedencia `original` o
+      `derivado`, `CE-NNN`), verificando requisito por requisito contra el código.
+- [ ] Unificar `001` (`spec.md` + `spec.es.md`) en un solo idioma.
 
 ## Fase 4 — CI del harness
 

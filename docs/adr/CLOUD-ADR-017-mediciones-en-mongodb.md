@@ -26,8 +26,11 @@ Esa tabla nunca existió en `migrations/`. Cuando se diseñó la ingesta real, e
 Service ya enviaba batches con un contrato congelado cuyo `payload` es un objeto de forma
 libre, que cambia cada vez que cambia el catálogo AAS del historian.
 
-La spec `005-plc-events` (2026-03-24) también pedía persistir eventos de PLC en Postgres.
-Se implementó distinto (veredicto B de la reconciliación de specs).
+La spec `005b-plc-events` (2026-03-24) ya proponía MongoDB (colección `plc_events`), con
+ingesta autenticada por JWT bajo `/api/tenants/:tenantId/edge-devices/:deviceId/plc-events`.
+La elección del store coincide con la de este ADR; la forma de la ingesta no, y se
+implementó distinto (veredicto B de la reconciliación de specs; ver
+[CLOUD-ADR-018](CLOUD-ADR-018-ingesta-http-batch.md)).
 
 ## Decisión
 

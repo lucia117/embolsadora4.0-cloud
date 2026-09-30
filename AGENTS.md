@@ -56,10 +56,10 @@ migrate -path migrations/ -database "$DATABASE_URL" up      # aplicar migracione
 ## Specs
 
 - `superpowers:brainstorming` escribe el diseño en `specs/NNN-slug/spec.md`,
-  NO en `docs/superpowers/specs/`. Tomá el próximo NNN libre (el máximo actual es `014`).
+  NO en `docs/superpowers/specs/`. Tomá el próximo NNN libre de [`specs/README.md`](specs/README.md).
 - `superpowers:writing-plans` escribe en `specs/NNN-slug/plan.md`.
 - Todo `spec.md` lleva front-matter completo y al menos un `RF-NNN`.
-- Al cerrar una feature, actualizá `status` en el front-matter y la fila en el índice de specs.
+- Al cerrar una feature, actualizá `status` en el front-matter y la fila en `specs/README.md`.
 
 ## Documentación
 
