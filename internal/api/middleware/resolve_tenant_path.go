@@ -76,7 +76,7 @@ func ResolveTenantAndCheckMembership(db *pgxpool.Pool) gin.HandlerFunc {
 		case errors.Is(err, pgx.ErrNoRows):
 			// 3. Fallback: operador de plataforma sin membresía directa
 			//    (rol global, o admin del tenant plataforma). Ver
-			//    docs/adr/ADR-015-plataforma-cross-tenant.md.
+			//    docs/adr/CLOUD-ADR-015-plataforma-cross-tenant.md.
 			roleID, err = resolvePlatformOperator(c.Request.Context(), db, user.ID, tenantIDStr)
 			if err != nil {
 				if errors.Is(err, errTargetTenantNotFound) {

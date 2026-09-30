@@ -1,3 +1,11 @@
+---
+id: 011
+spec: ./spec.md
+status: done
+origin: speckit
+last_reviewed: 2026-09-29
+---
+
 # Implementation Plan: Permissions Management API
 
 **Branch**: `011-permissions-management` | **Date**: 2026-04-10 | **Spec**: [spec.md](./spec.md)  

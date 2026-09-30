@@ -36,7 +36,7 @@ type UserTenantRole struct {
 // UserTenantRoleDetail is returned by GET /user-roles?tenantId=...
 // It embeds UserTenantRole plus role and user display fields resolved via
 // JOIN in FindByTenant, so callers don't need a second round-trip to render
-// a name (see docs/superpowers/specs/2026-07-21-tenant-user-roles-enrichment-design.md).
+// a name (see specs/019-tenant-user-roles-enrichment/spec.md).
 type UserTenantRoleDetail struct {
 	UserTenantRole
 	RoleName      string // "" when RoleID is nil or the role has no name

@@ -1,0 +1,45 @@
+// markdownlint para la documentación curada del harness (job `markdownlint` de
+// .github/workflows/docs.yml). Los documentos de origen (design*.md), los planes
+// históricos (plan*.md, tasks.md, research*.md) y docs/_process/ no se lintean:
+// son evidencia y no se reescriben.
+{
+  "config": {
+    "default": true,
+    // Líneas largas: tablas y enlaces las rompen sin ganar legibilidad.
+    "MD013": false,
+    // Encabezados repetidos solo entre hermanos (ej. "Riesgos" en cada sección).
+    "MD024": { "siblings_only": true },
+    // Tablas con celdas que contienen HTML o pipes escapados.
+    "MD033": false,
+    // El front-matter ya trae el título; el primer encabezado puede no ser H1 exacto.
+    "MD041": false,
+    // El `title` del front-matter no cuenta como H1: el cuerpo tiene su propio "# …".
+    "MD025": { "front_matter_title": "" },
+    // Énfasis usado como etiqueta dentro de párrafos, no como título.
+    "MD036": false,
+    // Estilo de tablas: no forzar alineación de columnas.
+    "MD060": false
+  },
+  "globs": [
+    "README.md",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "docs/*.md",
+    "docs/adr/*.md",
+    "specs/README.md",
+    "specs/*/spec.md"
+  ],
+  "ignores": [
+    "docs/adr/_template.md",
+    // ADRs anteriores al harness: su cuerpo es inmutable (solo se les agregó
+    // front-matter). Los ADRs nuevos sí se lintean.
+    "docs/adr/CLOUD-ADR-00[1-5]-*.md",
+    "docs/adr/CLOUD-ADR-014-*.md",
+    "docs/adr/CLOUD-ADR-015-*.md",
+    // Specs con veredicto C o B reemplazada: el cuerpo original se conserva
+    // intacto como evidencia (harness §6.1).
+    "specs/004-aas-server/spec.md",
+    "specs/005b-plc-events/spec.md",
+    "specs/015-aas-shells/spec.md"
+  ]
+}

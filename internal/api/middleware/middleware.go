@@ -184,7 +184,7 @@ func TenantFromHeader(db *pgxpool.Pool) gin.HandlerFunc {
 		if err != nil {
 			// Cross-tenant fallback: platform operators (global roles or admins of
 			// the platform tenant) may act on any existing tenant even without a
-			// direct membership row in it. See docs/adr/ADR-015-plataforma-cross-tenant.md.
+			// direct membership row in it. See docs/adr/CLOUD-ADR-015-plataforma-cross-tenant.md.
 			roleID, err = resolvePlatformOperator(c.Request.Context(), db, user.ID, tenantID)
 			if err != nil {
 				Log.Warn("tenant access denied",

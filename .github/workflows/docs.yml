@@ -1,0 +1,78 @@
+name: Docs
+
+# CI del harness documental (fase 4, docs/_process/estandar/plan-harness-2026-09-29.md).
+# El drift entre el router y docs/openapi.yaml no está acá: es un test de Go
+# (internal/routes/openapi_drift_test.go) y lo corre `go test ./...` en ci.yml.
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+  schedule:
+    # Lunes 12:00 UTC: solo corre docs-freshness.
+    - cron: "0 12 * * 1"
+  workflow_dispatch:
+
+jobs:
+  harness-layout:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Layout, prohibiciones y front-matter
+        run: bash scripts/harness-check.sh
+
+  markdownlint:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      # Archivos y reglas en .markdownlint-cli2.jsonc.
+      - name: markdownlint
+        run: npx --yes markdownlint-cli2@0.18.1
+
+  links:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # --offline: solo enlaces a archivos del repo. Los externos se dejan
+      # afuera para que el job no falle por sitios caídos.
+      - name: Enlaces rotos (lychee)
+        uses: lycheeverse/lychee-action@v2
+        with:
+          fail: true
+          args: >-
+            --offline --no-progress
+            README.md AGENTS.md CLAUDE.md
+            'docs/*.md' 'docs/adr/*.md' 'docs/_process/*.md'
+            'specs/README.md' 'specs/*/spec.md'
+
+  docs-freshness:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Documentos con last_reviewed de más de 120 días
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if report=$(bash scripts/docs-freshness.sh); then
+            echo "Todos los documentos curados están al día."
+            exit 0
+          fi
+          title="Documentación sin revisar hace más de 120 días"
+          body=$(printf 'Detectado por el job `docs-freshness`. Revisar cada documento y actualizar `last_reviewed`.\n\n%s\n' "$report")
+          existing=$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "$title" --label docs --body "$body"
+          fi
