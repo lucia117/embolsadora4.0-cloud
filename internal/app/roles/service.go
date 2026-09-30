@@ -5,12 +5,14 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/tu-org/embolsadora-api/internal/domain"
 	rolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/roles"
+	"github.com/tu-org/embolsadora-api/internal/security"
 	"go.uber.org/zap"
 )
 
@@ -21,6 +23,8 @@ type PermissionCatalog interface {
 	// UnknownPermissionIDs devuelve, de ids, los que no existen en el catálogo
 	// visible para tenantID. Vacío si todos existen.
 	UnknownPermissionIDs(ctx context.Context, tenantID uuid.UUID, ids []string) ([]string, error)
+	// SystemPermissionIDs devuelve, de ids, los que son permisos de sistema.
+	SystemPermissionIDs(ctx context.Context, ids []string) ([]string, error)
 }
 
 // Service contiene la lógica de negocio para gestión de roles.
@@ -50,6 +54,34 @@ func (s *Service) validatePermissions(ctx context.Context, tenantID uuid.UUID, p
 	}
 	if len(unknown) > 0 {
 		return fmt.Errorf("%w: %s", domain.ErrRoleUnknownPermissions, strings.Join(unknown, ", "))
+	}
+	return nil
+}
+
+// ensureGrantable impide otorgar permisos de sistema que el usuario que crea o
+// edita el rol no tiene (issue #107): sin esto, un admin de tenant con
+// perm_users_manage podía crear un rol con perm_tenants_manage y pasarse a él.
+// added son solo los permisos que el rol no tenía. super_admin queda exento.
+// Los permisos custom del tenant no cuentan: ningún código los usa para
+// autorizar. Sin rol en el contexto no se tiene ningún permiso (fail-closed).
+func (s *Service) ensureGrantable(ctx context.Context, added []string) error {
+	if len(added) == 0 || security.CanSeePlatformInternals(ctx) {
+		return nil
+	}
+	system, err := s.catalog.SystemPermissionIDs(ctx, added)
+	if err != nil {
+		s.logger.Error("error clasificando permisos", zap.Error(err))
+		return err
+	}
+	held := security.RoleContextFromContext(ctx).Permissions
+	var notHeld []string
+	for _, p := range system {
+		if !slices.Contains(held, p) {
+			notHeld = append(notHeld, p)
+		}
+	}
+	if len(notHeld) > 0 {
+		return fmt.Errorf("%w: %s", domain.ErrRolePermissionNotHeld, strings.Join(notHeld, ", "))
 	}
 	return nil
 }
@@ -92,6 +124,9 @@ func (s *Service) CreateRole(ctx context.Context, tenantID uuid.UUID, name, desc
 
 	perms := deduplicatePermissions(permissions)
 	if err := s.validatePermissions(ctx, tenantID, perms); err != nil {
+		return nil, err
+	}
+	if err := s.ensureGrantable(ctx, perms); err != nil {
 		return nil, err
 	}
 
@@ -140,6 +175,15 @@ func (s *Service) UpdateRole(ctx context.Context, id string, tenantID uuid.UUID,
 
 	perms := deduplicatePermissions(permissions)
 	if err := s.validatePermissions(ctx, tenantID, perms); err != nil {
+		return nil, err
+	}
+	var added []string
+	for _, p := range perms {
+		if !slices.Contains(role.Permissions, p) {
+			added = append(added, p)
+		}
+	}
+	if err := s.ensureGrantable(ctx, added); err != nil {
 		return nil, err
 	}
 

@@ -50,6 +50,13 @@ func HandleError(c *gin.Context, err error) {
 			Message: err.Error(),
 			Status:  http.StatusForbidden,
 		})
+	case errors.Is(err, domain.ErrRolePermissionNotHeld):
+		// El mensaje incluye los permisos que el caller no tiene.
+		c.JSON(http.StatusForbidden, ErrorResponse{
+			Error:   "PERMISSION_NOT_HELD",
+			Message: err.Error(),
+			Status:  http.StatusForbidden,
+		})
 	case errors.Is(err, domain.ErrRoleUnknownPermissions):
 		// El mensaje incluye los ids rechazados ("…: perm_x, perm_y").
 		c.JSON(http.StatusBadRequest, ErrorResponse{

@@ -626,6 +626,10 @@ paths:
                       data: { $ref: '#/components/schemas/UserRole' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: >
+            Sin `perm_users_manage`, rol no asignable en el tenant, o la asignación es del
+            propio usuario (nadie cambia su propio rol).
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
       tags: [UserRoles]
@@ -1296,7 +1300,13 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+        '403':
+          description: >
+            Sin `perm_users_manage`, o `PERMISSION_NOT_HELD`: el rol incluye permisos de
+            sistema que el usuario no tiene (el mensaje los lista). `super_admin` queda exento.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '409':
           description: Ya existe un rol con ese nombre (DUPLICATE_NAME)
           content:
@@ -1355,7 +1365,9 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
-          description: Rol del sistema, no modificable (SYSTEM_ROLE)
+          description: >
+            `SYSTEM_ROLE` (rol del sistema, no modificable) o `PERMISSION_NOT_HELD` (se
+            agregan permisos de sistema que el usuario no tiene; el mensaje los lista).
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
