@@ -148,6 +148,20 @@ func (r *PostgresRepository) Delete(ctx context.Context, id string, tenantID uui
 	return tx.Commit(ctx)
 }
 
+// SystemPermissionIDs devuelve, de ids, los que son permisos de sistema.
+// Implementa roles.PermissionCatalog.
+func (r *PostgresRepository) SystemPermissionIDs(ctx context.Context, ids []string) ([]string, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT id FROM permissions WHERE id = ANY($1) AND is_system_permission = TRUE`, ids)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[string])
+}
+
 // UnknownPermissionIDs devuelve, de ids, los que no existen en el catálogo
 // visible para el tenant: permisos de sistema más los custom de ese tenant.
 // Respeta el orden de entrada. Implementa roles.PermissionCatalog.

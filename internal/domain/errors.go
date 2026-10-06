@@ -15,6 +15,11 @@ var ErrNotFound = errors.New("not found")
 //nolint:staticcheck // texto expuesto tal cual en la respuesta HTTP (err.Error()); no cambiar el wording sin coordinar con el frontend.
 var ErrUserAlreadyHasActiveRole = errors.New("User already has an active role in this tenant. Use PUT to update.")
 
+// ErrCannotChangeOwnRole is returned when a user tries to change the role of
+// their own assignment (issue #107: it was the step that let a tenant admin
+// move into a custom role with permissions they did not hold).
+var ErrCannotChangeOwnRole = errors.New("no se puede cambiar el rol de la propia asignación")
+
 // ErrAssignmentNotFound is returned when a user-role assignment does not exist.
 var ErrAssignmentNotFound = errors.New("user-role assignment not found")
 

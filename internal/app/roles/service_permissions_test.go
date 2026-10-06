@@ -26,12 +26,22 @@ func (allPermissionsKnown) UnknownPermissionIDs(context.Context, uuid.UUID, []st
 	return nil, nil
 }
 
+// SystemPermissionIDs no marca nada como de sistema: estos tests no ejercitan
+// la regla de "solo otorgar lo que se tiene" (ver service_grant_test.go).
+func (allPermissionsKnown) SystemPermissionIDs(context.Context, []string) ([]string, error) {
+	return nil, nil
+}
+
 // fakeCatalog marca como desconocidos los ids de unknown y registra con qué
 // ids lo consultaron.
 type fakeCatalog struct {
 	unknown map[string]bool
 	err     error
 	calls   [][]string
+}
+
+func (f *fakeCatalog) SystemPermissionIDs(context.Context, []string) ([]string, error) {
+	return nil, nil
 }
 
 func (f *fakeCatalog) UnknownPermissionIDs(_ context.Context, _ uuid.UUID, ids []string) ([]string, error) {
