@@ -50,6 +50,13 @@ func HandleError(c *gin.Context, err error) {
 			Message: err.Error(),
 			Status:  http.StatusForbidden,
 		})
+	case errors.Is(err, domain.ErrRoleUnknownPermissions):
+		// El mensaje incluye los ids rechazados ("…: perm_x, perm_y").
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "UNKNOWN_PERMISSIONS",
+			Message: err.Error(),
+			Status:  http.StatusBadRequest,
+		})
 	default:
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error:   "INTERNAL_ERROR",

@@ -123,15 +123,66 @@ func (r *PostgresRepository) Delete(ctx context.Context, id string, tenantID uui
 		return domain.ErrPermissionIsSystem
 	}
 
+	// El borrado y la limpieza de roles.permissions van juntos: un rol del
+	// tenant no puede quedar apuntando a un permiso que ya no existe (issue #93).
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
 	query := `DELETE FROM permissions WHERE id = $1 AND is_system_permission = FALSE AND tenant_id = $2`
-	tag, err := r.pool.Exec(ctx, query, id, tenantID)
+	tag, err := tx.Exec(ctx, query, id, tenantID)
 	if err != nil {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
 		return domain.ErrPermissionNotFound
 	}
-	return nil
+	if _, err := tx.Exec(ctx,
+		`UPDATE roles SET permissions = permissions - $1::text, updated_at = NOW()
+		 WHERE tenant_id = $2 AND permissions ? $1::text`,
+		id, tenantID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// UnknownPermissionIDs devuelve, de ids, los que no existen en el catálogo
+// visible para el tenant: permisos de sistema más los custom de ese tenant.
+// Respeta el orden de entrada. Implementa roles.PermissionCatalog.
+func (r *PostgresRepository) UnknownPermissionIDs(ctx context.Context, tenantID uuid.UUID, ids []string) ([]string, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT id FROM permissions
+		 WHERE id = ANY($1) AND (is_system_permission = TRUE OR tenant_id = $2)`,
+		ids, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	known := make(map[string]bool, len(ids))
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		known[id] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	var unknown []string
+	for _, id := range ids {
+		if !known[id] {
+			unknown = append(unknown, id)
+		}
+	}
+	return unknown, nil
 }
 
 // scanner es una interfaz que abarca pgx.Row y pgx.Rows para reutilizar scanPermission.

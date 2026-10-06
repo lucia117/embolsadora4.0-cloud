@@ -1291,7 +1291,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Role' }
         '400':
-          description: "Validación fallida o límite de roles alcanzado (LIMIT_REACHED)"
+          description: "Validación fallida, o `UNKNOWN_PERMISSIONS`: algún id de `permissions` no existe en el catálogo del tenant (permisos de sistema + custom del tenant). El mensaje lista los ids rechazados."
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -1348,7 +1348,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Role' }
-        '400': { $ref: '#/components/responses/BadRequest' }
+        '400':
+          description: "Validación fallida, o `UNKNOWN_PERMISSIONS`: algún id de `permissions` no existe en el catálogo del tenant. El mensaje lista los ids rechazados."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Rol del sistema, no modificable (SYSTEM_ROLE)
