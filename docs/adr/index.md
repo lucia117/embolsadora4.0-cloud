@@ -50,6 +50,9 @@ Detalles desactualizados que no cambian la decisión, así que no justifican un 
 - **CLOUD-ADR-005** dice que los JWT se validan con RS256. El proyecto de Supabase firma hoy
   con **ES256** (clave EC P-256, JWKS público); el verificador acepta ES256 y RS256 (issue
   #94). La decisión (Supabase Auth, firma asimétrica por JWKS) no cambió.
+- **CLOUD-ADR-015** deja como mejora futura loguear las concesiones cross-tenant. Se
+  implementó con el issue #102: log `cross-tenant access granted` y métrica
+  `auth_cross_tenant_grants_total`.
 - **CLOUD-ADR-015** nombra permisos `tenants:write`/`users:write` y dice que
   `platform_admin` no está en el catálogo de `roles`. Desde la migración `000011` los
   permisos son `perm_tenants_manage`/`perm_users_manage` y `platform_admin` es una fila de
