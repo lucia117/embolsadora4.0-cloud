@@ -18,6 +18,7 @@ import (
 	"github.com/tu-org/embolsadora-api/internal/platform"
 	"github.com/tu-org/embolsadora-api/internal/platform/apporigin"
 	"github.com/tu-org/embolsadora-api/internal/security"
+	"github.com/tu-org/embolsadora-api/internal/telemetry"
 	"go.uber.org/zap"
 )
 
@@ -184,7 +185,7 @@ func TenantFromHeader(db *pgxpool.Pool) gin.HandlerFunc {
 		if err != nil {
 			// Cross-tenant fallback: platform operators (global roles or admins of
 			// the platform tenant) may act on any existing tenant even without a
-			// direct membership row in it. See docs/adr/ADR-015-plataforma-cross-tenant.md.
+			// direct membership row in it. See docs/adr/CLOUD-ADR-015-plataforma-cross-tenant.md.
 			roleID, err = resolvePlatformOperator(c.Request.Context(), db, user.ID, tenantID)
 			if err != nil {
 				Log.Warn("tenant access denied",
@@ -200,6 +201,7 @@ func TenantFromHeader(db *pgxpool.Pool) gin.HandlerFunc {
 				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"success": false, "error": "tenant access denied"})
 				return
 			}
+			auditCrossTenantGrant(c, user.ID, roleID, tenantID)
 		} else {
 			roleID = security.EffectiveRole(roleID, isPlatformTenant)
 		}
@@ -224,6 +226,23 @@ func TenantFromHeader(db *pgxpool.Pool) gin.HandlerFunc {
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
+}
+
+// auditCrossTenantGrant deja rastro de un acceso cross-tenant concedido: un
+// operador de plataforma que opera sobre un tenant del que no es miembro
+// (CLOUD-ADR-015). Antes solo se logueaban las denegaciones, así que no había
+// forma de reconstruir quién operó sobre qué tenant. Lo llaman los dos
+// middlewares que resuelven el tenant (por header y por path).
+func auditCrossTenantGrant(c *gin.Context, userID, effectiveRole, targetTenantID string) {
+	telemetry.AuthCrossTenantGrantsTotal.WithLabelValues(effectiveRole).Inc()
+	Log.Info("cross-tenant access granted",
+		zap.String("user_id", userID),
+		zap.String("role", effectiveRole),
+		zap.String("target_tenant_id", targetTenantID),
+		zap.String("method", c.Request.Method),
+		zap.String("path", c.Request.URL.Path),
+		zap.String("request_id", c.Writer.Header().Get("X-Request-ID")),
+	)
 }
 
 // errTargetTenantNotFound signals that the X-Tenant-ID targets a nonexistent

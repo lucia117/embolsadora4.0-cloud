@@ -1,3 +1,11 @@
+---
+id: 014
+spec: ./spec.md
+status: done
+origin: speckit
+last_reviewed: 2026-09-29
+---
+
 # Implementation Plan: Consolidación de migraciones para deploy en Koyeb
 
 **Branch**: `014-consolidate-migrations` | **Date**: 2026-05-08 | **Spec**: [spec.md](./spec.md)

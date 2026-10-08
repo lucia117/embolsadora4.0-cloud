@@ -4,7 +4,7 @@ info:
   version: 2.0.0-alpha
   description: >
     Superficies separadas:
-    - **/api/v1/**: ABM (JWT RS256 via Supabase JWKS + X-Tenant-ID + RBAC)
+    - **/api/v1/**: ABM (JWT ES256 via Supabase JWKS + X-Tenant-ID + RBAC)
     - **/api/v1/consumers/**: Ingesta batch (API Key + idempotencia)
     - **/api/v1/public/**: Lectura sin autenticación (branding/routing de tenant)
 
@@ -418,6 +418,61 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /api/v1/users/{userId}/status:
+    patch:
+      tags: [Users]
+      summary: Cambiar el estado de la membresía del usuario en el tenant
+      description: |
+        Requiere `perm_users_manage`. Cambia el estado de la **membresía** del usuario en
+        el tenant (`user_tenant_roles.status`), no el de su cuenta: `inactive` se guarda
+        como `revoked` y `suspended` como `suspended`. Un operador de plataforma puede
+        cambiarlo en cualquier tenant. Nadie puede cambiar su propio estado.
+        Ver `specs/007-user-roles-status/spec.md`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [active, inactive, suspended]
+      responses:
+        '200':
+          description: Estado actualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400':
+          description: >
+            `INVALID_STATUS` (valor fuera de `active|inactive|suspended`),
+            `CANNOT_DEACTIVATE_SELF` (el usuario intenta cambiar su propio estado) o
+            `VALIDATION_ERROR`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: >
+            `USER_NOT_FOUND` o `NO_ACTIVE_ASSIGNMENT` (el usuario no tiene una membresía
+            activa en el tenant).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
   /api/v1/users/{userId}/roles:
     get:
       tags: [UserRoles]
@@ -571,6 +626,10 @@ paths:
                       data: { $ref: '#/components/schemas/UserRole' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: >
+            Sin `perm_users_manage`, rol no asignable en el tenant, o la asignación es del
+            propio usuario (nadie cambia su propio rol).
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
       tags: [UserRoles]
@@ -1236,12 +1295,18 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Role' }
         '400':
-          description: "Validación fallida o límite de roles alcanzado (LIMIT_REACHED)"
+          description: "Validación fallida, o `UNKNOWN_PERMISSIONS`: algún id de `permissions` no existe en el catálogo del tenant (permisos de sistema + custom del tenant). El mensaje lista los ids rechazados."
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+        '403':
+          description: >
+            Sin `perm_users_manage`, o `PERMISSION_NOT_HELD`: el rol incluye permisos de
+            sistema que el usuario no tiene (el mensaje los lista). `super_admin` queda exento.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '409':
           description: Ya existe un rol con ese nombre (DUPLICATE_NAME)
           content:
@@ -1293,10 +1358,16 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Role' }
-        '400': { $ref: '#/components/responses/BadRequest' }
+        '400':
+          description: "Validación fallida, o `UNKNOWN_PERMISSIONS`: algún id de `permissions` no existe en el catálogo del tenant. El mensaje lista los ids rechazados."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
-          description: Rol del sistema, no modificable (SYSTEM_ROLE)
+          description: >
+            `SYSTEM_ROLE` (rol del sistema, no modificable) o `PERMISSION_NOT_HELD` (se
+            agregan permisos de sistema que el usuario no tiene; el mensaje los lista).
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -2089,7 +2160,7 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: >
-        JWT RS256 emitido por Supabase Auth. El tenant se resuelve desde el header `X-Tenant-ID` validando membresía activa en `user_tenant_roles`.
+        JWT emitido por Supabase Auth, firmado con ES256 (se acepta también RS256 para tolerar una rotación de claves). El tenant se resuelve desde el header `X-Tenant-ID` validando membresía activa en `user_tenant_roles`.
     apiKeyAuth:
       type: apiKey
       in: header

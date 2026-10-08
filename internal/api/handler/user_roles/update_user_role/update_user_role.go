@@ -54,6 +54,10 @@ func (h *Handler) Handle(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
 			return
 		}
+		if errors.Is(err, domain.ErrCannotChangeOwnRole) {
+			c.JSON(http.StatusForbidden, gin.H{"success": false, "error": err.Error()})
+			return
+		}
 		if errors.Is(err, domain.ErrRoleNotAllowedForTenant) {
 			c.JSON(http.StatusForbidden, gin.H{"success": false, "error": err.Error()})
 			return

@@ -4,24 +4,86 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/tu-org/embolsadora-api/internal/domain"
 	rolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/roles"
+	"github.com/tu-org/embolsadora-api/internal/security"
 	"go.uber.org/zap"
 )
 
+// PermissionCatalog resuelve qué ids de permiso existen para un tenant: los del
+// sistema más los custom de ese tenant. Lo implementa el repositorio de
+// permisos (repo/pg/permissions).
+type PermissionCatalog interface {
+	// UnknownPermissionIDs devuelve, de ids, los que no existen en el catálogo
+	// visible para tenantID. Vacío si todos existen.
+	UnknownPermissionIDs(ctx context.Context, tenantID uuid.UUID, ids []string) ([]string, error)
+	// SystemPermissionIDs devuelve, de ids, los que son permisos de sistema.
+	SystemPermissionIDs(ctx context.Context, ids []string) ([]string, error)
+}
+
 // Service contiene la lógica de negocio para gestión de roles.
 type Service struct {
-	repo   rolesRepo.Repository
-	logger *zap.Logger
+	repo    rolesRepo.Repository
+	catalog PermissionCatalog
+	logger  *zap.Logger
 }
 
 // NewService crea un nuevo servicio de roles.
-func NewService(repo rolesRepo.Repository, logger *zap.Logger) *Service {
-	return &Service{repo: repo, logger: logger}
+func NewService(repo rolesRepo.Repository, catalog PermissionCatalog, logger *zap.Logger) *Service {
+	return &Service{repo: repo, catalog: catalog, logger: logger}
+}
+
+// validatePermissions rechaza permisos que no existen en el catálogo del
+// tenant. Desde el PR #62 roles.permissions autoriza de verdad (security.Can),
+// así que un typo o un permiso de otro tenant no puede guardarse en silencio
+// (issue #93). permissions ya viene deduplicada.
+func (s *Service) validatePermissions(ctx context.Context, tenantID uuid.UUID, permissions []string) error {
+	if len(permissions) == 0 {
+		return nil
+	}
+	unknown, err := s.catalog.UnknownPermissionIDs(ctx, tenantID, permissions)
+	if err != nil {
+		s.logger.Error("error validando permisos contra el catálogo", zap.String("tenant_id", tenantID.String()), zap.Error(err))
+		return err
+	}
+	if len(unknown) > 0 {
+		return fmt.Errorf("%w: %s", domain.ErrRoleUnknownPermissions, strings.Join(unknown, ", "))
+	}
+	return nil
+}
+
+// ensureGrantable impide otorgar permisos de sistema que el usuario que crea o
+// edita el rol no tiene (issue #107): sin esto, un admin de tenant con
+// perm_users_manage podía crear un rol con perm_tenants_manage y pasarse a él.
+// added son solo los permisos que el rol no tenía. super_admin queda exento.
+// Los permisos custom del tenant no cuentan: ningún código los usa para
+// autorizar. Sin rol en el contexto no se tiene ningún permiso (fail-closed).
+func (s *Service) ensureGrantable(ctx context.Context, added []string) error {
+	if len(added) == 0 || security.CanSeePlatformInternals(ctx) {
+		return nil
+	}
+	system, err := s.catalog.SystemPermissionIDs(ctx, added)
+	if err != nil {
+		s.logger.Error("error clasificando permisos", zap.Error(err))
+		return err
+	}
+	held := security.RoleContextFromContext(ctx).Permissions
+	var notHeld []string
+	for _, p := range system {
+		if !slices.Contains(held, p) {
+			notHeld = append(notHeld, p)
+		}
+	}
+	if len(notHeld) > 0 {
+		return fmt.Errorf("%w: %s", domain.ErrRolePermissionNotHeld, strings.Join(notHeld, ", "))
+	}
+	return nil
 }
 
 // ListRoles devuelve los roles del sistema + roles custom del tenant.
@@ -60,6 +122,14 @@ func (s *Service) CreateRole(ctx context.Context, tenantID uuid.UUID, name, desc
 		return nil, domain.ErrRoleLimitReached
 	}
 
+	perms := deduplicatePermissions(permissions)
+	if err := s.validatePermissions(ctx, tenantID, perms); err != nil {
+		return nil, err
+	}
+	if err := s.ensureGrantable(ctx, perms); err != nil {
+		return nil, err
+	}
+
 	id, err := generateRoleID()
 	if err != nil {
 		return nil, err
@@ -69,7 +139,7 @@ func (s *Service) CreateRole(ctx context.Context, tenantID uuid.UUID, name, desc
 		ID:          id,
 		Name:        name,
 		Description: description,
-		Permissions: deduplicatePermissions(permissions),
+		Permissions: perms,
 		TenantID:    &tenantID,
 	}
 
@@ -103,9 +173,23 @@ func (s *Service) UpdateRole(ctx context.Context, id string, tenantID uuid.UUID,
 		return nil, domain.ErrRoleIsSystemRole
 	}
 
+	perms := deduplicatePermissions(permissions)
+	if err := s.validatePermissions(ctx, tenantID, perms); err != nil {
+		return nil, err
+	}
+	var added []string
+	for _, p := range perms {
+		if !slices.Contains(role.Permissions, p) {
+			added = append(added, p)
+		}
+	}
+	if err := s.ensureGrantable(ctx, added); err != nil {
+		return nil, err
+	}
+
 	role.Name = name
 	role.Description = description
-	role.Permissions = deduplicatePermissions(permissions)
+	role.Permissions = perms
 
 	if err := s.repo.Update(ctx, role); err != nil {
 		if err != domain.ErrRoleDuplicateName && err != domain.ErrRoleNotFound {

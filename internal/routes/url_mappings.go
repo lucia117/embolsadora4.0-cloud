@@ -277,7 +277,7 @@ func RegisterURLMappings(r *gin.Engine, db *pgxpool.Pool, cfg *config.Config, re
 	// Roles surface (/api/v1/roles)
 	// GET endpoints: sin RBAC adicional (cualquier usuario autenticado puede listar/ver roles)
 	// POST/PUT/DELETE: requieren perm_users_manage (solo administradores)
-	rService := rolesApp.NewService(rRepo, logger)
+	rService := rolesApp.NewService(rRepo, permissionsRepo.NewPostgresRepository(db), logger)
 	rolesWriteGroup := v1.Group("", apimw.RBACCheck("perm_users_manage"))
 	rolesHandler.RegisterRoutes(v1, rolesWriteGroup, rService)
 

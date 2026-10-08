@@ -13,6 +13,16 @@ import (
 // ErrJWKSUnavailable is returned when the JWKS endpoint cannot be reached.
 var ErrJWKSUnavailable = errors.New("JWKS endpoint unavailable")
 
+// validSigningMethods son los únicos algoritmos que acepta el verificador.
+// Solo asimétricos: el proyecto de Supabase firma con ES256 (clave EC P-256)
+// y RS256 queda admitido para tolerar una rotación a claves RSA. Excluye HS256
+// (confusión de algoritmo: firmar con la clave pública como secreto) y "none".
+// No depende de que el JWKS publique el campo "alg", que es opcional.
+var validSigningMethods = []string{
+	jwt.SigningMethodES256.Alg(),
+	jwt.SigningMethodRS256.Alg(),
+}
+
 // Verifier verifies a JWT string and returns the parsed token.
 type Verifier interface {
 	Verify(tokenString string) (*jwt.Token, error)
@@ -39,6 +49,7 @@ type jwksVerifier struct {
 
 func (v *jwksVerifier) Verify(tokenString string) (*jwt.Token, error) {
 	token, err := jwt.Parse(tokenString, v.keyfunc.Keyfunc,
+		jwt.WithValidMethods(validSigningMethods),
 		jwt.WithIssuer(v.issuer),
 		jwt.WithAudience(v.audience),
 		jwt.WithExpirationRequired(),

@@ -1,3 +1,11 @@
+---
+id: 001
+spec: ./spec.md
+status: done
+origin: speckit
+last_reviewed: 2026-09-29
+---
+
 # Implementation Plan: User Role Assignment Management
 
 **Branch**: `001-user-role-assignments` | **Date**: 2026-02-27 | **Spec**: [spec.md](./spec.md)

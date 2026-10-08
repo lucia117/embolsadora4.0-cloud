@@ -1,3 +1,11 @@
+---
+id: 006
+spec: ./spec.md
+status: done
+origin: speckit
+last_reviewed: 2026-09-29
+---
+
 # Plan de Implementación: API de Gestión de Roles
 
 **Rama**: `006-roles-management` | **Fecha**: 2026-04-03 | **Spec**: [spec.md](./spec.md)

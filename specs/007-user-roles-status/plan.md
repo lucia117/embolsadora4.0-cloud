@@ -1,3 +1,11 @@
+---
+id: 007
+spec: ./spec.md
+status: done
+origin: speckit
+last_reviewed: 2026-09-29
+---
+
 # Plan de Implementación: Extensión de Gestión de Usuarios
 
 **Branch**: `007-user-roles-status` | **Fecha**: 2026-04-03 | **Spec**: [spec.md](spec.md)  

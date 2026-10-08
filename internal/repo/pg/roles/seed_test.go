@@ -12,7 +12,7 @@ import (
 
 // TestSeedPermissionsMatchDesign verifica que la migración 000011 dejó
 // roles.permissions exactamente como especifica la tabla de mapeo de
-// docs/superpowers/specs/2026-08-17-rbac-dynamic-permissions-design.md §3.4 —
+// embolsadora-frontend/docs/superpowers/specs/2026-08-17-rbac-dynamic-permissions-design.md §3.4 —
 // es la traducción 1:1 del mapa Go que existía en rbac.go antes
 // de esta migración, para los recursos users/tenants.
 func TestSeedPermissionsMatchDesign(t *testing.T) {
