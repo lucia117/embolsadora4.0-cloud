@@ -1,3 +1,11 @@
+---
+id: 009
+spec: ./spec.md
+status: done
+origin: speckit
+last_reviewed: 2026-09-29
+---
+
 # Implementation Plan: Log Service API
 
 **Branch**: `009-log-service` | **Date**: 2026-04-07 | **Spec**: [spec.md](spec.md)

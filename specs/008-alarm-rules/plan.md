@@ -1,3 +1,11 @@
+---
+id: 008
+spec: ./spec.md
+status: done
+origin: speckit
+last_reviewed: 2026-09-29
+---
+
 # Implementation Plan: Alarm Rules Service API
 
 **Branch**: `008-alarm-rules` | **Date**: 2026-04-06 | **Spec**: [spec.md](spec.md)  

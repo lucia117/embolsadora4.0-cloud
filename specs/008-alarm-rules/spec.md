@@ -1,135 +1,86 @@
-# Feature Specification: Alarm Rules Service API
-
-**Feature Branch**: `008-alarm-rules`  
-**Created**: 2026-04-06  
-**Status**: Draft  
-**Input**: Alarm Rules Service API: CRUD de reglas de alarma para monitoreo industrial. 10 interacciones Pact pendientes: GET/POST/PATCH/DELETE /api/alarm-rules con auth, validación, 404 handling.
-
-## User Scenarios & Testing *(mandatory)*
-
-### User Story 1 - Consultar reglas de alarma del tenant (Priority: P1)
-
-Un administrador o técnico quiere ver todas las reglas de alarma configuradas para su tenant, para entender qué condiciones están siendo monitoreadas en la máquina.
-
-**Why this priority**: Sin poder listar reglas, el usuario no puede auditar ni gestionar el sistema de alertas. Es el punto de entrada de toda la funcionalidad.
-
-**Independent Test**: Listar reglas devuelve la colección actual (vacía o con datos) sin requerir ninguna regla creada previamente. Entrega valor inmediato como punto de auditoría.
-
-**Acceptance Scenarios**:
-
-1. **Given** un usuario autenticado con tenant activo, **When** solicita la lista de reglas de alarma, **Then** el sistema devuelve todas las reglas del tenant con sus detalles, o una lista vacía si no hay ninguna.
-2. **Given** un usuario sin autenticación, **When** solicita la lista, **Then** el sistema rechaza la solicitud con error 401.
-3. **Given** un usuario autenticado, **When** solicita la lista, **Then** solo ve reglas de su propio tenant (aislamiento multi-tenant).
-
+---
+id: 008
+title: "Reglas de alarma (CRUD)"
+tier: feature
+status: done
+veredicto: A
+owner: Lucia Scharff
+date: 2026-04-06
+repos: [embolsadora4.0-cloud, embolsadora-frontend]
+origin: speckit
+issues: []
+prs: [25]
+adrs: []
+traducido: 2026-09-29
+last_reviewed: 2026-09-29
 ---
 
-### User Story 2 - Crear una regla de alarma (Priority: P1)
+# 008 — Reglas de alarma (CRUD)
 
-Un administrador quiere definir una nueva condición de alerta (ej: temperatura > 80°C durante más de 5 minutos) para recibir notificaciones cuando la máquina opere fuera de parámetros seguros.
+> **Procedencia.** `origen: original` viene de la spec de speckit del 2026-04-06, en
+> [`design.md`](design.md), con su número `FR-NNN`/`SC-NNN`. **Verificado contra `develop`
+> el 2026-09-29.**
+>
+> ⚠️ **Esta spec se cumple, pero el objetivo que la motivaba no.** La spec cubre solo la
+> **configuración** de reglas. El motor que las evalúa contra las mediciones y genera
+> alertas quedó fuera de alcance como "feature futura" y nunca se especificó ni se
+> construyó. El objetivo específico #5 del anteproyecto (alertas automáticas) **no se
+> cumple**. Ver la [bitácora de alcance](../../docs/_process/bitacora-de-alcance.md#objetivo-específico-5-alertas-automáticas).
 
-**Why this priority**: La creación de reglas es el núcleo de la funcionalidad — sin reglas no hay monitoreo activo.
+## Contexto y problema
 
-**Independent Test**: Crear una regla y verificar que aparece en el listado. Entrega valor como configuración básica de monitoreo.
+Un tenant necesita definir reglas del tipo "si `metric` `operator` `threshold`, disparar
+una alarma de `severity`". La spec las trata como **configuración, no eventos**: "no
+generan notificaciones directamente (eso corresponde a `notification-service-api`, feature
+futura)" (design, *Assumptions*).
 
-**Acceptance Scenarios**:
+## Alcance
 
-1. **Given** un administrador autenticado con datos válidos, **When** crea una regla de alarma, **Then** la regla queda registrada y disponible para consulta con código 201.
-2. **Given** un administrador con datos incompletos o inválidos, **When** intenta crear una regla, **Then** el sistema rechaza con 400 indicando qué campo falló.
-3. **Given** un usuario no autenticado, **When** intenta crear una regla, **Then** el sistema rechaza con 401.
+**Entra:** el CRUD de `/api/v1/alarm-rules`.
 
----
+**No entra:**
 
-### User Story 3 - Obtener el detalle de una regla específica (Priority: P2)
+- Evaluar las reglas.
+- Generar alarmas o notificaciones.
+- Paginación y borrado lógico (MVP).
 
-Un técnico quiere consultar el detalle completo de una regla particular para revisar su configuración antes de modificarla.
+## Requisitos
 
-**Why this priority**: Necesario para flujos de edición y auditoría, pero el listado cubre la mayoría de los casos de consulta.
+- **RF-001** `origen: original` (FR-001) — DEBE poder listarse las reglas del tenant.
+- **RF-002** `origen: original` (FR-002) — DEBE poder crearse una regla con nombre,
+  descripción, métrica, operador, umbral numérico y severidad. **Derivado:** hay además un
+  campo `enabled`.
+  → `internal/app/alarm_rules/service.go`, `internal/repo/pg/alarm_rules/repository.go`.
+- **RF-003** `origen: original` (FR-003, FR-004, FR-005) — DEBE poder obtenerse,
+  modificarse en forma parcial (`PATCH`) y borrarse una regla. El borrado es físico
+  (supuesto de la spec).
+- **RF-006** `origen: original` (FR-006) — Sin autenticación, 401.
+- **RF-007** `origen: original` (FR-007, FR-009) — Una regla inexistente o de otro tenant
+  DEBE responder 404 `ALARM_RULE_NOT_FOUND`: todas las consultas filtran por `tenant_id`.
+- **RF-008** `origen: original` (FR-008) — Los datos inválidos responden 400
+  `VALIDATION_ERROR`, indicando el campo. `operator` debe estar en
+  `{gt, lt, gte, lte, eq}` y `severity` en `{info, warning, critical}`.
+- **RF-010** `origen: original` (FR-010) — Cada regla registra `createdAt` y `updatedAt`.
+- **RF-011** `origen: derivado` — Crear, modificar y borrar exige `perm_users_manage`;
+  leer no exige un permiso adicional.
+  → `internal/routes/url_mappings.go` (`alarmRulesWriteGroup`).
 
-**Independent Test**: Crear una regla y luego obtenerla por ID; el detalle debe coincidir exactamente con lo ingresado.
+## Criterios de éxito
 
-**Acceptance Scenarios**:
+| CE | Criterio | Evidencia |
+|---|---|---|
+| **CE-002** | Toda operación sobre reglas de otro tenant responde 404 | filtro por tenant; `internal/repo/pg/alarm_rules/repository_test.go` |
+| **CE-003** | Sin autenticación, 401 | `JWTAuth` |
+| **CE-005** | Los errores tienen un código estable y un mensaje | `internal/api/handler/alarm_rules/errors.go`; `internal/app/alarm_rules/service_test.go` |
 
-1. **Given** una regla existente, **When** se solicita por su ID, **Then** el sistema devuelve el detalle completo de esa regla con código 200.
-2. **Given** un ID inexistente, **When** se solicita la regla, **Then** el sistema devuelve 404 con mensaje descriptivo.
-3. **Given** un ID de regla perteneciente a otro tenant, **When** se solicita, **Then** el sistema devuelve 404 (aislamiento multi-tenant).
+SC-001 (cada operación en una interacción) se cumple por diseño REST. SC-004 (10 pacts)
+no se verifica en este repo.
 
----
+## Riesgos y preguntas abiertas
 
-### User Story 4 - Modificar una regla de alarma existente (Priority: P2)
-
-Un administrador quiere ajustar los parámetros de una regla ya creada (ej: cambiar el umbral de temperatura) sin tener que eliminarla y recrearla.
-
-**Why this priority**: Las condiciones operativas cambian con el tiempo; la edición in-place evita pérdida de historial.
-
-**Independent Test**: Crear una regla, modificar un campo, y verificar que el valor actualizado es el correcto al consultar.
-
-**Acceptance Scenarios**:
-
-1. **Given** una regla existente y datos válidos, **When** se actualiza parcialmente, **Then** solo los campos enviados cambian; el resto permanece igual.
-2. **Given** datos inválidos en la actualización, **When** se intenta modificar, **Then** el sistema rechaza con 400.
-3. **Given** un ID inexistente, **When** se intenta actualizar, **Then** el sistema devuelve 404.
-
----
-
-### User Story 5 - Eliminar una regla de alarma (Priority: P3)
-
-Un administrador quiere eliminar una regla que ya no aplica para evitar falsas alarmas o reducir el ruido del sistema.
-
-**Why this priority**: Operación destructiva; el sistema funciona sin ella, pero es necesaria para el ciclo de vida completo de la configuración.
-
-**Independent Test**: Crear una regla, eliminarla, y verificar que ya no aparece en el listado ni puede obtenerse por ID (404).
-
-**Acceptance Scenarios**:
-
-1. **Given** una regla existente, **When** se elimina, **Then** la regla ya no es accesible ni aparece en el listado, con código 200.
-2. **Given** un ID inexistente, **When** se intenta eliminar, **Then** el sistema devuelve 404.
-3. **Given** un usuario no autenticado, **When** intenta eliminar una regla, **Then** el sistema devuelve 401.
-
----
-
-### Edge Cases
-
-- ¿Qué ocurre si se envía un cuerpo vacío en la creación? → 400 con detalle de campos requeridos.
-- ¿Qué ocurre si el ID no es un UUID válido? → 400 antes de consultar la base de datos.
-- ¿Qué ocurre si un usuario intenta acceder a una regla de otro tenant? → 404 (no revelar existencia del recurso).
-- ¿Qué ocurre si se modifican campos no editables (ej: ID, tenantId)? → esos campos son ignorados silenciosamente.
-
-## Requirements *(mandatory)*
-
-### Functional Requirements
-
-- **FR-001**: El sistema DEBE permitir listar todas las reglas de alarma del tenant del usuario autenticado.
-- **FR-002**: El sistema DEBE permitir crear una nueva regla de alarma con nombre, descripción, métrica monitoreada, operador de comparación, umbral numérico y severidad.
-- **FR-003**: El sistema DEBE permitir obtener el detalle de una regla por su identificador único.
-- **FR-004**: El sistema DEBE permitir modificar parcialmente los campos de una regla existente.
-- **FR-005**: El sistema DEBE permitir eliminar una regla de alarma existente.
-- **FR-006**: El sistema DEBE rechazar todas las operaciones sin autenticación válida con código 401.
-- **FR-007**: El sistema DEBE devolver código 404 al acceder, modificar o eliminar una regla con ID inexistente o de otro tenant.
-- **FR-008**: El sistema DEBE rechazar creaciones y modificaciones con datos inválidos con código 400, indicando el campo que falló.
-- **FR-009**: El sistema DEBE garantizar aislamiento multi-tenant: un usuario solo puede ver y operar reglas de su propio tenant.
-- **FR-010**: El sistema DEBE registrar la fecha de creación y última modificación de cada regla.
-
-### Key Entities
-
-- **AlarmRule**: Representa una condición de alerta configurable. Atributos: identificador único, nombre descriptivo, descripción opcional, métrica monitoreada (ej: `temperature`, `pressure`, `bag_count`), operador de comparación (`gt`, `lt`, `gte`, `lte`, `eq`), valor umbral numérico, severidad (`info`, `warning`, `critical`), estado habilitado/deshabilitado, tenant al que pertenece, fecha de creación, fecha de última modificación.
-
-## Success Criteria *(mandatory)*
-
-### Measurable Outcomes
-
-- **SC-001**: Un administrador puede crear, consultar, modificar y eliminar reglas de alarma completando cada operación en una sola interacción con el sistema.
-- **SC-002**: El 100% de las operaciones sobre reglas de otro tenant son rechazadas con 404, garantizando el aislamiento de datos entre tenants.
-- **SC-003**: El 100% de las solicitudes sin autenticación válida son rechazadas con 401 sin exponer datos del tenant.
-- **SC-004**: El 100% de los 10 contratos Pact de `alarm-rules-service-api` son satisfechos por la implementación.
-- **SC-005**: Todas las respuestas de error incluyen un código de error estable y un mensaje descriptivo, permitiendo al frontend mostrar retroalimentación útil al usuario.
-
-## Assumptions
-
-- Las reglas de alarma son configuración, no eventos; no generan notificaciones directamente (eso corresponde a `notification-service-api`, feature futura).
-- La severidad tiene tres niveles predefinidos: `info`, `warning`, `critical`.
-- Los operadores de comparación aceptados son: `gt`, `lt`, `gte`, `lte`, `eq`.
-- El listado no requiere paginación en el MVP (los tenants tienen pocas reglas configuradas).
-- La autenticación sigue el esquema JWT Bearer existente (Supabase Auth + X-Tenant-ID header).
-- No se implementa soft-delete en el MVP; la eliminación es permanente.
-- El campo `metric` hace referencia a métricas publicadas por los edge devices del tenant.
-- El nombre de la regla no necesita ser único dentro del tenant (las reglas se identifican por ID).
+- **Motor de evaluación inexistente:** es la brecha principal del proyecto respecto del
+  anteproyecto. Registrada como decisión (objetivo no cumplido) el 2026-09-29.
+- **El permiso de escritura es `perm_users_manage`**, un permiso de usuarios que se
+  reutiliza para reglas de alarma. No existe un `perm_alerts_manage`: cualquier
+  administrador de usuarios puede cambiar las reglas.
+- `metric` es texto libre, sin validar contra los `aasPath` que emite el Edge.

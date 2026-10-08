@@ -17,7 +17,7 @@ import (
 // crossTenant=false en su precheck, así que un super_admin parado en tenantA
 // nunca podía borrar a un usuario cuya membresía real vive en tenantB —
 // recibía 404 aunque el usuario existiera. Ver
-// docs/superpowers/specs/2026-08-19-production-readiness-cleanup-design.md §A.
+// specs/023-production-readiness-cleanup/spec.md §A.
 func TestDeleteUserCrossTenantFalseDaNotFoundParaUsuarioDeOtroTenant(t *testing.T) {
 	pool := poolOrSkip(t)
 	repo := usersRepo.NewPostgresRepository(pool)

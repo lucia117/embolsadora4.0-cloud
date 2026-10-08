@@ -1,120 +1,104 @@
-# Especificación de Feature: Extensión de Gestión de Usuarios
-
-**Feature Branch**: `007-user-roles-status`
-**Creado**: 2026-04-03
-**Estado**: Draft
-**Input**: Extend User Management API: add GET /users/:id?include=roles to return user with their assigned roles, add PATCH /users/:id/status to change user status (active/inactive/suspended), and add GET /users/pending to list users pending activation. Max 1 role per user per tenant.
-
+---
+id: 007
+title: "Extensión de gestión de usuarios: roles, estado y pendientes"
+tier: feature
+status: done
+veredicto: A
+owner: Lucia Scharff
+date: 2026-04-03
+repos: [embolsadora4.0-cloud, embolsadora-frontend]
+origin: speckit
+issues: []
+prs: [24]
+adrs: []
+traducido: 2026-09-29
+last_reviewed: 2026-09-29
 ---
 
-## Escenarios de Usuario y Testing
+# 007 — Extensión de gestión de usuarios: roles, estado y pendientes
 
-### Historia de Usuario 1 — Ver usuario con sus roles asignados (Prioridad: P1)
+> **Procedencia.** `origen: original` viene de la spec de speckit del 2026-04-03,
+> conservada en [`design.md`](design.md). Esa spec ya numeraba como `RF-NNN`/`CE-NNN`;
+> acá se conserva esa numeración. `origen: derivado` se reconstruyó del código.
+> **Verificado contra `develop` el 2026-09-29.**
 
-Un administrador necesita ver el detalle completo de un usuario incluyendo el rol que tiene asignado en el tenant. Hoy el endpoint de detalle de usuario devuelve los datos básicos pero no incluye información sobre su rol, lo que obliga al frontend a hacer una segunda consulta.
+## Contexto y problema
 
-**Por qué esta prioridad**: Es la base del ABM de usuarios — sin ver el rol asignado, la pantalla de detalle de usuario está incompleta. Satisface el contrato Pact `user-service-api-roles-extension`.
+El frontend necesitaba ver el rol de un usuario en una sola consulta, cambiar su estado
+desde el detalle y listar invitaciones sin activar. Eran cuatro interacciones del pact
+`user-service-api-roles-extension`, que extienden la API de usuarios de
+[002a](../002a-user-management/spec.md).
 
-**Test independiente**: Puede verificarse solicitando el detalle de un usuario con el parámetro `include=roles` y comprobando que el response incluye el campo `roles` con el rol activo del usuario en ese tenant.
+## Alcance
 
-**Escenarios de aceptación**:
+**Entra:** `GET /api/v1/users/:id?include=roles`, `PATCH /api/v1/users/:id/status` y
+`GET /api/v1/users/pending`.
 
-1. **Dado** un usuario con rol activo en el tenant, **Cuando** se solicita su detalle con `include=roles`, **Entonces** el response incluye los datos del usuario más un array `roles` con el rol asignado (id, nombre, permisos).
-2. **Dado** un usuario solicitado sin el parámetro `include=roles`, **Cuando** se hace la consulta, **Entonces** el response es igual que antes sin el campo `roles` (compatibilidad hacia atrás).
-3. **Dado** un ID de usuario inexistente, **Cuando** se solicita su detalle, **Entonces** retorna error de no encontrado.
-4. **Dado** un usuario de otro tenant, **Cuando** se intenta acceder, **Entonces** retorna error de no encontrado (aislamiento multi-tenant).
-5. **Dado** un usuario sin rol asignado en el tenant, **Cuando** se solicita con `include=roles`, **Entonces** retorna `roles: []`.
-
----
-
-### Historia de Usuario 2 — Cambiar estado de un usuario (Prioridad: P2)
-
-Un administrador necesita poder activar, desactivar o suspender usuarios del tenant sin eliminarlos. Esto permite gestionar el acceso sin perder el historial del usuario.
-
-**Por qué esta prioridad**: Es necesario para el ciclo de vida completo de usuarios — un operario que deja de trabajar puede desactivarse sin borrar su historial.
-
-**Test independiente**: Puede verificarse cambiando el estado de un usuario y comprobando que el cambio se refleja en el response y que el sistema respeta el nuevo estado.
-
-**Escenarios de aceptación**:
-
-1. **Dado** un usuario activo, **Cuando** un admin cambia su estado a `inactive`, **Entonces** el usuario queda inactivo y retorna 200 con el usuario actualizado.
-2. **Dado** un usuario inactivo, **Cuando** un admin lo reactiva con estado `active`, **Entonces** el usuario puede volver a operar normalmente.
-3. **Dado** un estado inválido en el request, **Cuando** se intenta el cambio, **Entonces** retorna error de validación 400.
-4. **Dado** un usuario de otro tenant, **Cuando** se intenta cambiar su estado, **Entonces** retorna error de no encontrado.
-5. **Dado** un usuario sin permiso de administrador, **Cuando** intenta cambiar el estado de otro usuario, **Entonces** retorna error de autorización 403.
-
----
-
-### Historia de Usuario 3 — Listar usuarios pendientes de activación (Prioridad: P2)
-
-Un administrador necesita ver qué usuarios fueron invitados pero todavía no completaron su activación. Esto permite hacer seguimiento de invitaciones enviadas.
-
-**Por qué esta prioridad**: Permite al admin identificar qué invitados no activaron su cuenta y decidir si reenviar la invitación o revocarla.
-
-**Test independiente**: Puede verificarse consultando la lista de usuarios pendientes y comprobando que devuelve solo usuarios que no completaron su activación en el tenant.
-
-**Escenarios de aceptación**:
-
-1. **Dado** un tenant con usuarios pendientes, **Cuando** un admin consulta la lista de pendientes, **Entonces** retorna los usuarios que no completaron su activación.
-2. **Dado** un tenant sin usuarios pendientes, **Cuando** se consulta la lista, **Entonces** retorna lista vacía con 200.
-3. **Dado** un usuario sin permiso de administrador, **Cuando** intenta acceder a la lista, **Entonces** retorna error de autorización 403.
-
----
-
-### Casos borde
-
-- ¿Qué pasa si un usuario tiene múltiples entradas históricas en sus asignaciones de rol? Solo se incluye el rol con estado activo (máximo 1 por tenant).
-- ¿Puede un admin desactivarse a sí mismo? No — el sistema debe impedirlo para evitar quedarse sin acceso.
-- ¿Qué pasa si se solicita `include=roles` para un usuario eliminado (soft delete)? Retorna error de no encontrado.
-
----
+**No entra:** el alta con rol ([013](../013-user-create-with-role/spec.md)) ni la gestión
+de asignaciones ([001](../001-user-role-assignments/spec.md)).
 
 ## Requisitos
 
-### Requisitos Funcionales
+- **RF-001** `origen: original` — `GET /users/:id?include=roles` DEBE devolver el usuario
+  con sus roles asignados.
+  → `Handler.GetUser`, `Service.GetUserWithRoles`, `PostgresRepository.GetByIDWithRoles`.
+- **RF-002** `origen: original` — Sin `include`, la respuesta DEBE ser la misma de antes
+  (compatibilidad hacia atrás).
+- **RF-010** `origen: original` — Cada rol en `roles` DEBE traer `id`, `name` y
+  `permissions`.
+  → `dto.RoleInfo`.
+- **RF-003** `origen: original`, **implementación a precisar** — Un administrador DEBE
+  poder cambiar el estado de un usuario a `active`, `inactive` o `suspended`; otro valor
+  responde 400 `INVALID_STATUS`. **Derivado:** el estado se guarda en la **membresía del
+  tenant** (`user_tenant_roles.status`), no en `users.status`, y `inactive` se guarda como
+  `revoked`.
+  → `Service.UpdateUserStatus`, `userRoleRepository.UpdateStatus`.
+- **RF-004** `origen: original` — Solo quien tenga permiso de administración DEBE poder
+  cambiar estados. **Derivado:** hoy lo exige `perm_users_manage`.
+  → `internal/api/router.go`.
+- **RF-005** `origen: original` — El usuario DEBE pertenecer al tenant de quien cambia el
+  estado. **Derivado:** un operador de plataforma puede cambiarlo en cualquier tenant, y
+  la mutación se aplica sobre el tenant real del usuario, no sobre el de la request.
+  → `Service.UpdateUserStatus` (comentario sobre `current.TenantID`),
+  `internal/repo/pg/users/update_status_cross_tenant_test.go`.
+- **RF-006** `origen: original` — Un administrador NO DEBE poder desactivarse a sí mismo.
+  **Derivado:** el bloqueo aplica a **cualquier** cambio de estado sobre uno mismo,
+  incluido `active`.
+  → `domainUsers.ErrCannotDeactivateSelf`.
+- **RF-007** `origen: original` y **RF-008** `origen: original` — `GET /users/pending`
+  DEBE devolver los usuarios del tenant con una membresía `pending`, y solo quien tenga
+  permiso de lectura de usuarios puede usarlo. **Derivado:** hoy lo exige
+  `perm_users_view`.
+  → `PostgresRepository.ListPendingByTenant` (`utr.status = 'pending'`), `router.go`.
+- **RF-009** `origen: original` — Un usuario tiene como máximo un rol activo por tenant.
+  → índice `idx_utr_active_unique` (ver [001](../001-user-role-assignments/spec.md)).
 
-- **RF-001**: El sistema DEBE permitir obtener el detalle de un usuario incluyendo sus roles asignados cuando se solicita con el parámetro `include=roles`.
-- **RF-002**: El sistema DEBE mantener compatibilidad hacia atrás: el endpoint de detalle de usuario sin parámetros retorna el mismo response que antes.
-- **RF-003**: El sistema DEBE permitir a un administrador cambiar el estado de un usuario a `active`, `inactive` o `suspended`.
-- **RF-004**: Solo usuarios con permiso de administración DEBEN poder cambiar el estado de otros usuarios.
-- **RF-005**: El sistema DEBE validar que el usuario pertenece al tenant del administrador antes de permitir el cambio de estado.
-- **RF-006**: El sistema DEBE impedir que un administrador se desactive a sí mismo.
-- **RF-007**: El sistema DEBE retornar la lista de usuarios con estado pendiente de activación para el tenant.
-- **RF-008**: Solo administradores DEBEN poder listar usuarios pendientes.
-- **RF-009**: Un usuario DEBE tener como máximo 1 rol activo por tenant.
-- **RF-010**: El campo `roles` en el response DEBE incluir id, nombre y permisos del rol asignado.
+## Criterios de éxito
 
-### Entidades Clave
+| CE | Criterio | Evidencia |
+|---|---|---|
+| **CE-001** | El rol de un usuario se obtiene en una sola consulta | `?include=roles`; `internal/repo/pg/users/with_roles_cross_tenant_test.go` |
+| **CE-004** | Los pendientes se listan en una sola consulta, sin filtros | `GET /users/pending` |
+| **CE-005** | Los 5 endpoints previos de usuarios no cambian su comportamiento | RF-002; tests de [002a](../002a-user-management/spec.md) |
 
-- **Usuario**: Persona con cuenta en el sistema. Tiene estado (`active`, `inactive`, `suspended`, `pending`), email, nombre y pertenece a uno o más tenants a través de asignaciones de rol.
-- **Asignación de Rol**: Relación entre usuario, tenant y rol. Un usuario tiene máximo 1 asignación activa por tenant.
-- **Rol**: Conjunto de permisos. Puede ser del sistema o personalizado del tenant. Tiene id, nombre y lista de permisos.
+- CE-002 (los 4 pacts satisfechos) no se verifica en este repo: los pacts no corren en su
+  CI.
+- CE-003 (cambio de estado en menos de 30 s desde la pantalla) es un criterio de UX del
+  frontend, sin medición.
 
----
+## Decisiones
 
-## Criterios de Éxito
+| Decisión | Por qué | Fuente |
+|---|---|---|
+| `include=roles` como parámetro opcional | Compatibilidad hacia atrás con consumidores existentes | design (RF-002) |
+| El estado vive en la membresía, no en el usuario | Un usuario puede tener estados distintos en cada tenant | derivado |
 
-### Resultados Medibles
+## Riesgos y preguntas abiertas
 
-- **CE-001**: Un administrador puede ver el rol de un usuario en 1 sola consulta (actualmente requiere 2: detalle + roles).
-- **CE-002**: Los 4 contratos Pact de `user-service-api-roles-extension` quedan satisfechos al 100%.
-- **CE-003**: Un administrador puede cambiar el estado de un usuario en menos de 30 segundos desde la pantalla de detalle.
-- **CE-004**: La lista de usuarios pendientes permite identificar invitaciones sin activar en 1 sola consulta sin filtros adicionales.
-- **CE-005**: Ningún cambio rompe el comportamiento existente de los 5 endpoints de usuarios ya implementados.
-
----
-
-## Suposiciones
-
-- El estado de un usuario se almacena en la tabla `users` como campo `status` (ya existe en el dominio actual).
-- Los usuarios "pendientes" son aquellos cuya asignación en `user_tenant_roles` tiene `status = 'pending'` para el tenant consultado.
-- El parámetro `include=roles` es opcional y no afecta el comportamiento por defecto del endpoint.
-- La autenticación y autorización siguen el mismo patrón que el resto de la API.
-
----
-
-## Dependencias
-
-- `001-user-role-assignments`: tabla de asignaciones de rol ya existe con campo `status`.
-- `002-user-management`: handlers base de usuarios ya implementados (5 endpoints CRUD).
-- `006-roles-management`: tabla `roles` extendida con permisos, disponible para el join.
+- **Dos vocabularios de estado.** `users.status` (`invited`, `active`, `revoked`,
+  `disabled`, usado por `JWTAuth` para bloquear el acceso) y
+  `user_tenant_roles.status` (`active`, `pending`, `revoked`, `suspended`, el que cambia
+  este endpoint) son cosas distintas, y el nombre `PATCH /users/:id/status` sugiere lo
+  primero. Suspender acá quita el acceso al tenant, no a la cuenta.
+- **`inactive` y `revoked`** son el mismo valor en la base: no se pueden distinguir
+  después.

@@ -1,3 +1,11 @@
+---
+id: 010
+spec: ./spec.md
+status: done
+origin: speckit
+last_reviewed: 2026-09-29
+---
+
 # Implementation Plan: Notification Service API
 
 **Branch**: `010-notification-service` | **Date**: 2026-04-10 | **Spec**: [spec.md](spec.md)  
