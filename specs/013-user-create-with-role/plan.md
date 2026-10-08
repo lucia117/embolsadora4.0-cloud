@@ -1,3 +1,11 @@
+---
+id: 013
+spec: ./spec.md
+status: done
+origin: speckit
+last_reviewed: 2026-09-29
+---
+
 # Implementation Plan: POST /users con Asignación de Rol Inicial
 
 **Branch**: `013-user-create-with-role` | **Fecha**: 2026-04-11 | **Spec**: [spec.md](spec.md)  

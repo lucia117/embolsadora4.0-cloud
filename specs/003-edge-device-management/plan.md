@@ -1,3 +1,11 @@
+---
+id: 003
+spec: ./spec.md
+status: done
+origin: speckit
+last_reviewed: 2026-09-29
+---
+
 # Implementation Plan: Edge Device Management API
 
 **Branch**: `003-edge-device-management` | **Date**: 2026-03-09 | **Spec**: [spec.md](./spec.md)

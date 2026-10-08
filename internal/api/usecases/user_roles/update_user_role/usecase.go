@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	appRoles "github.com/tu-org/embolsadora-api/internal/app/roles"
 	"github.com/tu-org/embolsadora-api/internal/domain"
+	"github.com/tu-org/embolsadora-api/internal/platform"
 	rolesRepo "github.com/tu-org/embolsadora-api/internal/repo/pg/roles"
 	userrolesrepo "github.com/tu-org/embolsadora-api/internal/repo/pg/user_roles"
 )
@@ -44,6 +45,12 @@ func (uc *useCase) Execute(ctx context.Context, id uuid.UUID, tenantID uuid.UUID
 	}
 	if utr == nil || utr.TenantID != tenantID {
 		return nil, domain.ErrAssignmentNotFound
+	}
+	// Nadie cambia el rol de su propia asignación (issue #107). El caller lo
+	// deja JWTAuth en el contexto; si falta (uso fuera del flujo HTTP), no hay
+	// con quién comparar y se sigue.
+	if caller := platform.UserID(ctx); caller != nil && *caller == utr.UserID {
+		return nil, domain.ErrCannotChangeOwnRole
 	}
 
 	if err := appRoles.EnsureAssignable(ctx, uc.roleRepo, roleID, tenantID, includeGlobal); err != nil {

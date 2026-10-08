@@ -6,7 +6,7 @@ postman/*secrets*.json
 postman/export-*.json
 
 # Variables de entorno — nunca commitear secretos
-# .env.local se usa para desarrollo; beta/prod se configuran en Koyeb
+# .env.local se usa para desarrollo; beta/prod se configuran en Cloud Run
 .env
 .env.*
 !.env.example
@@ -17,14 +17,13 @@ postman/export-*.json
 # Claude Code — local settings (machine-specific paths, not for version control)
 .claude/settings.local.json
 
-# Local docs and specs (not for tracking)
-docs/nosql-aas-research.md
-specs/004-aas-server/
-specs/005-plc-events/
-
 # Git worktrees (superpowers:using-git-worktrees)
 .worktrees/
 
 # Subagent-driven-development scratch (superpowers:subagent-driven-development)
 .superpowers/
 tmp/emails/
+
+# Binarios compilados
+*.exe
+/embolsadora-api

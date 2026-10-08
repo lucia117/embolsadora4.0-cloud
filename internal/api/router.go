@@ -68,7 +68,7 @@ func RegisterAdminRoutes(g *gin.RouterGroup, deps Deps, cfg Config) {
 	userRoutes := g.Group("")
 	userRoutes.Use(middleware.ExtractTenantID())
 
-	// Read operations (no RBAC required — ver DEUDA-TECNICA.md: "RBAC en GET /users")
+	// Read operations (no RBAC required — ver docs/_process/DEUDA-TECNICA.md: "RBAC en GET /users")
 	// NOTE: /users/pending MUST be registered before /users/:id to avoid Gin treating "pending" as :id
 	userRoutes.GET("/users/pending", middleware.RBACCheck("perm_users_view"), uh.ListPendingUsers)
 	userRoutes.GET("/users", uh.ListUsers)

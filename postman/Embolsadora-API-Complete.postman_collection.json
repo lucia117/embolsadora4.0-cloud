@@ -2070,7 +2070,7 @@
                 "events"
               ]
             },
-            "description": "Endpoint real de ingesta (no un stub). Contrato congelado con el Edge Pi Service - ver docs/superpowers/plans/2026-08-05-cloud-ingest-endpoint.md.\n\nBody: {events: [{eventId, machineId, ts, seq, kind, schemaVersion, payload}]}. eventId es la clave de idempotencia (unique index tenantId+eventId en Mongo): reenviar el mismo eventId no duplica la medicion.\n\nRespuesta 200 SIEMPRE (incluso con rechazos parciales, invariante I-2): {data: {accepted, rejected, errors: [{index, code, message}]}}. 400 solo si el body entero es invalido (JSON malformado, events vacio/ausente, excede el maximo de elementos)."
+            "description": "Endpoint real de ingesta (no un stub). Contrato congelado con el Edge Pi Service - ver specs/022-cloud-ingest-endpoint/plan.md.\n\nBody: {events: [{eventId, machineId, ts, seq, kind, schemaVersion, payload}]}. eventId es la clave de idempotencia (unique index tenantId+eventId en Mongo): reenviar el mismo eventId no duplica la medicion.\n\nRespuesta 200 SIEMPRE (incluso con rechazos parciales, invariante I-2): {data: {accepted, rejected, errors: [{index, code, message}]}}. 400 solo si el body entero es invalido (JSON malformado, events vacio/ausente, excede el maximo de elementos)."
           },
           "event": [
             {

@@ -12,7 +12,7 @@ import (
 // cualquier miembro autenticado del tenant (incluido operario) podía
 // crear/actualizar/habilitar dispositivos. Los permission ids ya existían en
 // el seed (migración 000011), solo faltaba cablearlos. Ver
-// docs/superpowers/specs/2026-08-19-production-readiness-cleanup-design.md §C.
+// specs/023-production-readiness-cleanup/spec.md §C.
 //
 // Todos los gates de RBAC se aplican acá, por ruta, con ids del catálogo
 // `perm_edge_devices_*`. Antes emitir/revocar API keys se delegaba a un

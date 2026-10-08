@@ -1,6 +1,6 @@
 # Database Migrations
 
-Este directorio contiene las migraciones de base de datos del proyecto. Tras la consolidación de mayo 2026 (ver [`ADR-014`](../docs/adr/ADR-014-consolidate-migrations.md)) el historial fue colapsado a dos migraciones (`000001`, `000002`); las que siguen (`000003`–`000010`) se agregaron después, incrementalmente.
+Este directorio contiene las migraciones de base de datos del proyecto. Tras la consolidación de mayo 2026 (ver [`CLOUD-ADR-014`](../docs/adr/CLOUD-ADR-014-consolidar-migraciones.md)) el historial fue colapsado a dos migraciones (`000001`, `000002`); las que siguen (`000003`–`000015`) se agregaron después, incrementalmente.
 
 ## Requisitos
 
@@ -31,6 +31,9 @@ sudo mv migrate /usr/local/bin/
 | 10 | `000010_platform_only_roles` | **Ver "⚠️ Orden de deploy" abajo.** Extiende `tenant_can_use_role` (ahora `tenant_can_use_role(uuid, text)`, reemplaza la firma `(uuid, boolean)` de la 000004) para que también trate `admin`/`operario` como platform-only, no solo `is_global=TRUE`. Antes de esta migración, un admin de un tenant cliente podía asignarse a sí mismo o a otros el rol `admin` dentro de su propio tenant. |
 | 11 | `000011_dynamic_role_permissions` | **Ver "⚠️ Orden de deploy" abajo.** Extiende el catálogo de permisos con `perm_users_view`/`perm_users_manage`/`perm_tenants_view`/`perm_tenants_manage`, reemplazando los permisos gruesos `perm_users`/`perm_tenants`. Agrega la fila `platform_admin` a `roles` (antes solo se calculaba en runtime). Resiembra `permissions` de los 7 roles de sistema. |
 | 12 | `000012_cascade_user_tenant_roles_tenant_fkey` | Cambia `user_tenant_roles_tenant_id_fkey` a `ON DELETE CASCADE`, igual que el resto de las FKs que referencian `tenants(id)`. Era la única sin CASCADE desde la `000001` — borrar un tenant con asignaciones de rol activas fallaba con una violación de FK. Sin riesgo de orden de deploy: no requiere cambios de código Go. |
+| 13 | `000013_edge_devices_create_permission` | Agrega `perm_edge_devices_create` (gatea solo el alta de edge devices; `perm_edge_devices_manage` queda para editar/habilitar/deshabilitar) y resiembra las claves `perm_edge_devices_*` de los roles de sistema. |
+| 14 | `000014_edge_device_api_keys` | Tabla de API keys de edge devices: el cloud resuelve tenant y device desde `X-Api-Key` en la ingesta. Solo guarda `sha256(secreto)`; permite varias keys activas por device para rotar. |
+| 15 | `000015_metrics_view_permission` | Agrega `perm_metrics_view` (Dashboard Metrics Query API) y lo asigna a los roles que ya tenían `perm_dashboard` o `perm_analytics`. |
 
 ## Comandos
 
@@ -130,23 +133,21 @@ Orden correcto:
 - Deployar el frontend lo antes posible después, idealmente espalda con
   espalda con el paso anterior, para minimizar la ventana de degradación.
 
-## Deploy a Koyeb (producción)
+## Aplicar en producción
+
+Deploy, orden con el binario y rollback: [`docs/operations.md`](../docs/operations.md).
+Contra la base de producción (Supabase), con `sslmode=require`:
 
 ```bash
-export KOYEB_DATABASE_URL="postgres://USER:PASS@HOST:PORT/DB?sslmode=require"
-
 # 1. Verificar conectividad
-psql "$KOYEB_DATABASE_URL" -c "SELECT current_database(), version();"
+psql "$DATABASE_URL" -c "SELECT current_database(), version();"
 
 # 2. Aplicar migraciones
-migrate -path migrations/ -database "$KOYEB_DATABASE_URL" up
+migrate -path migrations/ -database "$DATABASE_URL" up
 
-# 3. Verificar
-psql "$KOYEB_DATABASE_URL" -c "SELECT version, dirty FROM schema_migrations;"
-# → version=2, dirty=f
+# 3. Verificar: version = última migración de la tabla de arriba, dirty = f
+psql "$DATABASE_URL" -c "SELECT version, dirty FROM schema_migrations;"
 ```
-
-`sslmode=require` es obligatorio en Koyeb Managed Postgres.
 
 ## Activación del admin MRG (post-deploy)
 
@@ -201,4 +202,4 @@ migrate -path migrations/ -database "$DATABASE_URL" force <version>
 
 ## Historial
 
-El historial granular previo (20 migraciones del periodo enero–mayo 2026) está en `git log` y `git show HEAD~N:migrations/…`. Ver `ADR-014` para el contexto completo de la consolidación.
+El historial granular previo (20 migraciones del periodo enero–mayo 2026) está en `git log` y `git show HEAD~N:migrations/…`. Ver `CLOUD-ADR-014` para el contexto completo de la consolidación.

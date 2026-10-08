@@ -17,6 +17,13 @@ var (
 	ErrRoleHasAssignments = errors.New("el rol tiene usuarios asignados activos")
 	ErrRoleDuplicateName  = errors.New("ya existe un rol con ese nombre en este tenant")
 	ErrRoleLimitReached   = errors.New("se alcanzó el máximo de roles personalizados por tenant")
+	// ErrRoleUnknownPermissions: el rol lista permisos que no existen en el
+	// catálogo visible para el tenant (sistema + custom del tenant). El error
+	// concreto envuelve este y agrega los ids rechazados.
+	ErrRoleUnknownPermissions = errors.New("permisos inexistentes en el catálogo")
+	// ErrRolePermissionNotHeld: se intenta otorgar a un rol permisos de sistema
+	// que el usuario que lo crea o edita no tiene (issue #107).
+	ErrRolePermissionNotHeld = errors.New("no se pueden otorgar permisos que no se tienen")
 )
 
 // Role representa un rol de acceso en el sistema.

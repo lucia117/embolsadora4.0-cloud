@@ -323,8 +323,8 @@ GET /users?limit=20&offset=0
 
 Para preguntas sobre la API:
 - Revisa el archivo `contracts/user-service-api.openapi.yaml` en el repo
-- Consulta la especificación en `specs/002-user-management/spec.md`
-- Revisa el plan de implementación en `specs/002-user-management/plan.md`
+- Consulta la especificación en `specs/002a-user-management/spec.md`
+- Revisa el plan de implementación en `specs/002a-user-management/plan.md`
 
 ---
 
