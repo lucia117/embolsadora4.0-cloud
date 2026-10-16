@@ -175,13 +175,14 @@ func TenantFromHeader(db *pgxpool.Pool) gin.HandlerFunc {
 		// role `platform_admin` (adds tenants:write — see security/rbac.go).
 		var roleID string
 		var isPlatformTenant bool
+		var tenantIsActive bool
 		err = db.QueryRow(c.Request.Context(),
-			`SELECT utr.role_id, t.is_platform_tenant
+			`SELECT utr.role_id, t.is_platform_tenant, COALESCE(t.is_active, TRUE)
 			 FROM user_tenant_roles utr
 			 JOIN tenants t ON t.id = utr.tenant_id
 			 WHERE utr.user_id = $1 AND utr.tenant_id = $2 AND utr.status = 'active'
 			 LIMIT 1`,
-			user.ID, tenantID).Scan(&roleID, &isPlatformTenant)
+			user.ID, tenantID).Scan(&roleID, &isPlatformTenant, &tenantIsActive)
 		if err != nil {
 			// Cross-tenant fallback: platform operators (global roles or admins of
 			// the platform tenant) may act on any existing tenant even without a
@@ -201,6 +202,28 @@ func TenantFromHeader(db *pgxpool.Pool) gin.HandlerFunc {
 				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"success": false, "error": "tenant access denied"})
 				return
 			}
+			auditCrossTenantGrant(c, user.ID, roleID, tenantID)
+		} else if !tenantIsActive && !isPlatformTenant {
+			// Cliente suspendido (`tenants.is_active = false`). Hasta la
+			// CLOUD-ADR-020 el campo se guardaba y no se leía nunca: la interfaz
+			// mostraba «Inactivo» y sus usuarios seguian operando igual.
+			//
+			// Un operador de plataforma NO queda afuera, y no es una excepcion
+			// por comodidad: si lo bloqueara, suspender seria irreversible
+			// —nadie podria volver a poner is_active en true— y la suspension
+			// dejaria de ser una medida reversible para volverse una baja de
+			// hecho. El tenant plataforma se excluye por la misma razon.
+			platformRoleID, platformErr := resolvePlatformOperator(c.Request.Context(), db, user.ID, tenantID)
+			if platformErr != nil {
+				Log.Warn("tenant suspended",
+					zap.String("user_id", user.ID),
+					zap.String("tenant_id", tenantID),
+					zap.String("endpoint", c.Request.URL.Path),
+				)
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"success": false, "error": "tenant suspended"})
+				return
+			}
+			roleID = platformRoleID
 			auditCrossTenantGrant(c, user.ID, roleID, tenantID)
 		} else {
 			roleID = security.EffectiveRole(roleID, isPlatformTenant)

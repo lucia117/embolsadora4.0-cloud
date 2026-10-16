@@ -28,6 +28,7 @@ internos reversibles en un PR, tareas y bugs.
 | [CLOUD-ADR-017](CLOUD-ADR-017-mediciones-en-mongodb.md) | Mediciones en MongoDB; identidad en Postgres | aceptada | 2026-09-29 | reemplaza 003 |
 | [CLOUD-ADR-018](CLOUD-ADR-018-ingesta-http-batch.md) | Ingesta HTTP batch con contrato congelado del Edge | aceptada | 2026-09-29 | reemplaza 004 |
 | [CLOUD-ADR-019](CLOUD-ADR-019-aas-fuera-del-cloud.md) | El AAS no se implementa en el cloud | aceptada | 2026-09-29 | — |
+| [CLOUD-ADR-020](CLOUD-ADR-020-suspension-de-cliente.md) | La suspensión de un cliente se aplica en la resolución de tenant | aceptada | 2026-10-16 | — |
 
 ## Notas de numeración y renombres
 
