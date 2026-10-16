@@ -9,6 +9,43 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+
+    # Los tests de integración se saltean en silencio si no están DATABASE_URL, MONGO_URI y
+    # REDIS_URL. Sin estos servicios el CI saltea 212 tests —entre ellos los de aislamiento
+    # entre clientes y los de la superficie de ingesta—, y un verde no significaba que esa
+    # parte estuviera verificada. Con ellos se saltea 0.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: embolsadora_user
+          POSTGRES_PASSWORD: embolsadora_password
+          POSTGRES_DB: embolsadora_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U embolsadora_user -d embolsadora_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+      mongo:
+        image: mongo:7
+        ports: ["27017:27017"]
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping:1}).ok'"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://embolsadora_user:embolsadora_password@localhost:5432/embolsadora_test?sslmode=disable
+      MONGO_URI: mongodb://localhost:27017
+      MONGO_DATABASE: embolsadora_test
+      REDIS_URL: redis://localhost:6379
+
     steps:
       - uses: actions/checkout@v4
 
@@ -28,5 +65,14 @@ jobs:
         with:
           version: v2.13.2
 
-      - name: Test (unitarios; los de integración se saltean sin DATABASE_URL/MONGO_URI/REDIS_URL)
+      # Los tests de repositorio esperan el esquema aplicado: insertan en `tenants`, `users`,
+      # `roles` y leen el catálogo de permisos que siembran las migraciones. Sin esto fallan
+      # con "relation does not exist" en lugar de saltearse, que es peor que el estado previo.
+      - name: Migraciones sobre la base de test
+        run: |
+          curl -fsSL https://github.com/golang-migrate/migrate/releases/download/v4.18.1/migrate.linux-amd64.tar.gz \
+            | tar xz -C /tmp migrate
+          /tmp/migrate -path migrations -database "$DATABASE_URL" up
+
+      - name: Test
         run: go test ./...
