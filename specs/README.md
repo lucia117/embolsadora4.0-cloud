@@ -11,7 +11,7 @@ last_reviewed: 2026-09-29
 `plan.md` (cómo, en `tier: feature`). Una referencia desde otro repo se escribe
 `embolsadora4.0-cloud#NNN`.
 
-**Próximo número libre: `025`.**
+**Próximo número libre: `026`.**
 
 ## Estados y veredictos
 
@@ -57,6 +57,7 @@ al formato unificado.
 | 022 | [Endpoint de ingesta del cloud (Edge Pi → Cloud)](022-cloud-ingest-endpoint/spec.md) | done | A | 2026-07-30 | #56 | CLOUD-ADR-017, 018 |
 | 023 | [Production readiness cleanup](023-production-readiness-cleanup/spec.md) | done | A | 2026-08-19 | #69 | CLOUD-ADR-015 |
 | 024 | [Dashboard Metrics Query API](024-dashboard-metrics-query/spec.md) | done | A | 2026-09-07 | #78 | CLOUD-ADR-017 |
+| 025 | [Endurecimiento de roles custom (UpdateRole y guarda de rol propio)](025-endurecimiento-roles-custom/spec.md) | draft | D | 2026-10-07 | (#106, #108, #109) | — |
 
 ² La P1 estandarizó los módulos de su alcance (alarm_rules, roles, dashboard_layouts,
 notifications, logs, permissions, tenants, users). `edge_devices`, `user_roles`,
